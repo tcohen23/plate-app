@@ -1,0 +1,11 @@
+.git
+node_modules
+.nodeenv
+dist
+tmp
+tmp_build
+legacy
+screenshots
+*.mp4
+*.mov
+*.webm

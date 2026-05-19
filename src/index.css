@@ -1,0 +1,796 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Disable automatic hyphenation everywhere */
+* {
+  -webkit-hyphens: none;
+  hyphens: none;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/* Import luxury fonts */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-plate-green: var(--plate-green-accent);
+  --color-plate-forest: var(--plate-green-deep);
+  --color-plate-bg-dark: var(--plate-bg-dark);
+  --color-plate-card-dark: var(--plate-card-dark);
+  --color-plate-border: var(--plate-border);
+  --font-serif: 'Fraunces', 'Instrument Serif', 'Georgia', serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+}
+
+/* ═══════════════════════════════════════════════════
+   PLATE COLOR SYSTEM
+   Layered dark surfaces — premium instrument aesthetic
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --sidebar-width: 16rem;
+  --sidebar-width-icon: 3rem;
+  --radius: 0.75rem;
+
+  /* Plate brand colors */
+  --plate-green-deep: #1B4332;
+  --plate-green-mid: #2D6A4F;
+  --plate-green-accent: #52B788;
+  --plate-green-glow: #52B78840;
+  /* Gold tier tokens */
+  --plate-gold: #E5B454;
+  --plate-gold-bg: #2A2418;
+  --plate-gold-glow: #E5B45440;
+  /* Dark card surfaces */
+  --plate-bg-dark: #0A0A0A;
+  --plate-bg-cream: #FAF8F5;
+  --plate-card-dark: #141414;
+  --plate-border: #1F1F1F;
+
+  /* Surface system — layered depth */
+  --surface-base: #000000;
+  --surface-elevated: #0E0E10;
+  --surface-card: #16161A;
+  --surface-card-hover: #1C1C22;
+  --surface-overlay: #222228;
+
+  /* Macro colors — system-wide consistent */
+  --plate-protein: #4A9EFF;
+  --plate-carbs: #F5A623;
+  --plate-fat: #FF6B6B;
+
+  /* ── DEFAULT (pure black) ── */
+  --primary: #1B4332;
+  --primary-foreground: #F5F5F5;
+  --sidebar-primary: #1B4332;
+  --sidebar-primary-foreground: #F5F5F5;
+
+  --success: #52B788;
+  --success-foreground: #000000;
+  --warning: #F5A623;
+  --warning-foreground: #000000;
+  --info: #4A9EFF;
+  --info-foreground: #000000;
+
+  --chart-1: #52B788;
+  --chart-2: #4A9EFF;
+  --chart-3: #F5A623;
+  --chart-4: #FF6B6B;
+  --chart-5: #2D6A4F;
+
+  --background: #000000;
+  --foreground: #F0F0F0;
+  --card: #16161A;
+  --card-foreground: #F0F0F0;
+  --popover: #16161A;
+  --popover-foreground: #F0F0F0;
+  --secondary: #1C1C22;
+  --secondary-foreground: #D4D4D4;
+  --muted: #0E0E10;
+  --muted-foreground: #666672;
+  --accent: #1C1C22;
+  --accent-foreground: #F0F0F0;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #222228;
+  --input: #1C1C22;
+  --ring: #52B788;
+  --sidebar: #0A0A0C;
+  --sidebar-foreground: #F0F0F0;
+  --sidebar-accent: #1C1C22;
+  --sidebar-accent-foreground: #F0F0F0;
+  --sidebar-border: #222228;
+  --sidebar-ring: #52B788;
+  --ring-track: #1c1c1c;
+}
+
+/* ── CREAM THEME ── */
+.cream {
+  --primary: #1B4332;
+  --primary-foreground: #FAF8F5;
+  --sidebar-primary: #1B4332;
+  --sidebar-primary-foreground: #FAF8F5;
+
+  --success: #2D6A4F;
+  --success-foreground: #FFFFFF;
+  --warning: #D4883A;
+  --warning-foreground: #1A1A1A;
+  --info: #4A80CC;
+  --info-foreground: #FFFFFF;
+
+  --chart-1: #1B4332;
+  --chart-2: #D4883A;
+  --chart-3: #4A80CC;
+  --chart-4: #C85A42;
+  --chart-5: #2D6A4F;
+
+  --surface-base: #FAF8F5;
+  --surface-elevated: #F5F2ED;
+  --surface-card: #FFFFFF;
+  --surface-card-hover: #F9F7F4;
+  --surface-overlay: #F0EDE8;
+
+  --background: #FAF8F5;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1A;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A1A;
+  --secondary: #F0EDE8;
+  --secondary-foreground: #2D6A4F;
+  --muted: #F0EDE8;
+  --muted-foreground: #6B6B6B;
+  --accent: #F0EDE8;
+  --accent-foreground: #1A1A1A;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E5E0D8;
+  --input: #E5E0D8;
+  --ring: #1B4332;
+  --sidebar: #F5F2ED;
+  --sidebar-foreground: #1A1A1A;
+  --sidebar-accent: #F0EDE8;
+  --sidebar-accent-foreground: #1A1A1A;
+  --sidebar-border: #E5E0D8;
+  --sidebar-ring: #1B4332;
+  --ring-track: #E5E0D8;
+}
+
+/* ── Dark class = same as root ── */
+.dark {
+  --primary: #1B4332;
+  --primary-foreground: #F5F5F5;
+  --sidebar-primary: #1B4332;
+  --sidebar-primary-foreground: #F5F5F5;
+
+  --success: #52B788;
+  --success-foreground: #000000;
+  --warning: #F5A623;
+  --warning-foreground: #000000;
+  --info: #4A9EFF;
+  --info-foreground: #000000;
+
+  --chart-1: #52B788;
+  --chart-2: #4A9EFF;
+  --chart-3: #F5A623;
+  --chart-4: #FF6B6B;
+  --chart-5: #2D6A4F;
+
+  --surface-base: #000000;
+  --surface-elevated: #0E0E10;
+  --surface-card: #16161A;
+  --surface-card-hover: #1C1C22;
+  --surface-overlay: #222228;
+
+  --background: #000000;
+  --foreground: #F0F0F0;
+  --card: #16161A;
+  --card-foreground: #F0F0F0;
+  --popover: #16161A;
+  --popover-foreground: #F0F0F0;
+  --secondary: #1C1C22;
+  --secondary-foreground: #D4D4D4;
+  --muted: #0E0E10;
+  --muted-foreground: #666672;
+  --accent: #1C1C22;
+  --accent-foreground: #F0F0F0;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #222228;
+  --input: #1C1C22;
+  --ring: #52B788;
+  --sidebar: #0A0A0C;
+  --sidebar-foreground: #F0F0F0;
+  --sidebar-accent: #1C1C22;
+  --sidebar-accent-foreground: #F0F0F0;
+  --sidebar-border: #222228;
+  --sidebar-ring: #52B788;
+}
+
+/* ═══════════════════════════════════════════════════
+   BASE STYLES
+   ═══════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+    background-color: var(--surface-base);
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .flex { min-height: 0; min-width: 0; }
+  @media (min-width: 640px) {
+    .container { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .container { padding-left: 2rem; padding-right: 2rem; max-width: 1280px; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════ */
+
+/* Hero / big calorie number — serif */
+.text-hero {
+  font-family: var(--font-serif);
+  font-size: 72px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* Page title (28px serif) */
+.text-page-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+/* Section header (24px serif) */
+.text-section-header {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  line-height: 1.3;
+}
+
+/* Card label (11px uppercase sans) */
+.text-card-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* Meal name (18px sans) */
+.text-meal-name {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Body (15px sans) */
+.text-body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Caption (13px sans) */
+.text-caption {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Stat number — JetBrains Mono for instrument-like precision */
+.text-stat-number {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.text-stat-number-lg {
+  font-family: var(--font-mono);
+  font-size: 52px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+}
+
+.text-stat-number-sm {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+
+/* Big serif number (legacy) */
+.text-big-number {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+/* Legacy label uppercase */
+.label-uppercase {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════
+   SURFACE SYSTEM
+   ═══════════════════════════════════════════════════ */
+
+.surface-elevated {
+  background: var(--surface-elevated);
+}
+
+.surface-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+}
+
+.surface-overlay {
+  background: var(--surface-overlay);
+}
+
+/* ═══════════════════════════════════════════════════
+   CALORIE RING
+   ═══════════════════════════════════════════════════ */
+
+.calorie-ring-track {
+  stroke: #222228;
+  fill: none;
+}
+.cream .calorie-ring-track {
+  stroke: #E5E0D8;
+}
+
+.calorie-ring-fill {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes ring-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px var(--plate-green-glow)); }
+  50% { filter: drop-shadow(0 0 16px var(--plate-green-glow)); }
+}
+
+.calorie-ring-fill.complete {
+  animation: ring-pulse 2s ease-in-out infinite;
+}
+
+/* Triple ring tracks */
+.ring-track-outer { stroke: #1A1A20; fill: none; }
+.ring-track-middle { stroke: #161618; fill: none; }
+.ring-track-inner { stroke: #131315; fill: none; }
+
+/* ═══════════════════════════════════════════════════
+   MACRO PROGRESS BARS
+   ═══════════════════════════════════════════════════ */
+
+.macro-bar-track {
+  height: 3px;
+  border-radius: 2px;
+  background: #222228;
+}
+.cream .macro-bar-track {
+  background: #E5E0D8;
+}
+
+.macro-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.macro-bar-protein { background: var(--plate-protein); }
+.macro-bar-carbs { background: var(--plate-carbs); }
+.macro-bar-fat { background: var(--plate-fat); }
+
+/* ═══════════════════════════════════════════════════
+   MACRO PILLS
+   ═══════════════════════════════════════════════════ */
+
+.macro-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+.macro-pill-protein {
+  background: rgba(74, 158, 255, 0.12);
+  color: var(--plate-protein);
+}
+
+.macro-pill-carbs {
+  background: rgba(245, 166, 35, 0.12);
+  color: var(--plate-carbs);
+}
+
+.macro-pill-fat {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--plate-fat);
+}
+
+.macro-pill-kcal {
+  background: rgba(240, 240, 240, 0.06);
+  color: #999;
+}
+
+/* ═══════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════ */
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-page-enter {
+  animation: page-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes card-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-card-stagger {
+  animation: card-fade-in 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease both;
+}
+
+/* Tap scale */
+.tap-scale {
+  transition: transform 150ms ease;
+}
+.tap-scale:active {
+  transform: scale(0.97);
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #1A1A20 25%, #242430 50%, #1A1A20 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite ease-in-out;
+  border-radius: 8px;
+}
+.cream .skeleton-shimmer {
+  background: linear-gradient(90deg, #E5E0D8 25%, #EDE9E3 50%, #E5E0D8 75%);
+  background-size: 200% 100%;
+}
+
+.progress-fill {
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+}
+
+@keyframes streak-fire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.animate-streak {
+  animation: streak-fire 0.6s ease-in-out;
+}
+
+.number-transition {
+  transition: all 300ms ease;
+}
+
+/* Glow pulse for ring complete */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--plate-green-glow); }
+  50% { box-shadow: 0 0 20px 4px var(--plate-green-glow); }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════
+   MEAL CARD
+   ═══════════════════════════════════════════════════ */
+
+.meal-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  transition: all 200ms ease;
+  cursor: pointer;
+}
+.meal-card:hover {
+  background: var(--surface-card-hover);
+  border-color: #2E2E36;
+}
+.meal-card:active {
+  transform: scale(0.97);
+  background: var(--surface-card-hover);
+}
+
+/* Cook time pill */
+.cook-time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #1C1C22;
+  color: #888;
+}
+.cream .cook-time-pill {
+  background: #F0EDE8;
+  color: #6B6B6B;
+}
+
+/* Status indicator dot */
+.meal-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.meal-status-upcoming { background: #333; }
+.meal-status-now { background: var(--plate-green-accent); box-shadow: 0 0 6px var(--plate-green-glow); }
+.meal-status-logged { background: var(--plate-green-accent); }
+.meal-status-skipped { background: var(--plate-carbs); }
+
+/* ═══════════════════════════════════════════════════
+   CONTEXT CARD (Smart coach)
+   ═══════════════════════════════════════════════════ */
+
+.context-card {
+  background: linear-gradient(135deg, #0E1A14 0%, #0A0A0C 100%);
+  border: 1px solid #1E3025;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.cream .context-card {
+  background: linear-gradient(135deg, #F0F7F3 0%, #FAF8F5 100%);
+  border: 1px solid #D0E8DA;
+}
+
+/* ═══════════════════════════════════════════════════
+   BOTTOM NAV
+   ═══════════════════════════════════════════════════ */
+
+.bottom-nav {
+  background: #000000;
+  border-top: 1px solid #1A1A20;
+}
+.cream .bottom-nav {
+  background: #FFFFFF;
+  border-top: 1px solid #E5E0D8;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #555;
+  transition: color 200ms;
+  position: relative;
+}
+
+.bottom-nav-item.active {
+  color: #52B788;
+}
+.cream .bottom-nav-item.active {
+  color: #1B4332;
+}
+
+.bottom-nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #52B788;
+}
+.cream .bottom-nav-item.active::before {
+  background: #1B4332;
+}
+
+/* ═══════════════════════════════════════════════════
+   BARCODE SCANNER
+   ═══════════════════════════════════════════════════ */
+
+#barcode-scanner-region {
+  border: none !important;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+#barcode-scanner-region video {
+  border-radius: 0.75rem;
+}
+#barcode-scanner-region img[alt="Info icon"] {
+  display: none !important;
+}
+#barcode-scanner-region__header_message {
+  display: none !important;
+}
+#barcode-scanner-region__dashboard_section {
+  display: none !important;
+}
+#barcode-scanner-region__scan_region > br {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════
+   WEEK STRIP (Plan page day chips)
+   ═══════════════════════════════════════════════════ */
+
+.day-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 200ms ease;
+  cursor: pointer;
+  min-width: 42px;
+  border: 1px solid transparent;
+}
+
+.day-chip-number {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.day-chip.inactive {
+  color: #555;
+  background: transparent;
+}
+
+.day-chip.active {
+  background: var(--plate-green-deep);
+  color: var(--plate-green-accent);
+  border-color: #2D6A4F40;
+}
+
+.day-chip.today-indicator {
+  border-color: #52B78840;
+}
+
+/* Mini ring on day chip */
+.day-ring {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

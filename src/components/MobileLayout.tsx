@@ -1,0 +1,549 @@
+/**
+ * MobileLayout — App shell
+ *
+ * Phone/Tablet (< 1024px): sticky header + bottom nav (MFP style)
+ * Desktop (≥ 1024px): fixed sidebar nav + full-width content area
+ */
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useQuery, useMutation } from "convex/react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { api } from "../../convex/_generated/api";
+import {
+  Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus, X,
+  ShoppingCart, UtensilsCrossed, Settings, Dumbbell, Lightbulb,
+  HelpCircle, Crown, Droplets, Minus,
+} from "lucide-react";
+import { parseAvatarChoice } from "@/pages/SettingsPage";
+import { identifyUser, setUserProperties } from "../lib/posthog";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { RefreshCw } from "lucide-react";
+import { useAccessLevel } from "@/components/RequireSubscription";
+import { PaywallModal } from "@/components/PaywallModal";
+import type { PaywallFeature } from "@/components/PaywallModal";
+import { toast } from "sonner";
+
+/* ─── Nav definitions ─── */
+const BOTTOM_TABS = [
+  { path: "/dashboard", label: "Today", icon: Activity },
+  { path: "/plan", label: "Plan", icon: CalendarDays },
+  // center "+" placeholder
+  { path: "/progress", label: "Progress", icon: TrendingUp },
+  { path: "/more", label: "More", icon: MoreHorizontal },
+];
+
+const SIDEBAR_NAV = [
+  { path: "/dashboard", label: "Today", icon: Activity },
+  { path: "/plan", label: "Meal Plan", icon: CalendarDays },
+  { path: "/progress", label: "Progress", icon: TrendingUp },
+  { path: "/track", label: "Log Food", icon: UtensilsCrossed },
+  { path: "/grocery", label: "Grocery", icon: ShoppingCart },
+  { path: "/workout", label: "Workout", icon: Dumbbell, requiresWorkout: true },
+  { path: "/feedback", label: "Ideas", icon: Lightbulb },
+  { path: "/why", label: "Why Plate", icon: HelpCircle },
+  { path: "/settings", label: "Settings", icon: Settings },
+];
+
+const QUICK_ACTIONS = [
+  { icon: "🎙️", label: "Voice Log", action: "voice", premium: true },
+  { icon: "📸", label: "Meal Scan", action: "photo", premium: true },
+  { icon: "📦", label: "Barcode Scan", action: "barcode", premium: true },
+  { icon: "🍽️", label: "Log Food", action: "log", route: "/track" },
+  { icon: "💧", label: "Log Water", action: "water" },
+  { icon: "⚖️", label: "Log Weight", action: "weight", route: "/progress?logWeight=1" },
+];
+
+const MORE_ITEMS = [
+  { label: "Track Food", path: "/track", icon: "🍽️" },
+  { label: "Grocery List", path: "/grocery", icon: "🛒" },
+  { label: "Share an Idea 💡", path: "/feedback", icon: "✨" },
+  { label: "Why Page", path: "/why", icon: "❓" },
+  { label: "Workout", path: "/workout", icon: "🏋️", requiresWorkout: true },
+  { label: "Settings", path: "/settings", icon: "⚙️" },
+];
+
+/* ─── Quick action sheet ─── */
+const ACTION_FEATURE_MAP: Record<string, PaywallFeature> = {
+  barcode: "barcode",
+  voice: "voice_log",
+  photo: "meal_scan",
+};
+
+function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => void; navigate: (path: string) => void; isPremium: boolean }) {
+  const [paywallFeature, setPaywallFeature] = useState<PaywallFeature | null>(null);
+  const [showWater, setShowWater] = useState(false);
+  const [glasses, setGlasses] = useState(1);
+  const [waterLogging, setWaterLogging] = useState(false);
+  const logHydration = useMutation(api.progress.logHydration);
+  const todaysHydration = useQuery(api.progress.getTodaysHydration);
+  const mealScanInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMealScanFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    onClose();
+    // Navigate to food tracker and pass the image via sessionStorage
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      sessionStorage.setItem("quickMealScanImage", dataUrl);
+      navigate("/track?mealscan=image");
+    };
+    reader.readAsDataURL(file);
+  }, [navigate, onClose]);
+
+  const handleAction = (action: (typeof QUICK_ACTIONS)[0]) => {
+    hapticLight();
+    if (action.action === "water") {
+      setShowWater(true);
+      return;
+    }
+    if ((action as any).premium && !isPremium) {
+      setPaywallFeature(ACTION_FEATURE_MAP[action.action] ?? "general");
+      return;
+    }
+    // For meal scan: trigger the file input directly (preserves user-gesture on iOS)
+    if (action.action === "photo") {
+      mealScanInputRef.current?.click();
+      return;
+    }
+    onClose();
+    if (action.action === "voice") { navigate("/track?voice=1"); return; }
+    if (action.action === "barcode") { navigate("/track?scanner=1"); return; }
+    if ((action as any).route) navigate((action as any).route);
+  };
+
+  const handleLogWater = async () => {
+    setWaterLogging(true);
+    try {
+      const current = todaysHydration?.glasses ?? 0;
+      await logHydration({ glasses: current + glasses });
+      hapticMedium();
+      toast.success(`+${glasses} glass${glasses > 1 ? "es" : ""} logged 💧`);
+      onClose();
+    } catch {
+      toast.error("Failed to log water");
+    } finally {
+      setWaterLogging(false);
+    }
+  };
+
+  if (showWater) {
+    return (
+      <div className="px-5 pb-6 pt-4">
+        <div className="flex items-center gap-3 mb-5">
+          <button onClick={() => setShowWater(false)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+            <X className="w-4 h-4 text-white" />
+          </button>
+          <h3 className="font-semibold text-white text-base">Log Water</h3>
+        </div>
+        <div className="flex items-center justify-center gap-6 mb-6">
+          <button
+            onClick={() => setGlasses(Math.max(1, glasses - 1))}
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
+          >
+            <Minus className="w-5 h-5 text-white" />
+          </button>
+          <div className="flex flex-col items-center">
+            <Droplets className="w-8 h-8 mb-1" style={{ color: "#52B788" }} />
+            <span className="text-4xl font-bold text-white">{glasses}</span>
+            <span className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+              glass{glasses > 1 ? "es" : ""} · {glasses * 8}oz
+            </span>
+          </div>
+          <button
+            onClick={() => setGlasses(Math.min(16, glasses + 1))}
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
+          >
+            <Plus className="w-5 h-5 text-white" />
+          </button>
+        </div>
+        {todaysHydration && (
+          <p className="text-center text-xs mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
+            Today so far: {todaysHydration.glasses} / {todaysHydration.target ?? 8} glasses
+          </p>
+        )}
+        <button
+          onClick={handleLogWater}
+          disabled={waterLogging}
+          className="w-full py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50"
+          style={{ background: "#52B788", color: "#0d1f13" }}
+        >
+          {waterLogging ? "Logging..." : "Log Water"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="px-5 pb-6 pt-4">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-white text-base">Quick Actions</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+            <X className="w-4 h-4 text-white" />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {QUICK_ACTIONS.map((action) => {
+            const isPremiumGated = (action as any).premium && !isPremium;
+            return (
+              <button
+                key={action.action}
+                onClick={() => handleAction(action)}
+                className="flex flex-col items-center gap-2 py-4 px-3 rounded-2xl transition-all active:scale-[0.96] relative"
+                style={{
+                  background: isPremiumGated ? "rgba(229,180,84,0.08)" : "rgba(255,255,255,0.06)",
+                  border: isPremiumGated ? "1px solid rgba(229,180,84,0.2)" : "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                {isPremiumGated && (
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(229,180,84,0.2)", color: "#E5B454" }}>PRO</span>
+                )}
+                <span className="text-xl">{action.icon}</span>
+                <span className="text-xs font-medium text-center leading-tight" style={{ color: isPremiumGated ? "rgba(229,180,84,0.8)" : "rgba(255,255,255,0.8)" }}>
+                  {action.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {/* Hidden file input for meal scan — must be here to preserve user-gesture on iOS */}
+      <input
+        ref={mealScanInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleMealScanFile}
+      />
+      <PaywallModal
+        open={paywallFeature !== null}
+        onClose={() => setPaywallFeature(null)}
+        feature={paywallFeature ?? "general"}
+      />
+    </>
+  );
+}
+
+/* ─── More page ─── */
+function MorePage({ onClose, navigate, hasWorkout }: { onClose: () => void; navigate: (path: string) => void; hasWorkout: boolean }) {
+  const items = MORE_ITEMS.filter((item) => !item.requiresWorkout || hasWorkout);
+  return (
+    <div className="px-5 pb-8 pt-4">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="font-semibold text-white text-base">More</h3>
+        <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+          <X className="w-4 h-4 text-white" />
+        </button>
+      </div>
+      <div className="flex flex-col gap-2">
+        {items.map((item) => (
+          <button
+            key={item.path}
+            onClick={() => { onClose(); navigate(item.path); hapticLight(); }}
+            className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[0.98]"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <span className="text-lg">{item.icon}</span>
+            <span className="text-sm font-medium text-white">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Bottom sheet ─── */
+function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <>
+      <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl lg:hidden" style={{ background: "#111", maxWidth: 480, margin: "0 auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.6)" }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
+        </div>
+        {children}
+      </div>
+      {/* Desktop modal for quick actions */}
+      <div className="hidden lg:flex fixed inset-0 z-50 items-center justify-center" onClick={onClose}>
+        <div className="rounded-3xl w-full max-w-sm" style={{ background: "#111", boxShadow: "0 24px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Avatar display helper ─── */
+function AvatarDisplay({ profilePictureUrl, profile, initial }: { profilePictureUrl: string | null | undefined; profile: any; initial: string }) {
+  if (profilePictureUrl) return <img src={profilePictureUrl} alt="Profile" className="w-full h-full object-cover" />;
+  const parsed = parseAvatarChoice((profile as any)?.avatarChoice);
+  if (parsed?.type === "emoji") return (
+    <div className="w-full h-full rounded-full flex items-center justify-center text-base" style={{ background: parsed.bg }}>{parsed.emoji}</div>
+  );
+  if (parsed?.type === "url") return <img src={parsed.url} alt="Avatar" className="w-full h-full p-0.5" />;
+  return <span className="text-xs font-serif font-medium" style={{ color: "var(--plate-green-accent)" }}>{initial}</span>;
+}
+
+/* ─── Desktop sidebar ─── */
+function DesktopSidebar({ profile, profilePictureUrl, isPremium, hasWorkout, navigate, location, onQuickAction }: {
+  profile: any;
+  profilePictureUrl: string | null | undefined;
+  isPremium: boolean;
+  hasWorkout: boolean;
+  navigate: (path: string) => void;
+  location: ReturnType<typeof useLocation>;
+  onQuickAction: () => void;
+}) {
+  const initial = (profile?.name || "U")[0].toUpperCase();
+  const navItems = SIDEBAR_NAV.filter(item => !item.requiresWorkout || hasWorkout);
+
+  return (
+    <aside
+      className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 z-40"
+      style={{
+        width: 240,
+        background: "var(--background)",
+        borderRight: "1px solid var(--border)",
+      }}
+    >
+      {/* Logo */}
+      <div className="px-5 py-5 flex items-center gap-2.5 border-b border-border/50">
+        <img src="/logo.png" alt="Plate" className="w-8 h-8 rounded-lg" />
+        <span className="font-serif text-xl font-normal">Plate</span>
+      </div>
+
+      {/* Quick Log button */}
+      <div className="px-4 pt-4 pb-2">
+        <button
+          onClick={onQuickAction}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-2.5 font-semibold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+          style={{ background: "#52B788", color: "#0d1f13" }}
+        >
+          <Plus className="w-4 h-4" strokeWidth={2.5} />
+          Quick Log
+        </button>
+      </div>
+
+      {/* Nav items */}
+      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+              style={{
+                background: isActive ? "rgba(82,183,136,0.12)" : "transparent",
+                color: isActive ? "var(--plate-green-accent)" : "var(--muted-foreground)",
+                fontWeight: isActive ? 600 : 400,
+              }}
+            >
+              <Icon
+                className="w-4.5 h-4.5 flex-shrink-0"
+                style={{ strokeWidth: isActive ? 2.5 : 1.75 }}
+              />
+              <span className="text-sm">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Bottom: Premium upsell + profile */}
+      <div className="px-4 pb-5 space-y-3 border-t border-border/50 pt-3">
+        {!isPremium && isPremium !== undefined && (
+          <button
+            onClick={() => navigate("/onboarding/upgrade")}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+            style={{
+              background: "var(--plate-gold-bg, #2A2418)",
+              color: "var(--plate-gold, #E5B454)",
+              border: "1px solid rgba(229,180,84,0.25)",
+            }}
+          >
+            <Crown className="w-4 h-4" />
+            Go Premium
+          </button>
+        )}
+        <button
+          onClick={() => navigate("/settings")}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:bg-accent/30"
+        >
+          <div
+            className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
+            style={{ background: "var(--plate-green-deep)" }}
+          >
+            <AvatarDisplay profilePictureUrl={profilePictureUrl} profile={profile} initial={initial} />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-sm font-medium truncate">{profile?.name || "Account"}</div>
+            <div className="text-xs text-muted-foreground">Settings</div>
+          </div>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   MAIN LAYOUT
+   ══════════════════════════════════════════════════════ */
+export function MobileLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const profile = useQuery(api.profiles.getProfile);
+  const profilePictureUrl = useQuery(api.profiles.getProfilePictureUrl);
+  const { isPremium, hasWorkout } = useAccessLevel();
+
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+
+  // Identify user in PostHog
+  const identified = useRef(false);
+  useEffect(() => {
+    if (profile && profile._id && !identified.current) {
+      identified.current = true;
+      identifyUser(profile._id, {
+        name: profile.name || undefined,
+        diet: profile.dietPreference || undefined,
+        goal: profile.goal || undefined,
+        calorie_target: profile.targetCalories || undefined,
+      });
+      setUserProperties({
+        diet: profile.dietPreference,
+        goal: profile.goal,
+        calorie_target: profile.targetCalories,
+        cooking_level: profile.cookingPreference,
+      });
+    }
+  }, [profile]);
+
+  if (profile === null) { navigate("/onboarding", { replace: true }); return null; }
+  if (profile === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <RefreshCw className="w-6 h-6 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  const initial = (profile.name || "U")[0].toUpperCase();
+
+  const handleTabPress = (tab: (typeof BOTTOM_TABS)[number]) => {
+    hapticLight();
+    if (tab.label === "More") { setShowMore(true); return; }
+    navigate(tab.path);
+  };
+
+  const isTabActive = (tab: (typeof BOTTOM_TABS)[number]) => {
+    if (tab.label === "More") return showMore;
+    return location.pathname === tab.path;
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* ── Desktop sidebar ── */}
+      <DesktopSidebar
+        profile={profile}
+        profilePictureUrl={profilePictureUrl}
+        isPremium={!!isPremium}
+        hasWorkout={!!hasWorkout}
+        navigate={navigate}
+        location={location}
+        onQuickAction={() => { hapticMedium(); setShowQuickActions(true); }}
+      />
+
+      {/* ── Right side: header + content ── */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-[240px]">
+        {/* Header — shown on all sizes */}
+        <header className="sticky top-0 bg-background z-40 px-5 py-3 flex items-center justify-between border-b border-border/50">
+          {/* Mobile: logo. Desktop: page title */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <img src="/logo.png" alt="Plate" className="w-7 h-7 rounded-md" />
+            <span className="font-serif text-xl font-normal">Plate</span>
+          </div>
+          {/* Desktop: current page name */}
+          <div className="hidden lg:block">
+            <span className="font-serif text-xl capitalize">
+              {SIDEBAR_NAV.find(n => n.path === location.pathname)?.label ?? "Plate"}
+            </span>
+          </div>
+
+          {/* Right: avatar/settings button */}
+          <button
+            onClick={() => navigate("/settings")}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-border/60 hover:border-foreground/30 hover:bg-accent/30 transition-all tap-scale"
+          >
+            <div
+              className="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
+              style={{ background: "var(--plate-green-deep)" }}
+            >
+              <AvatarDisplay profilePictureUrl={profilePictureUrl} profile={profile} initial={initial} />
+            </div>
+            <span className="text-sm text-muted-foreground font-medium pr-0.5">
+              {profile.name?.split(" ")[0] || "Account"}
+            </span>
+          </button>
+        </header>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 pb-24 lg:pb-8 overflow-y-auto">
+          <Outlet />
+        </main>
+
+        {/* ── Bottom nav — mobile/tablet only ── */}
+        <nav className="fixed bottom-0 left-0 right-0 bottom-nav z-50 pb-safe lg:hidden">
+          <div className="flex items-center justify-around max-w-lg mx-auto px-1 relative" style={{ height: 62 }}>
+            {BOTTOM_TABS.slice(0, 2).map((tab) => {
+              const isActive = isTabActive(tab);
+              const Icon = tab.icon;
+              return (
+                <button key={tab.path} onClick={() => handleTabPress(tab)} className={`bottom-nav-item py-2 px-3 ${isActive ? "active" : ""}`}>
+                  <Icon className={`w-[20px] h-[20px] transition-all duration-200 ${isActive ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
+                  <span className={`text-[10px] tracking-wide ${isActive ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
+                </button>
+              );
+            })}
+
+            {/* Center "+" */}
+            <button
+              onClick={() => { hapticMedium(); setShowQuickActions(true); }}
+              className="flex items-center justify-center rounded-full transition-all active:scale-[0.94] shadow-lg"
+              style={{ width: 52, height: 52, background: "#52B788", boxShadow: "0 4px 16px rgba(82,183,136,0.4)", marginBottom: 8 }}
+              aria-label="Quick actions"
+            >
+              <Plus className="w-6 h-6" style={{ color: "#0d1f13", strokeWidth: 2.5 }} />
+            </button>
+
+            {BOTTOM_TABS.slice(2).map((tab) => {
+              const isActive = isTabActive(tab);
+              const Icon = tab.icon;
+              return (
+                <button key={tab.path || tab.label} onClick={() => handleTabPress(tab)} className={`bottom-nav-item py-2 px-3 ${isActive ? "active" : ""}`}>
+                  <Icon className={`w-[20px] h-[20px] transition-all duration-200 ${isActive ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
+                  <span className={`text-[10px] tracking-wide ${isActive ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+
+      {/* ── Sheets ── */}
+      <BottomSheet open={showQuickActions} onClose={() => setShowQuickActions(false)}>
+        <QuickActionSheet onClose={() => setShowQuickActions(false)} navigate={navigate} isPremium={!!isPremium} />
+      </BottomSheet>
+
+      <BottomSheet open={showMore} onClose={() => setShowMore(false)}>
+        <MorePage onClose={() => setShowMore(false)} navigate={navigate} hasWorkout={!!hasWorkout} />
+      </BottomSheet>
+    </div>
+  );
+}

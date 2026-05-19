@@ -1,0 +1,12 @@
+{
+  "installCommand": "bun install",
+  "buildCommand": "bunx vite build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/((?!assets/|.*\\.(mp4|mov|webm|jpg|jpeg|png|webp|gif|svg|ico|pdf|woff|woff2|ttf|otf|js|css|json|txt|xml|csv)$).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
