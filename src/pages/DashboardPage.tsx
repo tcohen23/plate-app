@@ -51,11 +51,36 @@ function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: n
   return <>{display}</>;
 }
 
+/* ─── Macro detail copy ─── */
+const MACRO_DETAILS: Record<string, { unit: string; description: string; tip: string }> = {
+  Calories: {
+    unit: "kcal",
+    description: "Calories are the total energy your body gets from food. Your daily target is calculated from your basal metabolic rate (BMR) adjusted for your activity level and goal.",
+    tip: "Consistency matters more than perfection. Hitting within 100 kcal of your target most days drives results.",
+  },
+  Protein: {
+    unit: "g",
+    description: "Protein builds and repairs muscle, keeps you full, and has the highest thermic effect of all macros, meaning your body burns more calories digesting it.",
+    tip: "Prioritize protein at breakfast and lunch. It is the hardest macro to hit and the most important for body composition.",
+  },
+  Carbs: {
+    unit: "g",
+    description: "Carbohydrates are your body's preferred fuel source for workouts and brain function. Complex carbs like oats, rice, and sweet potatoes give steady energy without blood sugar spikes.",
+    tip: "Time your carbs around training for best performance. Reduce them later in the day if fat loss is the goal.",
+  },
+  Fat: {
+    unit: "g",
+    description: "Dietary fat supports hormone production, brain health, and absorption of vitamins A, D, E, and K. Healthy fats from avocado, nuts, and olive oil are essential, not optional.",
+    tip: "Do not cut fat below 0.3g per pound of bodyweight. Low fat diets tank testosterone and slow recovery.",
+  },
+};
+
 /* ─── Single ring unit for EditorialCalorieCard ─── */
 function MacroRing({
-  label, value, target, color,
+  label, value, target, color, isSelected, onTap,
 }: {
   label: string; value: number; target: number; color: string;
+  isSelected: boolean; onTap: () => void;
 }) {
   const size = 96;
   const cx = size / 2;
@@ -67,16 +92,22 @@ function MacroRing({
   const offset = circ * (1 - pct);
 
   return (
-    <div className="flex flex-col items-center" style={{ gap: 8 }}>
+    <button
+      className="flex flex-col items-center transition-transform active:scale-95"
+      style={{ gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+      onClick={onTap}
+      aria-label={`${label} details`}
+    >
       {/* Label above ring */}
       <span
         style={{
           fontFamily: "var(--font-sans)",
           fontSize: 12,
-          fontWeight: 300,
+          fontWeight: isSelected ? 500 : 300,
           letterSpacing: "0.01em",
-          color: "var(--muted-foreground)",
+          color: isSelected ? color : "var(--muted-foreground)",
           lineHeight: 1,
+          transition: "color 0.2s",
         }}
       >
         {label}
@@ -132,7 +163,7 @@ function MacroRing({
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -148,6 +179,19 @@ function EditorialCalorieCard({
   carbs: number; carbsTarget: number;
   fat: number; fatTarget: number;
 }) {
+  const navigate = useNavigate();
+  const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
+
+  const macros = [
+    { label: "Calories", value: calories, target: calTarget,     color: "#4ade80" },
+    { label: "Protein",  value: protein,  target: proteinTarget, color: "#60a5fa" },
+    { label: "Carbs",    value: carbs,    target: carbsTarget,   color: "#fbbf24" },
+    { label: "Fat",      value: fat,      target: fatTarget,     color: "#f87171" },
+  ];
+
+  const selectedDetail = selectedMacro ? MACRO_DETAILS[selectedMacro] : null;
+  const selectedColor = selectedMacro ? macros.find(m => m.label === selectedMacro)?.color : null;
+
   return (
     <div
       className="relative overflow-hidden w-full"
@@ -155,7 +199,7 @@ function EditorialCalorieCard({
         background: "var(--surface-card)",
         border: "1px solid var(--border)",
         borderRadius: 24,
-        padding: "24px 20px 28px",
+        padding: "24px 20px 20px",
       }}
     >
       {/* Grain texture overlay */}
@@ -185,12 +229,69 @@ function EditorialCalorieCard({
         — Today's Intake —
       </div>
 
-      {/* 2×2 ring grid */}
+      {/* 2x2 ring grid */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-6" style={{ justifyItems: "center" }}>
-        <MacroRing label="Calories" value={calories} target={calTarget}     color="#4ade80" />
-        <MacroRing label="Protein"  value={protein}  target={proteinTarget} color="#60a5fa" />
-        <MacroRing label="Carbs"    value={carbs}    target={carbsTarget}   color="#fbbf24" />
-        <MacroRing label="Fat"      value={fat}      target={fatTarget}     color="#f87171" />
+        {macros.map(m => (
+          <MacroRing
+            key={m.label}
+            label={m.label}
+            value={m.value}
+            target={m.target}
+            color={m.color}
+            isSelected={selectedMacro === m.label}
+            onTap={() => {
+              hapticLight();
+              setSelectedMacro(prev => prev === m.label ? null : m.label);
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Macro detail expansion */}
+      {selectedDetail && selectedMacro && selectedColor && (
+        <div
+          className="mt-5 rounded-2xl px-4 py-4"
+          style={{
+            background: `color-mix(in srgb, ${selectedColor} 8%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${selectedColor} 25%, transparent)`,
+            animation: "fadeIn 0.18s ease",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: selectedColor }}>
+              {selectedMacro}
+            </span>
+            <button
+              onClick={() => setSelectedMacro(null)}
+              className="w-5 h-5 flex items-center justify-center rounded-full transition-opacity active:opacity-60"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+              aria-label="Close"
+            >
+              <X className="w-3 h-3" style={{ color: "var(--muted-foreground)" }} />
+            </button>
+          </div>
+          <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--foreground)", lineHeight: 1.55, marginBottom: 8 }}>
+            {selectedDetail.description}
+          </p>
+          <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+            <span style={{ color: selectedColor, fontWeight: 500 }}>Tip: </span>{selectedDetail.tip}
+          </p>
+        </div>
+      )}
+
+      {/* Why these numbers */}
+      <div className="flex justify-center mt-5">
+        <button
+          onClick={() => { hapticLight(); navigate("/why"); }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all active:scale-95"
+          style={{
+            background: "var(--surface-overlay, rgba(255,255,255,0.06))",
+            border: "1px solid var(--border)",
+            color: "var(--muted-foreground)",
+          }}
+        >
+          Why these numbers?
+        </button>
       </div>
     </div>
   );
