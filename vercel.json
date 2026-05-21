@@ -1,5 +1,5 @@
 {
-  "buildCommand": "bun run --bun node_modules/.bin/vite build",
+  "buildCommand": "bunx vite build",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
