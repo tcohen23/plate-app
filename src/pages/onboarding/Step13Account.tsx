@@ -2,10 +2,10 @@
  * Screen 13 — Account creation: email + password + ToS
  * Flow: signUp → OTP verification email → verify → createProfile → navigate
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
+import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { OnboardingLayout, OnboardingHeadline, OnboardingSubtext, OnboardingCTA } from "./OnboardingLayout";
 import { trackSignup } from "@/lib/posthog";
@@ -17,6 +17,14 @@ export function Step13Account() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
   const createProfile = useMutation(api.onboarding.createMinimalProfile);
+  const { isAuthenticated } = useConvexAuth();
+
+  // If user already authenticated (e.g. via Google/Apple OAuth), skip straight to username
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/onboarding/username", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [email, setEmail] = useState(() => sessionStorage.getItem("ob_email") || "");
   const [password, setPassword] = useState("");

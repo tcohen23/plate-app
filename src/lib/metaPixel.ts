@@ -65,6 +65,14 @@ export function trackMetaPurchase(value = 0, currency = "USD") {
   fbq("track", "Purchase", { value, currency });
 }
 
+/**
+ * Fire Lead — call when user taps the Subscribe/checkout button on the paywall.
+ * Signals high purchase intent to Meta Ads.
+ */
+export function trackMetaLead() {
+  fbq("track", "Lead");
+}
+
 /** Generic event for future use */
 export function trackMetaEvent(eventName: string, params?: Record<string, any>) {
   fbq("track", eventName, params);

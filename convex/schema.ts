@@ -330,6 +330,7 @@ const schema = defineSchema({
     proteinGoalStreak: v.number(),
     proteinGoalLastDate: v.optional(v.string()),
     reEngagementSentAt: v.optional(v.number()), // timestamp of last re-engagement email sent
+    reEngagementCount: v.optional(v.number()),   // how many re-engagement emails sent (used to rotate features)
   })
     .index("by_userId", ["userId"]),
 

@@ -4,15 +4,24 @@
  * 
  * Initiates sign-up → sends OTP → navigates to /onboarding/verify-email
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 import { OnboardingLayout } from "./OnboardingLayout";
 import { Eye, EyeOff } from "lucide-react";
 
 export function StepCreateAccount() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
+
+  // If user already authenticated (e.g. via Google/Apple OAuth), skip straight to username
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/onboarding/username", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [email, setEmail] = useState(() => sessionStorage.getItem("ob_email") || "");
   const [password, setPassword] = useState("");

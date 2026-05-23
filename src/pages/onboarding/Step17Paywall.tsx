@@ -44,6 +44,7 @@ export function Step17Paywall() {
     setError("");
     try {
       posthog.capture("paywall_plan_selected", { plan: selectedPlan });
+      import("@/lib/metaPixel").then(m => m.trackMetaLead());
       const url = await createCheckout({ planType: selectedPlan === "annual" ? "premium_annual" : "premium_monthly" });
       if (url) window.location.href = url;
     } catch (err: any) {

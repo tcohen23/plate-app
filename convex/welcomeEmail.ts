@@ -688,3 +688,232 @@ export const sendWelcomeEmailForUser = internalAction({
     return { success: true };
   },
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RE-ENGAGEMENT EMAIL
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────
+   APP FEATURE SPOTLIGHTS — rotated in re-engagement emails
+   Each feature: { emoji, title, tagline, bullets: string[], cta }
+   ────────────────────────────────────────────────────────────── */
+const APP_FEATURES = [
+  {
+    emoji: "🥗",
+    title: "AI Meal Plans — built for your body",
+    tagline: "PLATE doesn't hand you a generic template. It builds a full week of meals around your exact calorie and macro targets, your food preferences, and your goal — whether you're cutting, bulking, or maintaining.",
+    bullets: [
+      "New plan generated every week automatically",
+      "Swap any meal you don't like in one tap",
+      "Every meal is macro-balanced to hit your daily targets",
+    ],
+    cta: "See your meal plan",
+  },
+  {
+    emoji: "📊",
+    title: "Macro Tracking — stupid simple",
+    tagline: "Most tracking apps turn nutrition into a chore. PLATE makes it effortless — log a meal in seconds, scan a barcode, or let AI read your plate from a photo.",
+    bullets: [
+      "Barcode scanner for packaged foods",
+      "AI photo logging — snap a photo, done",
+      "Live macro ring updates as you log",
+    ],
+    cta: "Log today's meals",
+  },
+  {
+    emoji: "🛒",
+    title: "Smart Grocery Lists — zero thinking required",
+    tagline: "Your weekly meal plan automatically generates a complete, organized grocery list. Everything grouped by section — produce, protein, pantry. Just shop and cook.",
+    bullets: [
+      "Auto-generated from your weekly meal plan",
+      "Organized by grocery section",
+      "Check off items as you shop",
+    ],
+    cta: "View your grocery list",
+  },
+  {
+    emoji: "💪",
+    title: "Workout Plans — matched to your nutrition",
+    tagline: "Your workouts and your diet should work together. PLATE's workout plans are built to match your goal — so if you're trying to lose fat, your training and nutrition are aligned from day one.",
+    bullets: [
+      "Personalized plans based on your fitness goal",
+      "Beginner through advanced programs",
+      "Synced with your calorie targets",
+    ],
+    cta: "View your workout plan",
+  },
+  {
+    emoji: "📈",
+    title: "Progress Tracking — see the real picture",
+    tagline: "Consistency is everything. PLATE's progress dashboard shows you streaks, weekly calorie adherence, and how your nutrition habits are trending over time — so you always know where you stand.",
+    bullets: [
+      "Daily streak tracking to build the habit",
+      "Weekly macro adherence charts",
+      "Logging history you can actually learn from",
+    ],
+    cta: "Check your progress",
+  },
+  {
+    emoji: "🔄",
+    title: "Meal Swapping — your plan, your way",
+    tagline: "Not feeling the chicken and rice? Swap it out. PLATE instantly replaces any meal with a macro-equivalent alternative that still fits your targets — no recalculating, no guesswork.",
+    bullets: [
+      "Swap any meal with one tap",
+      "Replacement meals match your macros automatically",
+      "Hundreds of options across every food category",
+    ],
+    cta: "Customize your plan",
+  },
+  {
+    emoji: "⚡",
+    title: "Add PLATE to your home screen",
+    tagline: "PLATE works like a native app when you install it. Add it to your home screen and get instant access — no app store needed, no loading the browser, just open and log.",
+    bullets: [
+      "Works offline for meal viewing",
+      "Feels like a native iOS / Android app",
+      "One tap from your home screen",
+    ],
+    cta: "Open PLATE to install",
+  },
+];
+
+function reEngagementHtml(name: string, feature: typeof APP_FEATURES[0]): string {
+  const bulletsHtml = feature.bullets
+    .map(
+      (b, i) =>
+        `<tr><td style="padding:14px 20px;${i < feature.bullets.length - 1 ? "border-bottom:1px solid #2a2a2a;" : ""}"><span style="color:#52B788;font-size:13px;font-weight:600;">✓</span><span style="color:#e5e5e5;font-size:13px;margin-left:10px;">${b}</span></td></tr>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Did you know about this PLATE feature?</title></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0a0a0a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
+        <tr><td align="center" style="padding-bottom:32px;">
+          <table cellpadding="0" cellspacing="0" border="0"><tr>
+            <td align="center" valign="middle"><img src="https://plate-71e84f88.viktor.space/plate-logo.png" alt="Plate" width="40" height="40" style="display:block;border-radius:10px;"/></td>
+            <td style="padding-left:10px;vertical-align:middle;"><span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.08em;">PLATE</span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="background:#1a1a1a;border-radius:16px;padding:32px;border:1px solid #2a2a2a;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td style="padding-bottom:10px;"><span style="font-size:36px;">${feature.emoji}</span></td></tr>
+            <tr><td style="padding-bottom:6px;"><span style="display:inline-block;background:#52B78820;color:#52B788;font-size:10px;font-weight:700;letter-spacing:0.12em;padding:4px 12px;border-radius:100px;text-transform:uppercase;">Feature Spotlight</span></td></tr>
+            <tr><td style="padding-bottom:16px;padding-top:12px;"><h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;line-height:1.3;">${feature.title}</h1></td></tr>
+            <tr><td style="padding-bottom:24px;"><p style="margin:0;color:#a3a3a3;font-size:14px;line-height:1.7;">Hey ${name} — it's been a few days. Come back and try this:</p><p style="margin:12px 0 0 0;color:#cccccc;font-size:14px;line-height:1.7;">${feature.tagline}</p></td></tr>
+            <tr><td style="padding-bottom:28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#111;border-radius:12px;border:1px solid #2a2a2a;overflow:hidden;">
+                ${bulletsHtml}
+              </table>
+            </td></tr>
+            <tr><td align="center"><a href="https://plate-71e84f88.viktor.space" style="display:inline-block;background:#52B788;color:#000;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;letter-spacing:0.01em;">${feature.cta} →</a></td></tr>
+          </table>
+        </td></tr>
+        <tr><td align="center" style="padding-top:24px;"><p style="margin:0;color:#555;font-size:12px;">You've got this, ${name}. 💪<br/>© 2026 PLATE. All rights reserved.</p></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * Re-engagement cron action — runs daily.
+ * Sends a "we miss you" email to premium users who haven't logged anything
+ * in 3+ days, at most once every 7 days per user.
+ */
+export const sendReEngagementEmails = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const threeDaysAgo = now - 3 * 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    // Get all userStats where lastLogDate is 3+ days ago (or never)
+    const allStats = await ctx.runQuery(internal.welcomeEmail._getAllUserStatsForReEngagement, {});
+
+    let sent = 0;
+    for (const stats of allStats) {
+      // Skip if they logged recently (within 3 days)
+      if (stats.lastLogDate) {
+        const lastLog = new Date(stats.lastLogDate).getTime();
+        if (lastLog >= threeDaysAgo) continue;
+      }
+
+      // Skip if we already sent a re-engagement email in the last 7 days
+      if (stats.reEngagementSentAt && stats.reEngagementSentAt >= sevenDaysAgo) continue;
+
+      // Get their profile to check if they're premium
+      const profile = await ctx.runQuery(internal.welcomeEmail._getProfileByUserId, { userId: stats.userId });
+      if (!profile) continue;
+
+      // Only re-engage premium users (paying customers)
+      const isPremium = (profile as any).isPremium === true ||
+        ["owner", "admin", "friends_family"].includes((profile as any).adminLevel || "");
+      if (!isPremium) continue;
+
+      const email = await ctx.runQuery(internal.welcomeEmail._getUserEmail, { userId: stats.userId });
+      if (!email) continue;
+
+      const name = (profile as any).name ?? (profile as any).firstName ?? "there";
+
+      // Pick the feature to spotlight — rotate based on how many re-engagement emails sent
+      const reEngagementCount = (stats as any).reEngagementCount ?? 0;
+      const feature = APP_FEATURES[reEngagementCount % APP_FEATURES.length];
+
+      const subject = `${name}, did you know about this? — ${feature.title}`;
+      const html = reEngagementHtml(name, feature);
+      const text = `Hey ${name},\n\nSpotlight: ${feature.title}\n\n${feature.tagline}\n\n${feature.bullets.join("\n")}\n\nOpen PLATE: https://plate-71e84f88.viktor.space\n\n— PLATE`;
+
+      try {
+        await sendEmailViaAPI({ toEmail: email, subject, htmlContent: html, textContent: text, emailType: "re_engagement" });
+
+        await ctx.runMutation(internal.welcomeEmail._logEmail, {
+          recipientUserId: stats.userId,
+          recipientEmail: email,
+          recipientName: name,
+          subject,
+          emailType: "re_engagement",
+          previewHtml: "We miss you — your meal plan is waiting",
+        });
+
+        // Mark re-engagement sent timestamp on userStats
+        await ctx.runMutation(internal.welcomeEmail._markReEngagementSent, {
+          userStatsId: stats._id,
+          sentAt: now,
+        });
+
+        sent++;
+      } catch (err) {
+        console.error(`Re-engagement email failed for ${email}:`, err);
+      }
+    }
+
+    console.log(`[re-engagement] Sent ${sent} emails`);
+    return { sent };
+  },
+});
+
+/** Internal query: get all userStats rows for re-engagement check */
+export const _getAllUserStatsForReEngagement = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("userStats").collect();
+  },
+});
+
+/** Internal mutation: stamp reEngagementSentAt and increment reEngagementCount on a userStats row */
+export const _markReEngagementSent = internalMutation({
+  args: { userStatsId: v.id("userStats"), sentAt: v.number() },
+  handler: async (ctx, { userStatsId, sentAt }) => {
+    const stats = await ctx.db.get(userStatsId);
+    const currentCount = (stats as any)?.reEngagementCount ?? 0;
+    await ctx.db.patch(userStatsId, {
+      reEngagementSentAt: sentAt,
+      reEngagementCount: currentCount + 1,
+    } as any);
+  },
+});

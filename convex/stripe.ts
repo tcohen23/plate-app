@@ -160,6 +160,32 @@ export const stripeWebhook = httpAction(async (ctx, request) => {
       status: data.status,
       trialEnd: data.trial_end ? data.trial_end * 1000 : undefined,
     });
+
+    // Send thank-you / subscription started email on creation (or first activation from trial)
+    if (eventType === "customer.subscription.created") {
+      const planType = data.metadata?.planType || "premium_monthly";
+      await ctx.scheduler.runAfter(0, internal.welcomeEmail.sendSubscriptionStartedEmail, {
+        stripeCustomerId: data.customer,
+        planType,
+        trialEndTimestamp: data.trial_end ? data.trial_end * 1000 : undefined,
+      });
+    }
+  } else if (eventType === "invoice.payment_succeeded") {
+    // First paid invoice after trial — send thank-you email if this is invoice #1
+    const billingReason = data.billing_reason as string | undefined;
+    // billing_reason === "subscription_create" means it's the very first payment (or trial conversion)
+    if (billingReason === "subscription_create" || billingReason === "subscription_cycle") {
+      // Only send thank-you on first real charge (not $0 trial start)
+      if (data.amount_paid > 0) {
+        const planType = data.lines?.data?.[0]?.metadata?.planType ||
+          data.subscription_details?.metadata?.planType || "premium_monthly";
+        await ctx.scheduler.runAfter(0, internal.welcomeEmail.sendSubscriptionStartedEmail, {
+          stripeCustomerId: data.customer,
+          planType,
+          trialEndTimestamp: undefined,
+        });
+      }
+    }
   } else if (eventType === "customer.subscription.deleted") {
     await ctx.runMutation(internal.stripe.revokePremium, {
       stripeCustomerId: data.customer,
@@ -167,12 +193,10 @@ export const stripeWebhook = httpAction(async (ctx, request) => {
     });
   } else if (eventType === "invoice.payment_failed") {
     // After all retries fail, subscription moves to canceled — handled by sub.updated
-    // Just log it here
     console.log("Invoice payment failed for customer:", data.customer);
   } else if (eventType === "customer.subscription.trial_will_end") {
-    // Trial ending in 3 days — send reminder email
-    // TODO: trigger email via ViktorSpacesEmail
-    console.log("Trial ending soon for customer:", data.customer);
+    // Trial ending reminder emails are disabled — no action needed
+    console.log("Trial will end for customer:", data.customer, "— reminder email disabled by design");
   }
 
   return new Response(JSON.stringify({ received: true }), {
@@ -488,5 +512,20 @@ export const createPortalUrl = action({
 
     const session = await res.json();
     return session.url;
+  },
+});
+
+// ── Public: aggregate subscription stats (no auth required) ──────────────────
+export const getPublicSubscriptionStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const profiles = await ctx.db.query("profiles").collect();
+    const total = profiles.length;
+    const premium = profiles.filter((p: any) => p.isPremium === true).length;
+    const trialing = profiles.filter((p: any) => (p as any).subscriptionStatus === "trialing").length;
+    const active = profiles.filter((p: any) => (p as any).subscriptionStatus === "active").length;
+    const canceled = profiles.filter((p: any) => (p as any).subscriptionStatus === "canceled").length;
+    const hasStripeId = profiles.filter((p: any) => !!(p as any).stripeCustomerId).length;
+    return { total, premium, trialing, active, canceled, hasStripeId };
   },
 });

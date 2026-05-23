@@ -30,6 +30,7 @@ export function StepSignup() {
     setOauthLoading(provider);
     try {
       trackSignup(provider);
+      import("@/lib/metaPixel").then(m => m.trackMetaRegistration());
       await signIn(provider as any, {
         redirectTo: "/onboarding/goals",
       });

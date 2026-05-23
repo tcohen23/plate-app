@@ -2,6 +2,7 @@ import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+// Note: welcomeEmail.sendReEngagementEmails is registered as an internalAction
 
 /**
  * Midnight plan regeneration — runs every 30 minutes.
@@ -57,5 +58,12 @@ const crons = cronJobs();
 
 // Run every 30 minutes — checks each user's local timezone for midnight
 crons.interval("midnight plan regen", { minutes: 30 }, internal.crons.midnightPlanRegen);
+
+// Run daily at 10am UTC (6am EST) — re-engagement emails for inactive premium users
+crons.daily(
+  "re-engagement emails",
+  { hourUTC: 10, minuteUTC: 0 },
+  internal.welcomeEmail.sendReEngagementEmails,
+);
 
 export default crons;
