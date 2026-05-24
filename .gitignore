@@ -35,3 +35,5 @@ playwright-report/
 .nodeenv/
 # package-lock.json
 .tsbuildinfo/
+node_modules_real
+tmp_build/
