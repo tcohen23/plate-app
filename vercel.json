@@ -1,6 +1,6 @@
 {
-  "installCommand": "bun install",
-  "buildCommand": "bunx vite build",
+  "installCommand": "npm ci",
+  "buildCommand": "npx vite build",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [

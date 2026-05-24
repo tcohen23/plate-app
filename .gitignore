@@ -33,5 +33,5 @@ test-results/
 playwright-report/
 # Node environment
 .nodeenv/
-package-lock.json
+# package-lock.json
 .tsbuildinfo/
