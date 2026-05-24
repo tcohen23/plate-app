@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 // Note: welcomeEmail.sendReEngagementEmails is registered as an internalAction
+// Note: welcomeEmail.sendWinBackEmails is registered as an internalAction
 
 /**
  * Midnight plan regeneration — runs every 30 minutes.
@@ -67,3 +68,24 @@ crons.daily(
 );
 
 export default crons;
+
+// Run every Tuesday at 3pm UTC (10am EST) — premium upsell to free users
+crons.weekly(
+  "premium upsell emails",
+  { dayOfWeek: "tuesday", hourUTC: 15, minuteUTC: 0 },
+  internal.welcomeEmail.sendPremiumUpsellEmails,
+);
+
+// Run every 5 days at 3pm UTC (10am EST) — nudge users who never finished onboarding
+crons.interval(
+  "onboarding reminder emails",
+  { hours: 120 }, // every 5 days
+  internal.welcomeEmail.sendOnboardingReminderEmails,
+);
+
+// Run daily at 11am UTC (7am EST) — win-back emails for churned/cancelled users
+crons.daily(
+  "win-back emails",
+  { hourUTC: 11, minuteUTC: 0 },
+  internal.welcomeEmail.sendWinBackEmails,
+);

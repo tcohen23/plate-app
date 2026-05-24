@@ -133,12 +133,19 @@ export const stripeWebhook = httpAction(async (ctx, request) => {
   }
 
   const body = await request.text();
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  // Try env var first, fall back to DB config (same pattern as STRIPE_SECRET_KEY)
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ||
+    await ctx.runQuery(internal.stripe.getConfigValue, { key: "STRIPE_WEBHOOK_SECRET" });
+
+  if (!webhookSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET not configured");
+    return new Response("Webhook secret not configured", { status: 500 });
+  }
 
   // Verify webhook signature (manual HMAC verification without stripe SDK)
   let event: any;
   try {
-    event = await verifyStripeWebhook(body, stripeSignature, webhookSecret || "");
+    event = await verifyStripeWebhook(body, stripeSignature, webhookSecret);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return new Response("Webhook signature invalid", { status: 400 });
@@ -527,5 +534,41 @@ export const getPublicSubscriptionStats = query({
     const canceled = profiles.filter((p: any) => (p as any).subscriptionStatus === "canceled").length;
     const hasStripeId = profiles.filter((p: any) => !!(p as any).stripeCustomerId).length;
     return { total, premium, trialing, active, canceled, hasStripeId };
+  },
+});
+
+// ── Internal mutation: link stripe customer by email + sync subscription ──────
+// Used for manual recovery when webhook events were missed
+export const recoverSubscriptionByEmail = internalMutation({
+  args: {
+    email: v.string(),
+    stripeCustomerId: v.string(),
+    stripeSubscriptionId: v.string(),
+    status: v.string(),
+    trialEnd: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Find user by email
+    const users = await ctx.db.query("users").collect();
+    const user = users.find((u: any) => (u as any).email?.toLowerCase() === args.email.toLowerCase());
+    if (!user) {
+      console.error("recoverSubscription: no user found for email", args.email);
+      return { ok: false, reason: "user_not_found" };
+    }
+    // Find profile
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", q => q.eq("userId", user._id)).unique();
+    if (!profile) {
+      console.error("recoverSubscription: no profile for user", user._id);
+      return { ok: false, reason: "profile_not_found" };
+    }
+    const isPremium = ["trialing", "active"].includes(args.status);
+    await ctx.db.patch(profile._id, {
+      stripeCustomerId: args.stripeCustomerId,
+      stripeSubscriptionId: args.stripeSubscriptionId,
+      subscriptionStatus: args.status,
+      isPremium,
+      trialEnd: args.trialEnd,
+    } as any);
+    return { ok: true, userId: user._id, profileId: profile._id };
   },
 });

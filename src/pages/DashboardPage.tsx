@@ -464,7 +464,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const localDate = useMemo(() => getLocalDateString(), []);
   const profile = useQuery(api.profiles.getProfile);
-  const { isPremium } = useAccessLevel();
+  const { isPremium, isTrialing } = useAccessLevel();
   const summary = useQuery(api.foodLogs.getDailySummary, { localDate });
   const todaysLog = useQuery(api.foodLogs.getTodaysLog, { localDate });
   const planData = useQuery(api.mealPlans.getPlanWithMeals);
@@ -600,7 +600,20 @@ export function DashboardPage() {
           <div className="text-card-label text-muted-foreground">{dateStr.toUpperCase()}</div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Go Premium gold pill — only for free users */}
+          {/* Trial badge — shown only during free trial */}
+          {isTrialing && (
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{
+                background: "rgba(82,183,136,0.12)",
+                color: "#52B788",
+                border: "1px solid rgba(82,183,136,0.3)",
+              }}
+            >
+              🎉 Trial active
+            </div>
+          )}
+          {/* Go Premium gold pill — only for fully free users (no trial, no paid) */}
           {!isPremium && isPremium !== undefined && (
             <button
               onClick={() => navigate("/onboarding/upgrade")}

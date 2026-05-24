@@ -331,6 +331,16 @@ const schema = defineSchema({
     proteinGoalLastDate: v.optional(v.string()),
     reEngagementSentAt: v.optional(v.number()), // timestamp of last re-engagement email sent
     reEngagementCount: v.optional(v.number()),   // how many re-engagement emails sent (used to rotate features)
+    upsellSentAt: v.optional(v.number()),        // timestamp of last premium upsell email sent
+    upsellCount: v.optional(v.number()),          // how many upsell emails sent (used to rotate pitches)
+    onboardingReminderSentAt: v.optional(v.number()), // timestamp of last onboarding nudge sent
+    onboardingReminderCount: v.optional(v.number()),  // how many onboarding reminders sent (max 4, then stops)
+    // Win-back — targets churned/cancelled users, fires 30 days after cancellation
+    winBackSentAt: v.optional(v.number()),    // timestamp of last win-back email sent
+    winBackCount: v.optional(v.number()),     // how many win-back emails sent (3 max, then stops)
+    // Split test variant: "A" | "B" | "C" — assigned once per user, never changes
+    // A = Dark Classic, B = Deep Forest, C = Cream Light
+    emailVariant: v.optional(v.string()),
   })
     .index("by_userId", ["userId"]),
 

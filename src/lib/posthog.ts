@@ -87,7 +87,7 @@ export function trackMealSkipped(mealCategory: string) {
   trackEvent("meal_skipped", { category: mealCategory });
 }
 
-export function trackFoodLogged(method: "barcode" | "search" | "quick_add" | "custom") {
+export function trackFoodLogged(method: "barcode" | "search" | "quick_add" | "custom" | "meal_scan") {
   trackEvent("food_logged", { method });
 }
 

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ACHIEVEMENT_DEFS } from "./progress";
 
@@ -803,5 +803,21 @@ export const getMyEmailHistory = query({
       .order("desc")
       .collect();
     return logs;
+  },
+});
+
+/** Internal mutation: set a user as owner by email address */
+export const setOwnerByEmail = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const users = await ctx.db.query("users").collect();
+    const user = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+    if (!user) return { ok: false, reason: "user_not_found" };
+    const profile = await ctx.db.query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+    if (!profile) return { ok: false, reason: "profile_not_found" };
+    await ctx.db.patch(profile._id, { adminLevel: "owner", isAdmin: true } as any);
+    return { ok: true, userId: user._id, profileId: profile._id };
   },
 });

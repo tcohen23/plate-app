@@ -236,6 +236,32 @@ http.route({
   }),
 });
 
+// ── Admin: recover missed Stripe subscriptions (for webhook outage recovery) ──
+http.route({
+  path: "/api/admin/recover-subscription",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ADMIN_TOKEN = "plate-admin-reset-2026";
+    let body: any;
+    try { body = await request.json(); } catch { body = {}; }
+    if (body.token !== ADMIN_TOKEN) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    const { email, stripeCustomerId, stripeSubscriptionId, status, trialEnd } = body;
+    if (!email || !stripeCustomerId || !stripeSubscriptionId || !status) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 });
+    }
+    const result = await ctx.runMutation(internal.stripe.recoverSubscriptionByEmail, {
+      email, stripeCustomerId, stripeSubscriptionId, status,
+      trialEnd: trialEnd ?? undefined,
+    });
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 // ── Viktor agent: unauthenticated media upload for social posting ──
 // Secret key to prevent abuse
 const VIKTOR_UPLOAD_SECRET = process.env.VIKTOR_UPLOAD_SECRET || "viktor-plate-upload-2026";
@@ -263,3 +289,26 @@ http.route({
 });
 
 export default http;
+
+// ── Admin: set user as owner by email ────────────────────────────────────────
+http.route({
+  path: "/api/admin/set-owner",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ADMIN_TOKEN = "plate-admin-reset-2026";
+    let body: any;
+    try { body = await request.json(); } catch { body = {}; }
+    if (body.token !== ADMIN_TOKEN) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    const { email } = body;
+    if (!email) {
+      return new Response(JSON.stringify({ error: "Missing email" }), { status: 400 });
+    }
+    const result = await ctx.runMutation(internal.admin.setOwnerByEmail, { email });
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});

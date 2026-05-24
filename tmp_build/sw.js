@@ -1,4 +1,4 @@
-const CACHE_NAME = "plate-v16";
+const CACHE_NAME = "plate-v13";
 
 // Install: skip waiting immediately so the new SW takes over right away
 self.addEventListener("install", (e) => {

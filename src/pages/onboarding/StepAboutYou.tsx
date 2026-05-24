@@ -1,6 +1,7 @@
 /**
  * Screen 13 — Personal Stats Part 1 (Sex, Age, Country, ZIP)
  * Route: /onboarding/about-you
+ * Country + ZIP are optional — helps personalize grocery list.
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,19 +13,19 @@ export function StepAboutYou() {
 
   const [sex, setSex] = useState(() => sessionStorage.getItem("ob_sex") || "");
   const [age, setAge] = useState(() => sessionStorage.getItem("ob_age") || "");
-  const [country, setCountry] = useState(() => sessionStorage.getItem("ob_country") || "United States");
+  const [country, setCountry] = useState(() => sessionStorage.getItem("ob_country") || "");
   const [zip, setZip] = useState(() => sessionStorage.getItem("ob_zip") || "");
   const [showSexInfo, setShowSexInfo] = useState(false);
 
-  const isNonUS = country && country !== "United States";
-  const isValid = sex && age && parseInt(age) >= 13 && parseInt(age) <= 100 && country === "United States" && /^\d{5}$/.test(zip);
+  // Only sex + age are required
+  const isValid = sex && age && parseInt(age) >= 13 && parseInt(age) <= 100;
 
   const handleNext = () => {
     if (!isValid) return;
     sessionStorage.setItem("ob_sex", sex);
     sessionStorage.setItem("ob_age", age);
-    sessionStorage.setItem("ob_country", country);
-    sessionStorage.setItem("ob_zip", zip);
+    if (country) sessionStorage.setItem("ob_country", country);
+    if (zip) sessionStorage.setItem("ob_zip", zip);
     navigate("/onboarding/measurements");
   };
 
@@ -101,11 +102,16 @@ export function StepAboutYou() {
           </p>
         </div>
 
-        {/* Country */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Where do you live?
-          </label>
+        {/* Country — optional */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-foreground">
+              Where do you live?
+            </label>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "rgba(82,183,136,0.1)", color: "#52B788" }}>
+              Optional
+            </span>
+          </div>
           <select
             value={country}
             onChange={(e) => setCountry(e.target.value)}
@@ -113,9 +119,10 @@ export function StepAboutYou() {
             style={{
               background: "var(--muted)",
               border: `1.5px solid ${country ? "#52B788" : "transparent"}`,
-              color: "var(--foreground)",
+              color: country ? "var(--foreground)" : "rgba(255,255,255,0.35)",
             }}
           >
+            <option value="">Select country…</option>
             <option value="United States">🇺🇸 United States</option>
             <option value="Canada">🇨🇦 Canada</option>
             <option value="United Kingdom">🇬🇧 United Kingdom</option>
@@ -124,50 +131,36 @@ export function StepAboutYou() {
             <option value="France">🇫🇷 France</option>
             <option value="Other">Other</option>
           </select>
-          {!isNonUS && (
-            <div
-              className="flex items-center gap-2 mt-2 text-xs rounded-xl px-3 py-2"
-              style={{ background: "rgba(82,183,136,0.08)", color: "#52B788" }}
-            >
-              🇺🇸 PLATE is currently only available in the United States. International support is coming soon.
-            </div>
-          )}
-          {isNonUS && (
-            <div
-              className="flex items-center gap-2 mt-2 text-xs rounded-xl px-3 py-2"
-              style={{ background: "rgba(245,166,35,0.1)", color: "#F5A623" }}
-            >
-              PLATE isn't available in your region yet.{" "}
-              <a href="/waitlist" className="underline font-semibold">Join the waitlist</a>
-            </div>
-          )}
         </div>
 
-        {/* ZIP */}
-        {!isNonUS && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-foreground mb-2">
-              ZIP/Postal Code
+        {/* ZIP — optional */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-foreground">
+              ZIP / Postal Code
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={5}
-              placeholder="12345"
-              value={zip}
-              onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
-              className="w-full px-4 py-4 rounded-2xl text-base outline-none"
-              style={{
-                background: "var(--muted)",
-                border: `1.5px solid ${/^\d{5}$/.test(zip) ? "#52B788" : "transparent"}`,
-                color: "var(--foreground)",
-              }}
-            />
-            <p className="text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Used for local grocery pricing. We find the cheapest store near you.
-            </p>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "rgba(82,183,136,0.1)", color: "#52B788" }}>
+              Optional
+            </span>
           </div>
-        )}
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={10}
+            placeholder="e.g. 90210"
+            value={zip}
+            onChange={(e) => setZip(e.target.value)}
+            className="w-full px-4 py-4 rounded-2xl text-base outline-none"
+            style={{
+              background: "var(--muted)",
+              border: `1.5px solid ${zip ? "#52B788" : "transparent"}`,
+              color: "var(--foreground)",
+            }}
+          />
+          <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+            🛒 Helps us find the best grocery deals near you for a more accurate grocery list.
+          </p>
+        </div>
 
         <div className="mt-auto">
           <OnboardingCTA onClick={handleNext} disabled={!isValid}>

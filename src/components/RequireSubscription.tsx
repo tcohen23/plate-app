@@ -81,14 +81,25 @@ export function useAccessLevel() {
     COMP_ADMIN_LEVELS.has((profile as any)?.adminLevel || "") ||
     COMP_ROLES.has((profile as any)?.role || "");
 
+  // isPremium = trial OR paid — controls feature gating (trial users get premium features)
   const isPremium =
     isComp ||
     ["trialing", "active"].includes(subscriptionStatus?.subscriptionStatus || "");
+
+  // isPaid = active paid subscription ONLY
+  const isPaid =
+    isComp ||
+    subscriptionStatus?.subscriptionStatus === "active";
+
+  // isTrialing = currently in free trial (not yet paid)
+  const isTrialing =
+    !isComp &&
+    subscriptionStatus?.subscriptionStatus === "trialing";
 
   const hasWorkout =
     isComp ||
     (profile as any)?.workoutAddOnStatus === "active" ||
     (profile as any)?.workoutAddOnStatus === "active";
 
-  return { isPremium, hasWorkout, isComp, isLoading };
+  return { isPremium, isPaid, isTrialing, hasWorkout, isComp, isLoading };
 }

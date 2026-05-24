@@ -130,7 +130,7 @@ export function Step18WelcomeDone() {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-5"
           style={{ background: "rgba(82,183,136,0.15)", color: "#52B788", border: "1px solid rgba(82,183,136,0.3)" }}
         >
-          🎉 3-day free trial active
+          🎉 7-day free trial active
         </div>
 
         <h1 className="text-white font-serif text-[2.2rem] leading-tight mb-3">

@@ -62,6 +62,7 @@ import { Step18WelcomeDone } from "./pages/onboarding/Step18WelcomeDone";
 import { WorkoutStep02Goals } from "./pages/onboarding/WorkoutStep02Goals";
 import { WorkoutStep03Experience } from "./pages/onboarding/WorkoutStep03Experience";
 import { WorkoutStep04Gym } from "./pages/onboarding/WorkoutStep04Gym";
+import { ScannerPage } from "./pages/ScannerPage";
 
 // Reads profile toast preference and renders Toaster accordingly
 function SmartToaster() {
@@ -239,6 +240,7 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/plan" element={<MealPlanPage />} />
               <Route path="/track" element={<FoodTrackerPage />} />
+              <Route path="/scanner" element={<ScannerPage />} />
               <Route path="/grocery" element={<GroceryPage />} />
               <Route path="/progress" element={<ProgressPage />} />
               <Route path="/why" element={<WhyPage />} />

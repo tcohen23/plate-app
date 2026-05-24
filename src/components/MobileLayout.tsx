@@ -6,7 +6,7 @@
  */
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import {
   Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus, X,
@@ -75,23 +75,6 @@ function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => voi
   const [waterLogging, setWaterLogging] = useState(false);
   const logHydration = useMutation(api.progress.logHydration);
   const todaysHydration = useQuery(api.progress.getTodaysHydration);
-  const mealScanInputRef = useRef<HTMLInputElement>(null);
-
-  const handleMealScanFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    onClose();
-    // Navigate to food tracker and pass the image via sessionStorage
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      sessionStorage.setItem("quickMealScanImage", dataUrl);
-      navigate("/track?mealscan=image");
-    };
-    reader.readAsDataURL(file);
-  }, [navigate, onClose]);
-
   const handleAction = (action: (typeof QUICK_ACTIONS)[0]) => {
     hapticLight();
     if (action.action === "water") {
@@ -102,14 +85,15 @@ function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => voi
       setPaywallFeature(ACTION_FEATURE_MAP[action.action] ?? "general");
       return;
     }
-    // For meal scan: trigger the file input directly (preserves user-gesture on iOS)
+    // For meal scan: navigate to scanner page in food mode
     if (action.action === "photo") {
-      mealScanInputRef.current?.click();
+      onClose();
+      navigate("/scanner?mode=food");
       return;
     }
     onClose();
     if (action.action === "voice") { navigate("/track?voice=1"); return; }
-    if (action.action === "barcode") { navigate("/track?scanner=1"); return; }
+    if (action.action === "barcode") { onClose(); navigate("/scanner?mode=barcode"); return; }
     if ((action as any).route) navigate((action as any).route);
   };
 
@@ -211,15 +195,6 @@ function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => voi
           })}
         </div>
       </div>
-      {/* Hidden file input for meal scan — must be here to preserve user-gesture on iOS */}
-      <input
-        ref={mealScanInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleMealScanFile}
-      />
       <PaywallModal
         open={paywallFeature !== null}
         onClose={() => setPaywallFeature(null)}
@@ -291,10 +266,11 @@ function AvatarDisplay({ profilePictureUrl, profile, initial }: { profilePicture
 }
 
 /* ─── Desktop sidebar ─── */
-function DesktopSidebar({ profile, profilePictureUrl, isPremium, hasWorkout, navigate, location, onQuickAction }: {
+function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, hasWorkout, navigate, location, onQuickAction }: {
   profile: any;
   profilePictureUrl: string | null | undefined;
   isPremium: boolean;
+  isTrialing: boolean;
   hasWorkout: boolean;
   navigate: (path: string) => void;
   location: ReturnType<typeof useLocation>;
@@ -358,7 +334,21 @@ function DesktopSidebar({ profile, profilePictureUrl, isPremium, hasWorkout, nav
 
       {/* Bottom: Premium upsell + profile */}
       <div className="px-4 pb-5 space-y-3 border-t border-border/50 pt-3">
-        {!isPremium && isPremium !== undefined && (
+        {/* Trial badge — shown only during free trial */}
+        {isTrialing && (
+          <div
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold"
+            style={{
+              background: "rgba(82,183,136,0.1)",
+              color: "#52B788",
+              border: "1px solid rgba(82,183,136,0.25)",
+            }}
+          >
+            🎉 Trial active
+          </div>
+        )}
+        {/* Go Premium pill — only for fully free users */}
+        {!isPremium && (
           <button
             onClick={() => navigate("/onboarding/upgrade")}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
@@ -400,7 +390,7 @@ export function MobileLayout() {
   const navigate = useNavigate();
   const profile = useQuery(api.profiles.getProfile);
   const profilePictureUrl = useQuery(api.profiles.getProfilePictureUrl);
-  const { isPremium, hasWorkout } = useAccessLevel();
+  const { isPremium, isTrialing, hasWorkout } = useAccessLevel();
 
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -454,6 +444,7 @@ export function MobileLayout() {
         profile={profile}
         profilePictureUrl={profilePictureUrl}
         isPremium={!!isPremium}
+        isTrialing={!!isTrialing}
         hasWorkout={!!hasWorkout}
         navigate={navigate}
         location={location}
