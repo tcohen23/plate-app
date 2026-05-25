@@ -125,7 +125,7 @@ async function callOpenAIDirectly(prompt: string, imageBase64?: string): Promise
 
 /** Call Gemini API directly (no Pipedream) if GEMINI_API_KEY is set */
 async function callGeminiDirectly(prompt: string, imageBase64?: string): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY ?? "AIzaSyDxVhNfYHZhPxHh0gaVpmPv2OSvcDCMYEY";
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const parts: any[] = [{ text: prompt }];
@@ -137,7 +137,7 @@ async function callGeminiDirectly(prompt: string, imageBase64?: string): Promise
     parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
   }
 
-  const model = imageBase64 ? "gemini-2.5-flash-lite" : "gemini-2.5-flash-lite";
+  const model = imageBase64 ? "gemini-2.5-flash" : "gemini-2.5-flash";
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -380,7 +380,7 @@ If no food visible, return [].`;
       const geminiResult = await callTool<{ content?: string; response?: string }>(
         "mcp_pd_google_gemini_proxy_post",
         {
-          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
           json_body: {
             contents: [{ parts }],
             generationConfig: { maxOutputTokens: 600 },
@@ -388,9 +388,16 @@ If no food visible, return [].`;
         }
       );
       const rawResult = geminiResult as any;
+      // The Viktor tool gateway wraps the response: { response_role, content: "<json string>" }
+      // Parse the nested JSON string if needed
+      let parsedBody: any = rawResult;
+      if (typeof rawResult?.content === "string") {
+        try { parsedBody = JSON.parse(rawResult.content); } catch { /* ignore */ }
+      }
       const gemText =
+        parsedBody?.body?.candidates?.[0]?.content?.parts?.[0]?.text ??
+        parsedBody?.candidates?.[0]?.content?.parts?.[0]?.text ??
         rawResult?.candidates?.[0]?.content?.parts?.[0]?.text ??
-        rawResult?.content?.candidates?.[0]?.content?.parts?.[0]?.text ??
         null;
       if (gemText) {
         console.log("[analyzeFoodImage] Gemini gateway vision response:", gemText.substring(0, 200));
