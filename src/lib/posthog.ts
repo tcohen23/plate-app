@@ -128,3 +128,16 @@ export function trackAppInstallBannerSeen() {
 }
 
 export { posthog };
+
+// ── Feature flag helpers ──────────────────────────────────────
+/**
+ * Get a PostHog feature flag value synchronously.
+ * Returns undefined if PostHog isn't loaded or flag not set.
+ */
+export function getFlag(flagKey: string): string | boolean | undefined {
+  try {
+    return posthog.getFeatureFlag(flagKey) as string | boolean | undefined;
+  } catch {
+    return undefined;
+  }
+}

@@ -5,12 +5,18 @@
  * PLATE-branded freemium upsell. Annual selected by default.
  * Two exits: "Skip for now" (top-right) and "Continue with Free plan" (bottom).
  * Both call completeOnboarding with free-tier data and redirect to /dashboard.
+ *
+ * Split test: ob_paywall_copy
+ *   control   → "Go Premium for full access" / generic framing
+ *   variant_b → Loss framing, personalized calorie number
+ *   variant_c → Social proof, honest framing
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Camera, Mic, BarChart3, UtensilsCrossed, Ban, X, Dumbbell } from "lucide-react";
+import { posthog, getFlag } from "@/lib/posthog";
 
 type Plan = "annual" | "monthly";
 
@@ -115,21 +121,71 @@ function Feature({ icon: Icon, text }: { icon: React.ElementType; text: string }
   );
 }
 
+// ── Variant copy definitions ─────────────────────────────────────────────────
+
+function getPaywallCopy(variant: string, firstName: string, calories: number) {
+  const name = firstName || "there";
+  const cal = calories || 2000;
+
+  if (variant === "variant_b") {
+    return {
+      pill: `🎯 Your ${cal} cal plan is ready`,
+      headline: `Your plan is ready, ${name}. Don't lose it.`,
+      sub: `Start your 7 day free trial to save your personalized calorie and macro targets.`,
+      cta: "Start 7 Day Free Trial",
+    };
+  }
+
+  if (variant === "variant_c") {
+    return {
+      pill: "⭐ Trusted by Plate members",
+      headline: "Join people already hitting their goals.",
+      sub: "Start your 7 day free trial. Cancel anytime before it ends.",
+      cta: "Start 7 Day Free Trial",
+    };
+  }
+
+  // control
+  return {
+    pill: null,
+    headline: "Go Premium for full access",
+    sub: "7 day free trial. Cancel anytime before it ends.",
+    cta: "Start 7 Day Free Trial",
+  };
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function StepUpgrade() {
   const navigate = useNavigate();
   const [plan, setPlan] = useState<Plan>("annual");
   const [loading, setLoading] = useState(false);
+  const [variant, setVariant] = useState<string>("control");
   const createCheckout = useAction(api.stripe.createCheckoutUrl);
   const completeOnboardingFree = useCompleteOnboardingFree();
 
+  // Pull session data for personalization
+  const firstName = sessionStorage.getItem("ob_firstName") || "";
+  const calories = parseInt(sessionStorage.getItem("ob_calories") || "0");
+
+  // Resolve PostHog feature flag
+  useEffect(() => {
+    const flag = getFlag("ob_paywall_copy");
+    const resolved = typeof flag === "string" ? flag : "control";
+    setVariant(resolved);
+    posthog.capture("paywall_variant_seen", { variant: resolved });
+  }, []);
+
+  const copy = getPaywallCopy(variant, firstName, calories);
+
   const handleSkip = () => {
+    posthog.capture("paywall_skipped", { variant, plan });
     completeOnboardingFree();
     navigate("/dashboard", { replace: true });
   };
 
   const handleStartTrial = async () => {
+    posthog.capture("paywall_plan_selected", { variant, plan });
     setLoading(true);
     try {
       const planType = plan === "annual" ? "premium_annual" : "premium_monthly";
@@ -170,14 +226,31 @@ export function StepUpgrade() {
           className="mx-auto mb-6 rounded-2xl object-contain"
           style={{ width: 90, height: 90, background: "#0a0a0a" }}
         />
+
+        {/* Pill badge (variants B and C only) */}
+        {copy.pill && (
+          <div className="flex justify-center mb-4">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold"
+              style={{
+                background: "rgba(82,183,136,0.12)",
+                color: "var(--plate-green-accent)",
+                border: "1px solid rgba(82,183,136,0.25)",
+              }}
+            >
+              {copy.pill}
+            </span>
+          </div>
+        )}
+
         <h1
-          className="font-serif text-[36px] font-semibold leading-tight text-white"
+          className="font-serif text-[32px] font-semibold leading-tight text-white"
           style={{ fontFamily: "'Fraunces', 'Georgia', serif" }}
         >
-          Go Premium for full access
+          {copy.headline}
         </h1>
         <p className="mt-3 text-[15px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-          7-day free trial. Cancel anytime before it ends.
+          {copy.sub}
         </p>
       </div>
 
@@ -205,9 +278,9 @@ export function StepUpgrade() {
       {/* Feature list */}
       <ul className="space-y-4 mb-8">
         <Feature icon={Dumbbell} text="AI Workout Plan, personalized to your goals" />
-        <Feature icon={UtensilsCrossed} text="AI Meal Plans, 7-day plans built for your macros" />
+        <Feature icon={UtensilsCrossed} text="AI Meal Plans, 7 day plans built for your macros" />
         <Feature icon={Camera} text="Barcode Scanner, instant nutrition lookup" />
-        <Feature icon={Mic} text="Voice Logging, log food hands-free in seconds" />
+        <Feature icon={Mic} text="Voice Logging, log food hands free in seconds" />
         <Feature icon={Camera} text="Meal Photo Scan, snap a photo to log any meal" />
         <Feature icon={BarChart3} text="Advanced Analytics, weekly trends & body insights" />
         <Feature icon={Ban} text="No ads, ever" />
@@ -233,7 +306,7 @@ export function StepUpgrade() {
               </svg>
               Loading...
             </span>
-          ) : "Start 7-Day Free Trial"}
+          ) : copy.cta}
         </button>
 
         <p className="text-center text-[13px] mt-3" style={{ color: "rgba(255,255,255,0.4)" }}>
