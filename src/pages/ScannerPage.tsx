@@ -412,17 +412,17 @@ export function ScannerPage() {
       const reader = new FileReader();
       const rawDataUrl: string = await new Promise(res => { reader.onload = () => res(reader.result as string); reader.readAsDataURL(file); });
       // Resize to max 1024px wide to keep payload small
-      const dataUrl: string = await new Promise(res => {
-        const img = document.createElement("img");
+      const dataUrl: string = await new Promise((resolve) => {
+        const img: HTMLImageElement = new (window.Image as any)();
         img.onload = () => {
           const MAX_W = 1024;
-          const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+          const scale = img.naturalWidth > MAX_W ? MAX_W / img.naturalWidth : 1;
           const c = document.createElement("canvas");
-          c.width = Math.round(img.width * scale);
-          c.height = Math.round(img.height * scale);
-          const x = c.getContext("2d")!;
+          c.width = Math.round(img.naturalWidth * scale);
+          c.height = Math.round(img.naturalHeight * scale);
+          const x = c.getContext("2d") as CanvasRenderingContext2D;
           x.drawImage(img, 0, 0, c.width, c.height);
-          res(c.toDataURL("image/jpeg", 0.75));
+          resolve(c.toDataURL("image/jpeg", 0.75));
         };
         img.src = rawDataUrl;
       });

@@ -328,9 +328,46 @@ Return ONLY a valid JSON array (no markdown):
 
 If no food visible, return [].`;
 
-    // Strategy 1: Gemini Vision via Viktor tool gateway (no API key needed)
+    // Strategy 1: OpenAI Vision via Viktor tool gateway
     try {
-      // Build inline parts for Gemini API
+      const openaiGatewayResult = await callTool<any>(
+        "mcp_pd_openai_proxy_post",
+        {
+          url: "https://api.openai.com/v1/chat/completions",
+          json_body: {
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: visionPrompt },
+                  {
+                    type: "image_url",
+                    image_url: { url: imageUrl, detail: "low" },
+                  },
+                ],
+              },
+            ],
+            max_tokens: 600,
+          },
+        }
+      );
+      const rawGW = openaiGatewayResult as any;
+      const gwText =
+        rawGW?.choices?.[0]?.message?.content ??
+        rawGW?.content?.choices?.[0]?.message?.content ??
+        null;
+      if (gwText) {
+        console.log("[analyzeFoodImage] OpenAI gateway vision response:", gwText.substring(0, 200));
+        const parsed = extractJsonArray(gwText);
+        if (parsed && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("[analyzeFoodImage] OpenAI gateway vision failed:", e);
+    }
+
+    // Strategy 2: Gemini Vision via Viktor tool gateway
+    try {
       const isDataUrl = imageUrl.startsWith("data:");
       const parts: any[] = [{ text: visionPrompt }];
       if (isDataUrl) {
@@ -350,7 +387,6 @@ If no food visible, return [].`;
           },
         }
       );
-      // The proxy returns the raw Gemini response
       const rawResult = geminiResult as any;
       const gemText =
         rawResult?.candidates?.[0]?.content?.parts?.[0]?.text ??
@@ -365,7 +401,7 @@ If no food visible, return [].`;
       console.error("[analyzeFoodImage] Gemini gateway vision failed:", e);
     }
 
-    // Strategy 2: OpenAI Vision API directly (requires OPENAI_API_KEY)
+    // Strategy 4: OpenAI Vision API directly (requires OPENAI_API_KEY)
     try {
       const openaiText = await callOpenAIDirectly(visionPrompt, imageUrl);
       if (openaiText) {
@@ -377,7 +413,7 @@ If no food visible, return [].`;
       console.error("[analyzeFoodImage] OpenAI direct vision failed:", e);
     }
 
-    // Strategy 3: Gemini Vision API directly (requires GEMINI_API_KEY)
+    // Strategy 5: Gemini Vision API directly (requires GEMINI_API_KEY)
     try {
       const geminiText = await callGeminiDirectly(visionPrompt, imageUrl);
       if (geminiText) {
