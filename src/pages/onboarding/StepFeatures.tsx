@@ -12,19 +12,19 @@ const FEATURES = [
     icon: "📸",
     title: "Meal Photo Scan",
     body: "Snap a photo of your meal and PLATE automatically identifies and logs every ingredient.",
-    badge: "Premium",
+    badge: "Free",
   },
   {
     icon: "🎙️",
     title: "Voice Logging",
     body: "Say \"I had a chicken burrito and water\" and it's logged instantly. Hands-free tracking.",
-    badge: "Premium",
+    badge: "Free",
   },
   {
     icon: "📦",
     title: "Barcode Scanner",
     body: "Scan any packaged food barcode for instant, accurate macro logging.",
-    badge: "Free",
+    badge: "Premium",
   },
 ];
 
