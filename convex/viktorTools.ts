@@ -76,17 +76,17 @@ function parseMacrosFromSearchText(text: string): { calories: number; protein: n
 }
 
 /** Call OpenAI API directly (no Pipedream) if OPENAI_API_KEY is set */
-async function callOpenAIDirectly(prompt: string, imageBase64?: string, detail: "low" | "auto" | "high" = "auto"): Promise<string | null> {
+async function callOpenAIDirectly(prompt: string, imageInput?: string, detail: "low" | "auto" | "high" = "auto", model = "gpt-4o-mini"): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
   const messages: any[] = [];
 
-  if (imageBase64) {
+  if (imageInput) {
     // Vision request — accepts both data: URI and public HTTPS URL
-    const imageUrl = imageBase64.startsWith("data:") || imageBase64.startsWith("http")
-      ? imageBase64
-      : `data:image/jpeg;base64,${imageBase64}`;
+    const imageUrl = imageInput.startsWith("data:") || imageInput.startsWith("http")
+      ? imageInput
+      : `data:image/jpeg;base64,${imageInput}`;
     messages.push({
       role: "user",
       content: [
@@ -108,7 +108,7 @@ async function callOpenAIDirectly(prompt: string, imageBase64?: string, detail: 
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model,
       messages,
       max_tokens: 700,
     }),
@@ -459,7 +459,7 @@ If no food visible, return [].`;
 
     // Strategy 2: OpenAI Vision API directly (OPENAI_API_KEY)
     try {
-      const openaiText = await callOpenAIDirectly(visionPrompt, imageUrl);
+      const openaiText = await callOpenAIDirectly(visionPrompt, imageUrl, openAIDetail, openAIModel);
       if (openaiText) {
         console.log("[analyzeFoodImage] OpenAI direct vision OK:", openaiText.substring(0, 200));
         const parsed = extractJsonArray(openaiText);

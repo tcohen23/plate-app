@@ -49,52 +49,66 @@ export function FoodTrackerPage() {
   const [voiceMacroItem, setVoiceMacroItem] = useState<any | null>(null);
   const recognitionRef = useRef<any>(null);
   const voiceTranscriptRef = useRef<string>("");
-  // Barcode lookup via Open Food Facts API (client-side)
+  // Barcode lookup via Open Food Facts API (client-side) — retries 3x with backoff
   const lookupBarcodeApi = async (barcode: string) => {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
-    if (!res.ok) return { found: false, barcode };
-    const data = await res.json();
-    if (data.status !== 1 || !data.product) return { found: false, barcode };
-    const p = data.product;
-    const n = p.nutriments || {};
+    let lastErr: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 600));
+        const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`, {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) {
+          if (res.status >= 500) { lastErr = new Error(`Server ${res.status}`); continue; }
+          return { found: false, barcode };
+        }
+        const data = await res.json();
+        if (data.status !== 1 || !data.product) return { found: false, barcode };
+        const p = data.product;
+        const n = p.nutriments || {};
 
-    // Prefer per-serving values if ALL 4 macros are present for serving
-    const hasServing = (
-      n["energy-kcal_serving"] != null &&
-      n.proteins_serving != null &&
-      n.carbohydrates_serving != null &&
-      n.fat_serving != null
-    );
-    const usedServing = hasServing;
-    const calories = Math.round(hasServing ? n["energy-kcal_serving"] : (n["energy-kcal_100g"] || 0));
-    const protein = Math.round(hasServing ? n.proteins_serving : (n.proteins_100g || 0));
-    const carbs = Math.round(hasServing ? n.carbohydrates_serving : (n.carbohydrates_100g || 0));
-    const fat = Math.round(hasServing ? n.fat_serving : (n.fat_100g || 0));
+        // Prefer per-serving values if ALL 4 macros are present for serving
+        const hasServing = (
+          n["energy-kcal_serving"] != null &&
+          n.proteins_serving != null &&
+          n.carbohydrates_serving != null &&
+          n.fat_serving != null
+        );
+        const usedServing = hasServing;
+        const calories = Math.round(hasServing ? n["energy-kcal_serving"] : (n["energy-kcal_100g"] || 0));
+        const protein = Math.round(hasServing ? n.proteins_serving : (n.proteins_100g || 0));
+        const carbs = Math.round(hasServing ? n.carbohydrates_serving : (n.carbohydrates_100g || 0));
+        const fat = Math.round(hasServing ? n.fat_serving : (n.fat_100g || 0));
 
-    // Build serving label
-    let servingLabel = p.serving_size || "";
-    if (!hasServing && !servingLabel) {
-      servingLabel = "per 100g";
-    } else if (!hasServing && servingLabel) {
-      servingLabel = "per 100g (serving: " + servingLabel + ")";
+        // Build serving label
+        let servingLabel = p.serving_size || "";
+        if (!hasServing && !servingLabel) {
+          servingLabel = "per 100g";
+        } else if (!hasServing && servingLabel) {
+          servingLabel = "per 100g (serving: " + servingLabel + ")";
+        }
+
+        // Compute health score using the full product data
+        const { score, color, label, reasons } = calculateHealthScore(p);
+
+        return {
+          found: true, barcode,
+          name: p.product_name || p.generic_name || "Unknown Product",
+          brand: p.brands || "",
+          servingSize: servingLabel || "1 serving",
+          imageUrl: p.image_front_small_url || p.image_url || "",
+          calories, protein, carbs, fat,
+          usedServing,
+          healthScore: score,
+          healthColor: color,
+          healthLabel: label,
+          healthReasons: reasons,
+        };
+      } catch (err) {
+        lastErr = err;
+      }
     }
-
-    // Compute health score using the full product data
-    const { score, color, label, reasons } = calculateHealthScore(p);
-
-    return {
-      found: true, barcode,
-      name: p.product_name || p.generic_name || "Unknown Product",
-      brand: p.brands || "",
-      servingSize: servingLabel || "1 serving",
-      imageUrl: p.image_front_small_url || p.image_url || "",
-      calories, protein, carbs, fat,
-      usedServing,
-      healthScore: score,
-      healthColor: color,
-      healthLabel: label,
-      healthReasons: reasons,
-    };
+    throw lastErr ?? new Error("Network error");
   };
 
   const [view, setView] = useState<ViewMode>("log");
@@ -341,9 +355,12 @@ export function FoodTrackerPage() {
       trackBarcodeScanned(!!result?.found, code);
       setBarcodeResult(result);
       setView("barcode_result");
-    } catch {
+    } catch (err: any) {
       trackBarcodeScanned(false, code);
-      toast.error("Couldn't look up that barcode");
+      const isNetworkError = err?.name === "TimeoutError" || err?.message?.includes("Network") || err?.message?.includes("Failed to fetch");
+      toast.error(isNetworkError
+        ? "Network error. Check your connection and try again."
+        : "Couldn't look up that barcode. Try again.");
     } finally {
       setScanning(false);
     }
@@ -379,10 +396,14 @@ export function FoodTrackerPage() {
     setScannerActive(true);
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
-      // Ensure the container exists before starting
-      await new Promise(r => setTimeout(r, 100));
+      // Poll until the DOM container is rendered (fixes iOS race condition)
       const containerId = "barcode-scanner-region";
-      const container = document.getElementById(containerId);
+      let container: HTMLElement | null = null;
+      for (let i = 0; i < 20; i++) {
+        container = document.getElementById(containerId);
+        if (container) break;
+        await new Promise(r => setTimeout(r, 50));
+      }
       if (!container) {
         toast.error("Scanner container not ready. Please try again.");
         setScannerActive(false);
