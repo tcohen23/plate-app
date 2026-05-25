@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useConvexAuth } from "convex/react";
 
 const SLIDES = [
   {
@@ -31,7 +32,15 @@ const SLIDE_DURATION = 4000;
 
 export function Step01Welcome() {
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const [activeSlide, setActiveSlide] = useState(0);
+
+  // If already logged in, skip straight to the app
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartX = useRef<number | null>(null);
 

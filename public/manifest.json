@@ -2,7 +2,7 @@
   "name": "Plate — Nutrition, Perfected.",
   "short_name": "Plate",
   "description": "Personalized meal plans, macro tracking, and grocery lists — crafted by science, designed for you.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

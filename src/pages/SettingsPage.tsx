@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { trackSettingsChanged, trackThemeChanged } from "@/lib/posthog";
 import { hapticMedium, hapticSuccess } from "@/lib/haptics";
 import {
@@ -232,9 +232,9 @@ export function SettingsPage() {
   const [editMaxCookTime, setEditMaxCookTime] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  useState(() => {
+  useEffect(() => {
     isBiometricAvailable().then(setBiometricAvail);
-  });
+  }, []);
 
   // Edit state for each field
   const [editName, setEditName] = useState("");

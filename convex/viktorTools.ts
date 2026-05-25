@@ -125,7 +125,7 @@ async function callOpenAIDirectly(prompt: string, imageBase64?: string): Promise
 
 /** Call Gemini API directly (no Pipedream) if GEMINI_API_KEY is set */
 async function callGeminiDirectly(prompt: string, imageBase64?: string): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY ?? "AIzaSyDxVhNfYHZhPxHh0gaVpmPv2OSvcDCMYEY";
   if (!apiKey) return null;
 
   const parts: any[] = [{ text: prompt }];
@@ -137,7 +137,7 @@ async function callGeminiDirectly(prompt: string, imageBase64?: string): Promise
     parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
   }
 
-  const model = imageBase64 ? "gemini-1.5-flash" : "gemini-1.5-flash";
+  const model = imageBase64 ? "gemini-2.5-flash-lite" : "gemini-2.5-flash-lite";
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
