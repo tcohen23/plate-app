@@ -6,8 +6,9 @@
  */
 
 export interface FoodItem {
+  id: string;
   name: string;
-  brand: string;
+  brand?: string;
   calories: number;
   protein: number;
   carbs: number;
@@ -1042,9 +1043,10 @@ export function searchFoodDatabase(query: string, limit = 20): FoodItem[] {
   const contains: FoodItem[] = [];
 
   for (const item of FOOD_DATABASE) {
-    const fullName = (item.brand ? item.brand + " " + item.name : item.name).toLowerCase();
+    const brandStr = item.brand ?? "";
+    const fullName = (brandStr ? brandStr + " " + item.name : item.name).toLowerCase();
     const nameLower = item.name.toLowerCase();
-    const brandLower = item.brand.toLowerCase();
+    const brandLower = brandStr.toLowerCase();
     
     if (nameLower === q || fullName === q) {
       exact.push(item);

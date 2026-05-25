@@ -12,7 +12,8 @@ import { trackFoodLogged, trackBarcodeScanned } from "@/lib/posthog";
 import { usePaywall } from "@/components/PaywallModal";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { calculateHealthScore } from "@/lib/healthScore";
-import { searchFoodDatabase, FoodItem } from "@/lib/foodDatabase";
+import { searchFoodDatabase } from "@/lib/foodDatabase";
+import type { FoodItem } from "@/lib/foodDatabase";
 
 type ViewMode = "log" | "search" | "quick" | "custom" | "scanner" | "barcode_result" | "meal_detail" | "food_detail";
 
@@ -530,9 +531,9 @@ export function FoodTrackerPage() {
               {dbResults.length > 0 && (
                 <>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 pt-1">Foods</p>
-                  {dbResults.map((food) => (
+                  {dbResults.map((food, fi) => (
                     <Card
-                      key={food.id}
+                      key={food.id ?? `db-${fi}`}
                       className="p-3 rounded-xl flex items-center justify-between hover:bg-accent/30 active:scale-[0.99] transition-all cursor-pointer"
                       onClick={() => {
                         setSelectedFoodItem(food);
