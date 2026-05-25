@@ -6,7 +6,7 @@
  */
 
 export interface FoodItem {
-  id: string;
+  id?: string;
   name: string;
   brand?: string;
   calories: number;
