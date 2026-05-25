@@ -22,33 +22,42 @@ function fbq(...args: any[]) {
 /** Initialize the Meta Pixel (called once on app load) */
 export function initMetaPixel() {
   if (!PIXEL_ID) return;
-  const w = window as any;
-  if (w.fbq) return; // already loaded
 
-  // Inject the fbevents.js script
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = "https://connect.facebook.net/en_US/fbevents.js";
-  document.head.appendChild(script);
+  // Defer until after React Router has fully initialized its history,
+  // preventing the FB SDK's replaceState patch from crashing the app.
+  setTimeout(() => {
+    try {
+      const w = window as any;
+      if (w.fbq) return; // already loaded
 
-  // Set up the fbq stub before the script loads
-  const queue: any[][] = [];
-  const fbqFn: any = (...args: any[]) => {
-    if (fbqFn.callMethod) {
-      fbqFn.callMethod(...args);
-    } else {
-      queue.push(args);
-    }
-  };
-  fbqFn.push = fbqFn;
-  fbqFn.loaded = true;
-  fbqFn.version = "2.0";
-  fbqFn.queue = queue;
-  w.fbq = fbqFn;
-  if (!w._fbq) w._fbq = fbqFn;
+      // Inject the fbevents.js script
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://connect.facebook.net/en_US/fbevents.js";
+      document.head.appendChild(script);
 
-  fbq("init", PIXEL_ID);
-  fbq("track", "PageView");
+      // Set up the fbq stub before the script loads
+      const queue: any[][] = [];
+      const fbqFn: any = (...args: any[]) => {
+        try {
+          if (fbqFn.callMethod) {
+            fbqFn.callMethod(...args);
+          } else {
+            queue.push(args);
+          }
+        } catch {}
+      };
+      fbqFn.push = fbqFn;
+      fbqFn.loaded = true;
+      fbqFn.version = "2.0";
+      fbqFn.queue = queue;
+      w.fbq = fbqFn;
+      if (!w._fbq) w._fbq = fbqFn;
+
+      fbq("init", PIXEL_ID);
+      fbq("track", "PageView");
+    } catch {}
+  }, 0);
 }
 
 /** Fire CompleteRegistration — call when a new account is fully verified */
