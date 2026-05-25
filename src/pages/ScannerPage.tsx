@@ -298,12 +298,14 @@ export function ScannerPage() {
     try {
       const video = videoRef.current;
       const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      const MAX_W = 1024;
+      const scale = video.videoWidth > MAX_W ? MAX_W / video.videoWidth : 1;
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas error");
-      ctx.drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
       setCapturedFrame(dataUrl);
       const items = await analyzeFoodImage({ imageUrl: dataUrl });
       if ((items as any)?.error === "vision_api_not_configured") {
@@ -408,7 +410,22 @@ export function ScannerPage() {
     setScanResult(null);
     try {
       const reader = new FileReader();
-      const dataUrl: string = await new Promise(res => { reader.onload = () => res(reader.result as string); reader.readAsDataURL(file); });
+      const rawDataUrl: string = await new Promise(res => { reader.onload = () => res(reader.result as string); reader.readAsDataURL(file); });
+      // Resize to max 1024px wide to keep payload small
+      const dataUrl: string = await new Promise(res => {
+        const img = document.createElement("img");
+        img.onload = () => {
+          const MAX_W = 1024;
+          const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          const x = c.getContext("2d")!;
+          x.drawImage(img, 0, 0, c.width, c.height);
+          res(c.toDataURL("image/jpeg", 0.75));
+        };
+        img.src = rawDataUrl;
+      });
       setCapturedFrame(dataUrl);
       const items = await analyzeFoodImage({ imageUrl: dataUrl });
       const arr = Array.isArray(items) ? items : [];
