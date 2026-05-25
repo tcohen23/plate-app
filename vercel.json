@@ -1,6 +1,6 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "node_modules/.bin/convex codegen || true && node_modules/.bin/tsc -b --noEmit || true && node_modules/.bin/vite build",
+  "buildCommand": "node_modules/.bin/tsc -b --noEmit || true && node_modules/.bin/vite build",
   "outputDirectory": "dist",
   "framework": null,
   "build": {

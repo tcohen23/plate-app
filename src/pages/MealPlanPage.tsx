@@ -260,20 +260,25 @@ export function MealPlanPage() {
             {!hasPremium && <Lock className="w-3 h-3 mr-1" />}
             <Dumbbell className="w-3.5 h-3.5 mr-1" /> Workout
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleGenerate}
-            disabled={regenBlocked}
-            className="h-9 rounded-full text-xs px-4"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1" />
-            {regenBlocked ? "No regens left" : "Regenerate"}
-          </Button>
-          {isFreeUser && regenLeft !== null && (
-            <span className="text-xs" style={{ color: regenBlocked ? "#ef4444" : "var(--muted-foreground)" }}>
-              {regenLeft} regen{regenLeft === 1 ? "" : "s"} left this week
-            </span>
+          {regenBlocked ? (
+            <Button
+              size="sm"
+              onClick={() => navigate("/upgrade")}
+              className="h-9 rounded-full text-xs px-4"
+              style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff", border: "none" }}
+            >
+              ✨ Upgrade for unlimited
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleGenerate}
+              className="h-9 rounded-full text-xs px-4"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1" />
+              Regenerate
+            </Button>
           )}
         </div>
       </div>
@@ -550,13 +555,13 @@ export function MealPlanPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => handleSwap(activeDay, mealIdx)}
-                          disabled={isSwapping || isLogged || regenBlocked}
+                          onClick={() => regenBlocked ? navigate("/upgrade") : handleSwap(activeDay, mealIdx)}
+                          disabled={isSwapping || isLogged}
                           className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
                           style={{ background: "var(--surface-overlay)" }}
-                          title={regenBlocked ? "No regens left this week" : isLogged ? "Tap meal to unlog" : "Swap meal"}
+                          title={regenBlocked ? "Upgrade for unlimited swaps" : isLogged ? "Tap meal to unlog" : "Swap meal"}
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isSwapping ? "animate-spin" : ""}`} />
+                          {regenBlocked ? <Lock className="w-3.5 h-3.5" /> : <RefreshCw className={`w-3.5 h-3.5 ${isSwapping ? "animate-spin" : ""}`} />}
                         </button>
                       </div>
                     </div>

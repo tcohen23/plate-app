@@ -342,11 +342,18 @@ export const generatePlan = mutation({
       .collect();
     const existingPlan = existingPlans[existingPlans.length - 1];
 
+    // Track regen count to carry over to the new plan doc (since old docs are deleted)
+    let carryRegenCount: number | undefined;
+    let carryRegenResetAt: string | undefined;
+
     if (existingPlan && isFreeUser(profile)) {
       const { allowed, regenLeft } = await checkAndIncrementRegenLimit(ctx, existingPlan);
       if (!allowed) {
         throw new Error(`REGEN_LIMIT_REACHED:0`);
       }
+      // Carry counter forward so it isn't lost when the old plan doc is deleted
+      carryRegenCount = FREE_WEEKLY_REGEN_LIMIT - regenLeft;
+      carryRegenResetAt = getMondayISO();
       console.log(`[generatePlan] Free user regen allowed. ${regenLeft} left this week.`);
     }
 
@@ -748,6 +755,8 @@ export const generatePlan = mutation({
       seenLunchIds: Array.from(usedLunches),
       seenDinnerIds: Array.from(usedDinners),
       seenSnackIds: Array.from(usedSnacks),
+      // Carry regen counter forward (old plan doc is deleted, so we must preserve it here)
+      ...(carryRegenCount !== undefined ? { weeklyRegenCount: carryRegenCount, weeklyRegenResetAt: carryRegenResetAt } : {}),
     });
 
     // Auto-sync grocery list
