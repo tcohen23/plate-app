@@ -9,7 +9,7 @@ import { PublicOnlyRoute } from "./components/PublicOnlyRoute";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { MobileLayout } from "./components/MobileLayout";
-import { initPostHog } from "./lib/posthog";
+import { initPostHog, posthog } from "./lib/posthog";
 import { initMetaPixel, trackMetaEvent } from "./lib/metaPixel";
 import {
   LoginPage,
@@ -95,8 +95,9 @@ function PageViewTracker() {
     lastTracked.current = path;
     const sessionId = getSessionId();
     trackPageView({ path, sessionId }).catch(() => {});
-    // Also fire Meta Pixel PageView on each route change (since autoConfig=false
-    // disables FB's automatic replaceState tracking to prevent React Router crash)
+    // Manually fire PostHog $pageview (autocapture is disabled to prevent
+    // PostHog from patching history.replaceState and crashing React Router)
+    try { posthog.capture("$pageview"); } catch {}
     trackMetaEvent("PageView");
   }, [location.pathname, trackPageView]);
 

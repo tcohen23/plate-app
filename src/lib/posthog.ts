@@ -11,13 +11,16 @@ let initialized = false;
 
 export function initPostHog() {
   if (initialized) return;
-  // Don't init in dev/localhost unless testing
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     person_profiles: "identified_only",
-    capture_pageview: true,
-    capture_pageleave: true,
-    autocapture: true,
+    // CRITICAL: disable PostHog's built-in pageview capture and autocapture.
+    // PostHog patches history.replaceState/pushState to detect URL changes,
+    // which conflicts with React Router and causes "An unexpected error occurred"
+    // on every navigation. We fire $pageview manually from PageViewTracker instead.
+    capture_pageview: false,
+    capture_pageleave: false,
+    autocapture: false,
     persistence: "localStorage+cookie",
     session_recording: {
       maskAllInputs: false,
@@ -27,9 +30,7 @@ export function initPostHog() {
     },
     disable_session_recording: false,
     loaded: (_ph) => {
-      // Disable in local development if needed
       if (window.location.hostname === "localhost") {
-        // Still track in dev for testing — remove this line to disable
         // ph.opt_out_capturing();
       }
     },

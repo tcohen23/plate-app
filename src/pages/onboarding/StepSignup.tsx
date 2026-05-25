@@ -11,7 +11,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ChevronLeft } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trackSignup } from "@/lib/posthog";
 
 export function StepSignup() {
@@ -20,11 +20,12 @@ export function StepSignup() {
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
   const profile = useQuery(api.profiles.getProfile);
 
-  // If already logged in, go to goals
-  if (profile && (profile as any).onboardingCompletedAt) {
-    navigate("/dashboard", { replace: true });
-    return null;
-  }
+  // If already logged in, redirect — must be in useEffect, not during render
+  useEffect(() => {
+    if (profile && (profile as any).onboardingCompletedAt) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profile, navigate]);
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setOauthLoading(provider);
