@@ -4,6 +4,9 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { trackEvent } from "@/lib/posthog";
 import { OnboardingCTA } from "./OnboardingLayout";
 
 function calculateCalories(): number {
@@ -66,6 +69,7 @@ export function Step16Reveal() {
   const navigate = useNavigate();
   const [calories] = useState(() => calculateCalories());
   const displayCals = useCountUp(calories);
+  const completeOnboarding = useMutation(api.onboarding.completeOnboarding);
 
   const protein = Math.round((calories * 0.30) / 4);
   const carbs = Math.round((calories * 0.45) / 4);
@@ -73,13 +77,40 @@ export function Step16Reveal() {
 
   const firstName = sessionStorage.getItem("ob_firstName") || "";
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     sessionStorage.setItem("ob_calories", String(calories));
     sessionStorage.setItem("ob_protein", String(protein));
     sessionStorage.setItem("ob_carbs", String(carbs));
     sessionStorage.setItem("ob_fat", String(fat));
-    // New flow: features showcase (no hard paywall)
-    navigate("/onboarding/features");
+    // Complete onboarding and go straight to dashboard — no paywall
+    try {
+      await completeOnboarding({
+        firstName: sessionStorage.getItem("ob_firstName") || "",
+        goals: JSON.parse(sessionStorage.getItem("ob_goals") || "[]"),
+        glp1Status: sessionStorage.getItem("ob_glp1") || "no",
+        pastBarriers: JSON.parse(sessionStorage.getItem("ob_barriers") || "[]"),
+        habits: JSON.parse(sessionStorage.getItem("ob_habits") || "[]"),
+        mealPlanOptIn: sessionStorage.getItem("ob_mealPlanOptIn") !== "no",
+        planningFrequency: sessionStorage.getItem("ob_frequency") || "daily",
+        sex: sessionStorage.getItem("ob_sex") || "other",
+        age: parseInt(sessionStorage.getItem("ob_age") || "25"),
+        country: sessionStorage.getItem("ob_country") || "US",
+        zip: sessionStorage.getItem("ob_zip") || undefined,
+        currentWeightLb: parseFloat(sessionStorage.getItem("ob_currentWeight") || "160"),
+        goalWeightLb: parseFloat(sessionStorage.getItem("ob_goalWeight") || sessionStorage.getItem("ob_currentWeight") || "150"),
+        heightFt: parseInt(sessionStorage.getItem("ob_heightFt") || "5"),
+        heightIn: parseInt(sessionStorage.getItem("ob_heightIn") || "6"),
+        reminderOptIn: true,
+        emailOptIn: true,
+        personalizationConsent: true,
+        calorieTarget: calories,
+        activityLevel: sessionStorage.getItem("ob_activity") || "moderate",
+      });
+    } catch (e) {
+      console.error("completeOnboarding error", e);
+    }
+    trackEvent("onboarding_completed", { source: "plan_reveal" });
+    navigate("/dashboard", { replace: true });
   };
 
   return (

@@ -35,30 +35,17 @@ import { StepSignup } from "./pages/onboarding/StepSignup";
 import { Step02Name } from "./pages/onboarding/Step02Name";
 import { Step03Goals } from "./pages/onboarding/Step03Goals";
 import { StepInterstitialRealtalk } from "./pages/onboarding/StepInterstitialRealtalk";
-import { StepInterstitialChoices } from "./pages/onboarding/StepInterstitialChoices";
 import { Step04Activity } from "./pages/onboarding/Step04Activity";
-import { Step05Glp1 } from "./pages/onboarding/Step05Glp1";
-import { Step06Barriers } from "./pages/onboarding/Step06Barriers";
-import { StepMealPlanOptin } from "./pages/onboarding/StepMealPlanOptin";
-import { Step09Kitchen } from "./pages/onboarding/Step09Kitchen";
-import { Step09Journey } from "./pages/onboarding/Step09Journey";
 import { StepAboutYou } from "./pages/onboarding/StepAboutYou";
 import { Step12Measurements } from "./pages/onboarding/Step12Measurements";
-import { StepWeeklyGoal } from "./pages/onboarding/StepWeeklyGoal";
-import { Step07Habits } from "./pages/onboarding/Step07Habits";
-import { StepPersonalization } from "./pages/onboarding/StepPersonalization";
 import { StepCreateAccount } from "./pages/onboarding/StepCreateAccount";
 import { StepVerifyEmail } from "./pages/onboarding/StepVerifyEmail";
-import { Step14Username } from "./pages/onboarding/Step14Username";
+import { StepBuildingPlan } from "./pages/onboarding/StepBuildingPlan";
 import { Step16Reveal } from "./pages/onboarding/Step16Reveal";
-import { StepFeatures } from "./pages/onboarding/StepFeatures";
 import { StepUpgrade } from "./pages/onboarding/StepUpgrade";
 import { StepWelcomePremium } from "./pages/onboarding/StepWelcomePremium";
 // Legacy v2 screens (kept for backward compat / deep-links)
-import { Step10Frequency } from "./pages/onboarding/Step10Frequency";
-import { Step13Account } from "./pages/onboarding/Step13Account";
-import { Step15Consent } from "./pages/onboarding/Step15Consent";
-import { Step18WelcomeDone } from "./pages/onboarding/Step18WelcomeDone";
+
 import { WorkoutStep02Goals } from "./pages/onboarding/WorkoutStep02Goals";
 import { WorkoutStep03Experience } from "./pages/onboarding/WorkoutStep03Experience";
 import { WorkoutStep04Gym } from "./pages/onboarding/WorkoutStep04Gym";
@@ -155,86 +142,38 @@ function App() {
           {/* Screen 5: weight interstitial (conditional) */}
           <Route path="/onboarding/interstitial-realtalk" element={<StepInterstitialRealtalk />} />
 
-          {/* Screen 6: choices interstitial */}
-          <Route path="/onboarding/interstitial-choices" element={<StepInterstitialChoices />} />
-
-          {/* Screen 7: activity */}
+          {/* Screen 6: activity */}
           <Route path="/onboarding/activity" element={<Step04Activity />} />
 
           {/* Screen 8: GLP-1 */}
-          <Route path="/onboarding/glp1" element={<Step05Glp1 />} />
-
-          {/* Screen 9: barriers (conditional) */}
-          <Route path="/onboarding/barriers" element={<Step06Barriers />} />
-
-          {/* Screen 10: meal plan opt-in */}
-          <Route path="/onboarding/mealplan-optin" element={<StepMealPlanOptin />} />
-          {/* Legacy route alias */}
-          <Route path="/onboarding/meal-plan" element={<StepMealPlanOptin />} />
-
-          {/* Screen 11: kitchen interstitial */}
-          <Route path="/onboarding/interstitial-kitchen" element={<Step09Kitchen />} />
-          <Route path="/onboarding/kitchen" element={<Step09Kitchen />} />
-
-          {/* Screen 12: journey interstitial */}
-          <Route path="/onboarding/interstitial-journey" element={<Step09Journey />} />
-          <Route path="/onboarding/journey" element={<Step09Journey />} />
-
-          {/* Screen 13: about you (sex + age + country + zip) */}
+          {/* Screen 7: about you (sex + age + country + zip) */}
           <Route path="/onboarding/about-you" element={<StepAboutYou />} />
-          {/* Legacy: stats used to do this */}
           <Route path="/onboarding/stats" element={<StepAboutYou />} />
 
-          {/* Screen 14: measurements */}
+          {/* Screen 8: measurements */}
           <Route path="/onboarding/measurements" element={<Step12Measurements />} />
 
-          {/* Screen 15: weekly goal (conditional) */}
-          <Route path="/onboarding/weekly-goal" element={<StepWeeklyGoal />} />
-
-          {/* Screen 16: habits */}
-          <Route path="/onboarding/habits" element={<Step07Habits />} />
-
-          {/* Screen 17: personalization consent */}
-          <Route path="/onboarding/personalization" element={<StepPersonalization />} />
-
-          {/* Screen 18: create account */}
+          {/* Screen 9: create account */}
           <Route path="/onboarding/create-account" element={<StepCreateAccount />} />
-          {/* Legacy account route */}
-          <Route path="/onboarding/account" element={<Step13Account />} />
 
-          {/* Legacy screens */}
-          <Route path="/onboarding/frequency" element={<Step10Frequency />} />
-
-          {/* Screen 18.5: verify email — PUBLIC (user not yet authenticated, awaiting OTP) */}
+          {/* Screen 10: verify email — PUBLIC (user not yet authenticated) */}
           <Route path="/onboarding/verify-email" element={<StepVerifyEmail />} />
 
           {/* ── Post-auth onboarding (requires login) ── */}
           <Route element={<ProtectedRoute />}>
 
-            {/* Screen 19: username */}
-            <Route path="/onboarding/username" element={<Step14Username />} />
+            {/* Screen 11: building plan animation + completeOnboarding */}
+            <Route path="/onboarding/building-plan" element={<StepBuildingPlan />} />
 
-            {/* Legacy consent */}
-            <Route path="/onboarding/consent" element={<Step15Consent />} />
-
-            {/* Screen 20: plan reveal */}
+            {/* Screen 12: plan reveal (calorie count-up) — kept for deep links */}
             <Route path="/onboarding/plan-ready" element={<Step16Reveal />} />
             <Route path="/onboarding/reveal" element={<Step16Reveal />} />
 
-            {/* Screen 21: feature showcase */}
-            <Route path="/onboarding/features" element={<StepFeatures />} />
-
-            {/* Screen 22: soft upsell (skippable) */}
+            {/* In-app soft upsell — reachable from dashboard, NOT onboarding flow */}
             <Route path="/onboarding/upgrade" element={<StepUpgrade />} />
 
-            {/* Legacy paywall — redirect to soft upsell */}
-            <Route path="/onboarding/paywall" element={<StepUpgrade />} />
-
-            {/* Screen 23: welcome premium (post-purchase) */}
+            {/* Post-purchase welcome */}
             <Route path="/onboarding/welcome-premium" element={<StepWelcomePremium />} />
-
-            {/* Legacy welcome-done */}
-            <Route path="/onboarding/welcome-done" element={<Step18WelcomeDone />} />
 
             <Route path="/admin" element={<AdminPage />} />
 

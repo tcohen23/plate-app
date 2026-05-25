@@ -39,7 +39,7 @@ export function Step04Activity() {
 
   const handleContinue = () => {
     sessionStorage.setItem("ob_activity", value);
-    navigate("/onboarding/glp1");
+    navigate("/onboarding/about-you");
   };
 
   return (

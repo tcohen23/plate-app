@@ -22,10 +22,7 @@ export function Step12Measurements() {
     sessionStorage.setItem("ob_heightIn", heightIn);
     sessionStorage.setItem("ob_currentWeight", currentWeight);
     sessionStorage.setItem("ob_goalWeight", goalWeight);
-    // Check if weight goal — show weekly goal screen
-    const goals: string[] = JSON.parse(sessionStorage.getItem("ob_goals") || "[]");
-    const hasWeightGoal = goals.includes("lose_weight") || goals.includes("gain_weight");
-    navigate(hasWeightGoal ? "/onboarding/weekly-goal" : "/onboarding/habits");
+    navigate("/onboarding/create-account");
   };
 
   const inputStyle = (filled: boolean) => ({

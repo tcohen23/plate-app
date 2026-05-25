@@ -46,7 +46,7 @@ export function StepVerifyEmail() {
       await signIn("password", formData);
       await createProfile({ firstName });
       trackSignup("email");
-      navigate("/onboarding/username");
+      navigate("/onboarding/building-plan");
     } catch (err: any) {
       const msg = (err?.message || "").toLowerCase();
       if (msg.includes("expired")) {
