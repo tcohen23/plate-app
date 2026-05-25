@@ -23,41 +23,44 @@ function fbq(...args: any[]) {
 export function initMetaPixel() {
   if (!PIXEL_ID) return;
 
-  // Defer until after React Router has fully initialized its history,
-  // preventing the FB SDK's replaceState patch from crashing the app.
-  setTimeout(() => {
-    try {
-      const w = window as any;
-      if (w.fbq) return; // already loaded
+  try {
+    const w = window as any;
+    if (w.fbq) return; // already loaded
 
-      // Inject the fbevents.js script
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = "https://connect.facebook.net/en_US/fbevents.js";
-      document.head.appendChild(script);
+    // Set up the fbq stub BEFORE injecting the script so queued calls
+    // are captured even before fbevents.js finishes loading.
+    const queue: any[][] = [];
+    const fbqFn: any = (...args: any[]) => {
+      try {
+        if (fbqFn.callMethod) {
+          fbqFn.callMethod(...args);
+        } else {
+          queue.push(args);
+        }
+      } catch {}
+    };
+    fbqFn.push = fbqFn;
+    fbqFn.loaded = true;
+    fbqFn.version = "2.0";
+    fbqFn.queue = queue;
+    w.fbq = fbqFn;
+    if (!w._fbq) w._fbq = fbqFn;
 
-      // Set up the fbq stub before the script loads
-      const queue: any[][] = [];
-      const fbqFn: any = (...args: any[]) => {
-        try {
-          if (fbqFn.callMethod) {
-            fbqFn.callMethod(...args);
-          } else {
-            queue.push(args);
-          }
-        } catch {}
-      };
-      fbqFn.push = fbqFn;
-      fbqFn.loaded = true;
-      fbqFn.version = "2.0";
-      fbqFn.queue = queue;
-      w.fbq = fbqFn;
-      if (!w._fbq) w._fbq = fbqFn;
+    // CRITICAL: Disable FB SDK's automatic replaceState/pushState patching.
+    // Without this, fbevents.js monkey-patches window.history.replaceState
+    // and crashes React Router. We handle page view tracking manually via
+    // trackPageView() called from our PageViewTracker component instead.
+    fbq("set", "autoConfig", false, PIXEL_ID);
 
-      fbq("init", PIXEL_ID);
-      fbq("track", "PageView");
-    } catch {}
-  }, 0);
+    fbq("init", PIXEL_ID);
+    fbq("track", "PageView");
+
+    // Inject the fbevents.js script after stub + autoConfig are set
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://connect.facebook.net/en_US/fbevents.js";
+    document.head.appendChild(script);
+  } catch {}
 }
 
 /** Fire CompleteRegistration — call when a new account is fully verified */

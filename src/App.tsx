@@ -10,7 +10,7 @@ import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { MobileLayout } from "./components/MobileLayout";
 import { initPostHog } from "./lib/posthog";
-import { initMetaPixel } from "./lib/metaPixel";
+import { initMetaPixel, trackMetaEvent } from "./lib/metaPixel";
 import {
   LoginPage,
   SignupPage,
@@ -95,6 +95,9 @@ function PageViewTracker() {
     lastTracked.current = path;
     const sessionId = getSessionId();
     trackPageView({ path, sessionId }).catch(() => {});
+    // Also fire Meta Pixel PageView on each route change (since autoConfig=false
+    // disables FB's automatic replaceState tracking to prevent React Router crash)
+    trackMetaEvent("PageView");
   }, [location.pathname, trackPageView]);
 
   return null;
