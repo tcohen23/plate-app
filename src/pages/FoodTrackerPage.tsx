@@ -583,7 +583,7 @@ export function FoodTrackerPage() {
 
               {/* Hint when no query */}
               {!hasQuery && (
-                <p className="text-sm text-muted-foreground text-center py-6">Start typing to search 1,100+ foods</p>
+                <p className="text-sm text-muted-foreground text-center py-6">Start typing to search 1,000+ foods</p>
               )}
             </div>
           </div>
