@@ -328,7 +328,44 @@ Return ONLY a valid JSON array (no markdown):
 
 If no food visible, return [].`;
 
-    // Strategy 1: OpenAI Vision API directly (requires OPENAI_API_KEY)
+    // Strategy 1: Gemini Vision via Viktor tool gateway (no API key needed)
+    try {
+      // Build inline parts for Gemini API
+      const isDataUrl = imageUrl.startsWith("data:");
+      const parts: any[] = [{ text: visionPrompt }];
+      if (isDataUrl) {
+        const base64Data = imageUrl.includes(",") ? imageUrl.split(",")[1] : imageUrl;
+        const mimeType = imageUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+        parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+      } else {
+        parts.push({ file_data: { mime_type: "image/jpeg", file_uri: imageUrl } });
+      }
+      const geminiResult = await callTool<{ content?: string; response?: string }>(
+        "mcp_pd_google_gemini_proxy_post",
+        {
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+          json_body: {
+            contents: [{ parts }],
+            generationConfig: { maxOutputTokens: 600 },
+          },
+        }
+      );
+      // The proxy returns the raw Gemini response
+      const rawResult = geminiResult as any;
+      const gemText =
+        rawResult?.candidates?.[0]?.content?.parts?.[0]?.text ??
+        rawResult?.content?.candidates?.[0]?.content?.parts?.[0]?.text ??
+        null;
+      if (gemText) {
+        console.log("[analyzeFoodImage] Gemini gateway vision response:", gemText.substring(0, 200));
+        const parsed = extractJsonArray(gemText);
+        if (parsed && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("[analyzeFoodImage] Gemini gateway vision failed:", e);
+    }
+
+    // Strategy 2: OpenAI Vision API directly (requires OPENAI_API_KEY)
     try {
       const openaiText = await callOpenAIDirectly(visionPrompt, imageUrl);
       if (openaiText) {
@@ -340,7 +377,7 @@ If no food visible, return [].`;
       console.error("[analyzeFoodImage] OpenAI direct vision failed:", e);
     }
 
-    // Strategy 2: Gemini Vision API directly (requires GEMINI_API_KEY)
+    // Strategy 3: Gemini Vision API directly (requires GEMINI_API_KEY)
     try {
       const geminiText = await callGeminiDirectly(visionPrompt, imageUrl);
       if (geminiText) {
@@ -352,12 +389,9 @@ If no food visible, return [].`;
       console.error("[analyzeFoodImage] Gemini direct vision failed:", e);
     }
 
-    // Strategy 3: Fallback — search for the image URL to get any available data
-    // (limited without vision AI, but better than silent failure)
-    console.warn("[analyzeFoodImage] No vision API key configured. Add OPENAI_API_KEY or GEMINI_API_KEY to Convex env vars.");
-    
     // Return a specific error object so the frontend can show a helpful message
-    return { error: "vision_api_not_configured", message: "Add OPENAI_API_KEY or GEMINI_API_KEY to Convex environment variables to enable meal scan." };
+    console.warn("[analyzeFoodImage] All vision strategies failed.");
+    return { error: "vision_api_not_configured", message: "Meal scan unavailable. Please try again." };
   },
 });
 
