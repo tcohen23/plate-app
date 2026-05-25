@@ -411,13 +411,13 @@ export const generatePlan = mutation({
     weekStart.setDate(today.getDate() - today.getDay() + 1);
 
     // Load existing plan to restore cross-regeneration seen history
-    const existingPlan = await ctx.db.query("mealPlans").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const prevPlan = await ctx.db.query("mealPlans").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
 
     // Restore seen IDs from previous plan — so regenerating doesn't repeat recently shown meals
-    const usedBreakfasts: Set<string> = new Set(existingPlan?.seenBreakfastIds || []);
-    const usedLunches: Set<string> = new Set(existingPlan?.seenLunchIds || []);
-    const usedDinners: Set<string> = new Set(existingPlan?.seenDinnerIds || []);
-    const usedSnacks: Set<string> = new Set(existingPlan?.seenSnackIds || []);
+    const usedBreakfasts: Set<string> = new Set(prevPlan?.seenBreakfastIds || []);
+    const usedLunches: Set<string> = new Set(prevPlan?.seenLunchIds || []);
+    const usedDinners: Set<string> = new Set(prevPlan?.seenDinnerIds || []);
+    const usedSnacks: Set<string> = new Set(prevPlan?.seenSnackIds || []);
 
     const targetCals = profile.targetCalories || 2000;
     const targetProteinDaily = (profile as any).targetProtein as number | undefined || Math.round(targetCals * 0.30 / 4);
