@@ -3,6 +3,11 @@
   "buildCommand": "node_modules/.bin/tsc -b --noEmit || true && node_modules/.bin/vite build",
   "outputDirectory": "dist",
   "framework": null,
+  "build": {
+    "env": {
+      "NODE_VERSION": "22"
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!assets/|.*\\.(mp4|mov|webm|jpg|jpeg|png|webp|gif|svg|ico|pdf|woff|woff2|ttf|otf|js|css|json|txt|xml|csv)$).*)",
