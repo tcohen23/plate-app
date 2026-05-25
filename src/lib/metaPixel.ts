@@ -6,6 +6,18 @@
  * Events:
  *   - CompleteRegistration → fired on email verification (account created)
  *   - Purchase             → fired on Stripe success (welcome-done page)
+ *
+ * HISTORY OF THE replaceState CRASH:
+ *   Facebook's fbevents.js patches window.history.replaceState when it loads.
+ *   This confuses React Router's internal routing state and throws
+ *   "An unexpected error occurred" on every navigation.
+ *   Two prior attempts (autoConfig=false queued, setTimeout) failed because
+ *   autoConfig must be set BEFORE fbevents.js executes, not queued.
+ *
+ * SOLUTION: Freeze history.replaceState and pushState with Object.defineProperty
+ * BEFORE injecting fbevents.js, so FB cannot overwrite them. Then set
+ * autoConfig=false + init in the script's onload callback so the real fbq
+ * handles it (not the queue stub).
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -27,8 +39,28 @@ export function initMetaPixel() {
     const w = window as any;
     if (w.fbq) return; // already loaded
 
-    // Set up the fbq stub BEFORE injecting the script so queued calls
-    // are captured even before fbevents.js finishes loading.
+    // Step 1: Freeze history.replaceState + pushState BEFORE fbevents.js loads.
+    // Facebook's SDK overwrites these via direct assignment (history.replaceState = ...)
+    // which triggers the React Router crash. Object.defineProperty with a no-op setter
+    // blocks the assignment while keeping the native function usable via the getter.
+    try {
+      const nativeReplaceState = history.replaceState.bind(history);
+      const nativePushState = history.pushState.bind(history);
+      Object.defineProperty(history, "replaceState", {
+        get: () => nativeReplaceState,
+        set: () => { /* block FB SDK from patching */ },
+        configurable: true,
+      });
+      Object.defineProperty(history, "pushState", {
+        get: () => nativePushState,
+        set: () => { /* block FB SDK from patching */ },
+        configurable: true,
+      });
+    } catch {
+      // defineProperty failed (e.g. strict iframe) — proceed anyway
+    }
+
+    // Step 2: Set up the standard fbq stub so calls queued before load are replayed.
     const queue: any[][] = [];
     const fbqFn: any = (...args: any[]) => {
       try {
@@ -46,19 +78,19 @@ export function initMetaPixel() {
     w.fbq = fbqFn;
     if (!w._fbq) w._fbq = fbqFn;
 
-    // CRITICAL: Disable FB SDK's automatic replaceState/pushState patching.
-    // Without this, fbevents.js monkey-patches window.history.replaceState
-    // and crashes React Router. We handle page view tracking manually via
-    // trackPageView() called from our PageViewTracker component instead.
-    fbq("set", "autoConfig", false, PIXEL_ID);
-
-    fbq("init", PIXEL_ID);
-    fbq("track", "PageView");
-
-    // Inject the fbevents.js script after stub + autoConfig are set
+    // Step 3: Inject fbevents.js. Set autoConfig=false + init in onload so the
+    // real fbq (not the stub) handles autoConfig — this is what actually works.
     const script = document.createElement("script");
     script.async = true;
     script.src = "https://connect.facebook.net/en_US/fbevents.js";
+    script.onload = () => {
+      try {
+        // Must call set autoConfig BEFORE init, using the now-loaded real fbq
+        fbq("set", "autoConfig", false, PIXEL_ID);
+        fbq("init", PIXEL_ID);
+        fbq("track", "PageView");
+      } catch {}
+    };
     document.head.appendChild(script);
   } catch {}
 }
