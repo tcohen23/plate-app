@@ -12,8 +12,9 @@ import { trackFoodLogged, trackBarcodeScanned } from "@/lib/posthog";
 import { usePaywall } from "@/components/PaywallModal";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { calculateHealthScore } from "@/lib/healthScore";
+import { searchFoodDatabase, FoodItem } from "@/lib/foodDatabase";
 
-type ViewMode = "log" | "search" | "quick" | "custom" | "scanner" | "barcode_result" | "meal_detail";
+type ViewMode = "log" | "search" | "quick" | "custom" | "scanner" | "barcode_result" | "meal_detail" | "food_detail";
 
 
 export function FoodTrackerPage() {
@@ -99,6 +100,7 @@ export function FoodTrackerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("breakfast");
   const [selectedMeal, setSelectedMeal] = useState<any>(null);
+  const [selectedFoodItem, setSelectedFoodItem] = useState<FoodItem | null>(null);
   const [servingUnit, setServingUnit] = useState<"serving" | "g" | "oz">("serving");
   const [servingAmount, setServingAmount] = useState("1");
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -505,63 +507,88 @@ export function FoodTrackerPage() {
       </div>
 
       {/* Search overlay */}
-      {view === "search" && (
-        <div className="space-y-3 animate-fade-up">
-          <div className="flex items-center gap-2">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search meals..."
-              className="h-11 rounded-xl bg-card"
-              autoFocus
-            />
-            <Button variant="ghost" size="sm" onClick={() => setView("log")}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+      {view === "search" && (() => {
+        const dbResults = searchFoodDatabase(searchQuery, 30);
+        const hasQuery = searchQuery.trim().length > 0;
+        return (
+          <div className="space-y-3 animate-fade-up">
+            <div className="flex items-center gap-2">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search foods & meals..."
+                className="h-11 rounded-xl bg-card"
+                autoFocus
+              />
+              <Button variant="ghost" size="sm" onClick={() => setView("log")}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
 
-          {/* Slot selector */}
-          <div className="flex gap-2">
-            {slotOrder.map(s => (
-              <button
-                key={s}
-                onClick={() => setSelectedSlot(s)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${
-                  selectedSlot === s
-                    ? "bg-foreground text-background border-foreground"
-                    : "bg-card border-border hover:border-foreground/20"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+            <div className="space-y-1.5 max-h-[28rem] overflow-y-auto">
+              {/* Food database results */}
+              {dbResults.length > 0 && (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 pt-1">Foods</p>
+                  {dbResults.map((food) => (
+                    <Card
+                      key={food.id}
+                      className="p-3 rounded-xl flex items-center justify-between hover:bg-accent/30 active:scale-[0.99] transition-all cursor-pointer"
+                      onClick={() => {
+                        setSelectedFoodItem(food);
+                        setServingUnit("serving");
+                        setServingAmount("1");
+                        setView("food_detail");
+                      }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">{food.name}</div>
+                        <div className="text-xs text-muted-foreground">{food.calories} kcal · {food.protein}g protein · {food.servingSize}</div>
+                      </div>
+                      <ChevronLeft className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 rotate-180" />
+                    </Card>
+                  ))}
+                </>
+              )}
 
-          <div className="space-y-1.5 max-h-80 overflow-y-auto">
-            {filteredMeals.slice(0, 20).map((meal: any) => (
-              <Card
-                key={meal._id}
-                className="p-3 rounded-xl flex items-center justify-between hover:bg-accent/30 active:scale-[0.99] transition-all cursor-pointer"
-                onClick={() => {
-                  setSelectedMeal(meal);
-                  setServingUnit("serving");
-                  setServingAmount("1");
-                  setView("meal_detail");
-                }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">{meal.name}</div>
-                  <div className="text-xs text-muted-foreground">{Math.round(meal.calories)} kcal · {Math.round(meal.protein)}g protein</div>
-                </div>
-                <ChevronLeft className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 rotate-180" />
-              </Card>
-            ))}
-            {filteredMeals.length === 0 && searchQuery && (
-              <p className="text-sm text-muted-foreground text-center py-4">No meals found. Try a different search or create a custom food.</p>
-            )}
+              {/* Saved meals results */}
+              {filteredMeals.length > 0 && (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 pt-2">Saved Meals</p>
+                  {filteredMeals.slice(0, 20).map((meal: any) => (
+                    <Card
+                      key={meal._id}
+                      className="p-3 rounded-xl flex items-center justify-between hover:bg-accent/30 active:scale-[0.99] transition-all cursor-pointer"
+                      onClick={() => {
+                        setSelectedMeal(meal);
+                        setServingUnit("serving");
+                        setServingAmount("1");
+                        setView("meal_detail");
+                      }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">{meal.name}</div>
+                        <div className="text-xs text-muted-foreground">{Math.round(meal.calories)} kcal · {Math.round(meal.protein)}g protein</div>
+                      </div>
+                      <ChevronLeft className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 rotate-180" />
+                    </Card>
+                  ))}
+                </>
+              )}
+
+              {/* Empty state */}
+              {hasQuery && dbResults.length === 0 && filteredMeals.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No results found. Try a different search or create a custom food.</p>
+              )}
+
+              {/* Hint when no query */}
+              {!hasQuery && (
+                <p className="text-sm text-muted-foreground text-center py-6">Start typing to search 1,100+ foods</p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Meal detail — macros per serving / oz / gram */}
       {view === "meal_detail" && selectedMeal && (() => {
@@ -728,6 +755,114 @@ export function FoodTrackerPage() {
               </div>
 
               <Button onClick={handleLogSelected} className="w-full h-12 rounded-xl font-semibold">
+                Log to {selectedSlot}
+              </Button>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* Food database item detail */}
+      {view === "food_detail" && selectedFoodItem && (() => {
+        const food = selectedFoodItem;
+        const amount = parseFloat(servingAmount) || 1;
+        const multiplier = servingUnit === "serving" ? amount : 1;
+
+        const adj = {
+          cal: Math.round(food.calories * multiplier),
+          protein: Math.round(food.protein * multiplier * 10) / 10,
+          carbs: Math.round(food.carbs * multiplier * 10) / 10,
+          fat: Math.round(food.fat * multiplier * 10) / 10,
+        };
+
+        const handleLogFoodItem = async () => {
+          try {
+            await logFood({
+              mealSlot: selectedSlot,
+              name: food.name + (multiplier !== 1 ? ` (${amount} serving)` : ""),
+              calories: adj.cal,
+              protein: adj.protein,
+              carbs: adj.carbs,
+              fat: adj.fat,
+              localDate,
+            });
+            trackFoodLogged("search");
+            toast.success(`${food.name} logged`);
+            setView("log");
+            setSearchQuery("");
+            setSelectedFoodItem(null);
+          } catch (e: any) {
+            toast.error(e.message);
+          }
+        };
+
+        return (
+          <div className="space-y-4 animate-fade-up">
+            {/* Header */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setView("search")}
+                className="p-2 rounded-full hover:bg-accent/40 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-base leading-tight truncate">{food.name}</h3>
+                <p className="text-xs text-muted-foreground">{food.servingSize} per serving</p>
+              </div>
+            </div>
+
+            {/* Nutrition info card */}
+            <Card className="p-4 rounded-2xl space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nutrition per serving</p>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <MacroBox label="Kcal" value={food.calories} color="var(--foreground)" />
+                <MacroBox label="Protein" value={`${food.protein}g`} color="#60a5fa" />
+                <MacroBox label="Carbs" value={`${food.carbs}g`} color="#f97316" />
+                <MacroBox label="Fat" value={`${food.fat}g`} color="#fbbf24" />
+              </div>
+            </Card>
+
+            {/* Log amount */}
+            <Card className="p-4 rounded-2xl space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Log amount</p>
+
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  value={servingAmount}
+                  onChange={(e) => setServingAmount(e.target.value)}
+                  className="h-12 rounded-xl text-lg font-semibold text-center bg-background flex-1"
+                  min="0.1"
+                  step="0.5"
+                />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">serving(s)</span>
+              </div>
+
+              {/* Live adjusted macros */}
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <MacroBox label="Kcal" value={adj.cal} color="var(--foreground)" />
+                <MacroBox label="Protein" value={`${adj.protein}g`} color="#60a5fa" />
+                <MacroBox label="Carbs" value={`${adj.carbs}g`} color="#f97316" />
+                <MacroBox label="Fat" value={`${adj.fat}g`} color="#fbbf24" />
+              </div>
+
+              {/* Slot selector */}
+              <div className="flex gap-2 flex-wrap">
+                {slotOrder.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setSelectedSlot(s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${
+                      selectedSlot === s ? "bg-foreground text-background border-foreground" : "bg-card border-border"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <Button onClick={handleLogFoodItem} className="w-full h-12 rounded-xl font-semibold">
                 Log to {selectedSlot}
               </Button>
             </Card>
