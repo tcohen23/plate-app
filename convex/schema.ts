@@ -192,6 +192,9 @@ const schema = defineSchema({
     seenLunchIds: v.optional(v.array(v.string())),
     seenDinnerIds: v.optional(v.array(v.string())),
     seenSnackIds: v.optional(v.array(v.string())),
+    // Free-user weekly regen limit (2 per week — any combo of plan regen or meal swap)
+    weeklyRegenCount: v.optional(v.number()),
+    weeklyRegenResetAt: v.optional(v.string()), // ISO date of Monday this week started
   })
     .index("by_userId", ["userId"])
     .index("by_userId_weekStart", ["userId", "weekStart"]),

@@ -243,6 +243,81 @@ export const getPlanWithMeals = query({
   },
 });
 
+/** Returns how many regenerations a free user has left this week, or null if premium/trialing. */
+export const getWeeklyRegenStatus = query({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!isFreeUser(profile)) return { isFree: false, regenLeft: null, regenUsed: null };
+
+    const plans = await ctx.db.query("mealPlans").withIndex("by_userId", (q) => q.eq("userId", userId)).collect();
+    const plan = plans[plans.length - 1];
+    if (!plan) return { isFree: true, regenLeft: FREE_WEEKLY_REGEN_LIMIT, regenUsed: 0 };
+
+    const thisMonday = getMondayISO();
+    const resetAt = (plan as any).weeklyRegenResetAt as string | undefined;
+    const count = (resetAt === thisMonday ? ((plan as any).weeklyRegenCount ?? 0) : 0) as number;
+    const regenLeft = Math.max(0, FREE_WEEKLY_REGEN_LIMIT - count);
+
+    return { isFree: true, regenLeft, regenUsed: count };
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// FREE-USER WEEKLY REGEN LIMIT HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+const FREE_WEEKLY_REGEN_LIMIT = 2;
+
+/** ISO date string for the Monday of the current week (UTC). */
+function getMondayISO(): string {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun, 1=Mon, ...
+  const diff = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() + diff);
+  return monday.toISOString().slice(0, 10);
+}
+
+/** Returns true if user is premium or trialing (regen limit does not apply). */
+function isFreeUser(profile: { isPremium?: boolean; subscriptionStatus?: string } | null): boolean {
+  if (!profile) return true;
+  const status = (profile as any).subscriptionStatus as string | undefined;
+  const isPremium = (profile as any).isPremium as boolean | undefined;
+  if (isPremium === true) return false;
+  if (status === "trialing" || status === "active") return false;
+  return true;
+}
+
+/**
+ * Check regen limit for free users.
+ * Returns { allowed: true } or { allowed: false, regenLeft: 0 }.
+ * Mutates the plan doc's weeklyRegenCount / weeklyRegenResetAt if allowed.
+ */
+async function checkAndIncrementRegenLimit(
+  ctx: any,
+  plan: any,
+): Promise<{ allowed: boolean; regenLeft: number }> {
+  const thisMonday = getMondayISO();
+  const resetAt = plan.weeklyRegenResetAt as string | undefined;
+  const count = (resetAt === thisMonday ? (plan.weeklyRegenCount ?? 0) : 0) as number;
+
+  if (count >= FREE_WEEKLY_REGEN_LIMIT) {
+    return { allowed: false, regenLeft: 0 };
+  }
+
+  await ctx.db.patch(plan._id, {
+    weeklyRegenCount: count + 1,
+    weeklyRegenResetAt: thisMonday,
+  });
+
+  return { allowed: true, regenLeft: FREE_WEEKLY_REGEN_LIMIT - (count + 1) };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MUTATIONS
 // ═══════════════════════════════════════════════════════════════
@@ -258,6 +333,22 @@ export const generatePlan = mutation({
       ? await ctx.db.get(args.profileId)
       : await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
     if (!profile) throw new Error("No profile found. Complete onboarding first.");
+
+    // ── Free-user weekly regen limit (2 per week) ──────────────────
+    // First plan generation is always allowed. Subsequent regens count against limit.
+    const existingPlans = await ctx.db
+      .query("mealPlans")
+      .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+      .collect();
+    const existingPlan = existingPlans[existingPlans.length - 1];
+
+    if (existingPlan && isFreeUser(profile)) {
+      const { allowed, regenLeft } = await checkAndIncrementRegenLimit(ctx, existingPlan);
+      if (!allowed) {
+        throw new Error(`REGEN_LIMIT_REACHED:0`);
+      }
+      console.log(`[generatePlan] Free user regen allowed. ${regenLeft} left this week.`);
+    }
 
     const allMeals = await ctx.db.query("meals").collect();
     if (allMeals.length === 0) throw new Error("No meals in database. Please wait a moment and try again.");
@@ -705,6 +796,16 @@ export const swapMeal = mutation({
     if (!plan) throw new Error("No meal plan found");
 
     const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+
+    // ── Free-user weekly regen limit ────────────────────────────────
+    if (isFreeUser(profile)) {
+      const { allowed, regenLeft } = await checkAndIncrementRegenLimit(ctx, plan);
+      if (!allowed) {
+        throw new Error(`REGEN_LIMIT_REACHED:0`);
+      }
+      console.log(`[swapMeal] Free user swap allowed. ${regenLeft} left this week.`);
+    }
+
     const meal = plan.days[args.dayIndex].meals[args.mealIndex];
     const slot = meal.slot;
     

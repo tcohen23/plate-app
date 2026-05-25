@@ -63,6 +63,7 @@ export function MealPlanPage() {
   const generatePlan = useMutation(api.mealPlans.generatePlan);
   const swapMeal = useMutation(api.mealPlans.swapMeal);
   const skipMeal = useMutation(api.mealPlans.skipMeal);
+  const regenStatus = useQuery(api.mealPlans.getWeeklyRegenStatus);
   const [selectedDay, setSelectedDay] = useState(-1);
   const [swapping, setSwapping] = useState<{ dayIdx: number; mealIdx: number } | null>(null);
   const [paywallFeature, setPaywallFeature] = useState<"meal_plan" | "workout" | "grocery" | null>(null);
@@ -114,22 +115,51 @@ export function MealPlanPage() {
     prevSyncRef.current = syncStatus;
   }, [syncStatus, groceryList]);
 
+  // Free-user regen limit helpers
+  const isFreeUser = regenStatus?.isFree === true;
+  const regenLeft = regenStatus?.regenLeft ?? null;
+  const regenBlocked = isFreeUser && regenLeft !== null && regenLeft <= 0;
+
   const handleGenerate = async () => {
+    if (regenBlocked) {
+      toast.error("You've used your 2 free regenerations this week. Upgrade for unlimited.");
+      return;
+    }
     try {
       await generatePlan({});
-      toast.success("New meal plan generated ✨");
+      const left = regenLeft !== null ? regenLeft - 1 : null;
+      const msg = isFreeUser && left !== null
+        ? `New meal plan generated ✨  (${Math.max(0, left)} regen${Math.max(0, left) === 1 ? "" : "s"} left this week)`
+        : "New meal plan generated ✨";
+      toast.success(msg);
     } catch (e: any) {
-      toast.error(e.message);
+      if (e.message?.startsWith("REGEN_LIMIT_REACHED")) {
+        toast.error("You've used your 2 free regenerations this week. Upgrade for unlimited.");
+      } else {
+        toast.error(e.message);
+      }
     }
   };
 
   const handleSwap = async (dayIdx: number, mealIdx: number) => {
+    if (regenBlocked) {
+      toast.error("You've used your 2 free regenerations this week. Upgrade for unlimited.");
+      return;
+    }
     setSwapping({ dayIdx, mealIdx });
     try {
       const newMeal = await swapMeal({ dayIndex: dayIdx, mealIndex: mealIdx });
-      toast.success(`Swapped to ${newMeal.name}`);
+      const left = regenLeft !== null ? regenLeft - 1 : null;
+      const suffix = isFreeUser && left !== null
+        ? `  (${Math.max(0, left)} regen${Math.max(0, left) === 1 ? "" : "s"} left this week)`
+        : "";
+      toast.success(`Swapped to ${newMeal.name}${suffix}`);
     } catch (e: any) {
-      toast.error(e.message);
+      if (e.message?.startsWith("REGEN_LIMIT_REACHED")) {
+        toast.error("You've used your 2 free regenerations this week. Upgrade for unlimited.");
+      } else {
+        toast.error(e.message);
+      }
     } finally {
       setSwapping(null);
     }
@@ -230,9 +260,21 @@ export function MealPlanPage() {
             {!hasPremium && <Lock className="w-3 h-3 mr-1" />}
             <Dumbbell className="w-3.5 h-3.5 mr-1" /> Workout
           </Button>
-          <Button size="sm" variant="outline" onClick={handleGenerate} className="h-9 rounded-full text-xs px-4">
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleGenerate}
+            disabled={regenBlocked}
+            className="h-9 rounded-full text-xs px-4"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+            {regenBlocked ? "No regens left" : "Regenerate"}
           </Button>
+          {isFreeUser && regenLeft !== null && (
+            <span className="text-xs" style={{ color: regenBlocked ? "#ef4444" : "var(--muted-foreground)" }}>
+              {regenLeft} regen{regenLeft === 1 ? "" : "s"} left this week
+            </span>
+          )}
         </div>
       </div>
 
@@ -509,10 +551,10 @@ export function MealPlanPage() {
                         )}
                         <button
                           onClick={() => handleSwap(activeDay, mealIdx)}
-                          disabled={isSwapping || isLogged}
+                          disabled={isSwapping || isLogged || regenBlocked}
                           className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
                           style={{ background: "var(--surface-overlay)" }}
-                          title={isLogged ? "Tap meal to unlog" : "Swap meal"}
+                          title={regenBlocked ? "No regens left this week" : isLogged ? "Tap meal to unlog" : "Swap meal"}
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${isSwapping ? "animate-spin" : ""}`} />
                         </button>
