@@ -76,23 +76,24 @@ function parseMacrosFromSearchText(text: string): { calories: number; protein: n
 }
 
 /** Call OpenAI API directly (no Pipedream) if OPENAI_API_KEY is set */
-async function callOpenAIDirectly(prompt: string, imageBase64?: string): Promise<string | null> {
+async function callOpenAIDirectly(prompt: string, imageBase64?: string, detail: "low" | "auto" | "high" = "auto"): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
   const messages: any[] = [];
 
   if (imageBase64) {
-    // Vision request
+    // Vision request — accepts both data: URI and public HTTPS URL
+    const imageUrl = imageBase64.startsWith("data:") || imageBase64.startsWith("http")
+      ? imageBase64
+      : `data:image/jpeg;base64,${imageBase64}`;
     messages.push({
       role: "user",
       content: [
         { type: "text", text: prompt },
         {
           type: "image_url",
-          image_url: {
-            url: imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
-          },
+          image_url: { url: imageUrl, detail },
         },
       ],
     });
@@ -107,9 +108,9 @@ async function callOpenAIDirectly(prompt: string, imageBase64?: string): Promise
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: imageBase64 ? "gpt-4o-mini" : "gpt-4o-mini",
+      model: "gpt-4o-mini",
       messages,
-      max_tokens: 500,
+      max_tokens: 700,
     }),
   });
 
@@ -124,20 +125,42 @@ async function callOpenAIDirectly(prompt: string, imageBase64?: string): Promise
 }
 
 /** Call Gemini API directly (no Pipedream) if GEMINI_API_KEY is set */
-async function callGeminiDirectly(prompt: string, imageBase64?: string): Promise<string | null> {
+async function callGeminiDirectly(prompt: string, imageInput?: string): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const parts: any[] = [{ text: prompt }];
 
-  if (imageBase64) {
-    // Extract base64 data (strip data: prefix if present)
-    const base64Data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
-    const mimeType = imageBase64.startsWith("data:image/png") ? "image/png" : "image/jpeg";
-    parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+  if (imageInput) {
+    if (imageInput.startsWith("data:")) {
+      // data: URI → strip prefix and use inline_data
+      const base64Data = imageInput.includes(",") ? imageInput.split(",")[1] : imageInput;
+      const mimeType = imageInput.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+      parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+    } else if (imageInput.startsWith("http")) {
+      // Public URL → fetch and encode as inline_data (Gemini REST does not support image_url)
+      try {
+        const imgResp = await fetch(imageInput);
+        if (imgResp.ok) {
+          const buffer = await imgResp.arrayBuffer();
+          const contentType = imgResp.headers.get("content-type") || "image/jpeg";
+          const mimeType = contentType.includes("png") ? "image/png" : "image/jpeg";
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          parts.push({ inline_data: { mime_type: mimeType, data: btoa(binary) } });
+        }
+      } catch (e) {
+        console.error("[callGeminiDirectly] Failed to fetch image URL:", e);
+        return null;
+      }
+    } else {
+      // Raw base64 string
+      parts.push({ inline_data: { mime_type: "image/jpeg", data: imageInput } });
+    }
   }
 
-  const model = imageBase64 ? "gemini-2.5-flash" : "gemini-2.5-flash";
+  const model = "gemini-2.5-flash";
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -145,7 +168,7 @@ async function callGeminiDirectly(prompt: string, imageBase64?: string): Promise
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { maxOutputTokens: 500 },
+        generationConfig: { maxOutputTokens: 700 },
       }),
     }
   );
@@ -312,10 +335,27 @@ Rules:
 
 /** Analyze a food photo URL and return estimated food items + macros */
 export const analyzeFoodImage = action({
-  args: { imageUrl: v.string() },
+  args: { imageUrl: v.string(), mode: v.optional(v.union(v.literal("food"), v.literal("label"))) },
   returns: v.any(),
-  handler: async (_ctx, { imageUrl }) => {
-    const visionPrompt = `Analyze this food photo. Identify every visible food item. For each, estimate:
+  handler: async (_ctx, { imageUrl, mode }) => {
+    const isLabel = mode === "label";
+    const visionPrompt = isLabel
+      ? `This is a photo of a food nutrition label. Extract the nutritional information and return it as a JSON array with ONE item representing the product.
+
+Extract:
+- name: product name if visible, otherwise "Scanned Item"
+- calories (integer, from the label — use the "per serving" value if available)
+- protein in grams (integer)
+- carbs in grams (integer, use "Total Carbohydrate")
+- fat in grams (integer, use "Total Fat")
+- servingSize: serving size text from label (e.g. "1 cup (240ml)")
+- mealSlot: "snack"
+
+Return ONLY a valid JSON array (no markdown):
+[{"name":"Oat Milk","calories":120,"protein":3,"carbs":16,"fat":5,"servingSize":"1 cup (240ml)","mealSlot":"snack"}]
+
+If you cannot read the label clearly, return [].`
+      : `Analyze this food photo. Identify every visible food item. For each, estimate:
 - name
 - calories (integer)
 - protein in grams (integer)
@@ -328,103 +368,88 @@ Return ONLY a valid JSON array (no markdown):
 
 If no food visible, return [].`;
 
-    // Strategy 1: OpenAI Vision via Viktor tool gateway
-    try {
-      const openaiGatewayResult = await callTool<any>(
-        "mcp_pd_openai_proxy_post",
-        {
-          url: "https://api.openai.com/v1/chat/completions",
-          json_body: {
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: visionPrompt },
-                  {
-                    type: "image_url",
-                    image_url: { url: imageUrl, detail: "low" },
-                  },
-                ],
-              },
-            ],
-            max_tokens: 600,
-          },
+    // ── Helper: extract text from Gemini gateway (handles multiple response shapes) ──
+    const extractGeminiText = (raw: any): string | null => {
+      if (!raw) return null;
+      // Direct: raw.candidates[0].content.parts[0].text
+      const direct = raw?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (direct) return direct;
+      // Nested under .body (some gateway versions)
+      const bodyParsed = typeof raw?.body === "string"
+        ? (() => { try { return JSON.parse(raw.body); } catch { return null; } })()
+        : raw?.body;
+      const bodyText = bodyParsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (bodyText) return bodyText;
+      // Nested under .content (stringified JSON)
+      if (typeof raw?.content === "string") {
+        try {
+          const c = JSON.parse(raw.content);
+          return c?.candidates?.[0]?.content?.parts?.[0]?.text ??
+                 c?.body?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+        } catch { /* ignore */ }
+      }
+      return null;
+    };
+
+    // ── Helper: extract text from OpenAI gateway (handles multiple response shapes) ──
+    const extractOpenAIText = (raw: any): string | null => {
+      if (!raw) return null;
+      // Direct response
+      const direct = raw?.choices?.[0]?.message?.content;
+      if (direct) return direct;
+      // Nested under .body
+      const bodyParsed = typeof raw?.body === "string"
+        ? (() => { try { return JSON.parse(raw.body); } catch { return null; } })()
+        : raw?.body;
+      const bodyText = bodyParsed?.choices?.[0]?.message?.content;
+      if (bodyText) return bodyText;
+      // Nested under .content (stringified JSON)
+      if (typeof raw?.content === "string") {
+        try {
+          const c = JSON.parse(raw.content);
+          return c?.choices?.[0]?.message?.content ?? null;
+        } catch { /* ignore */ }
+      }
+      return null;
+    };
+
+    // ── Helper: convert imageUrl to Gemini inline_data part ──────────────────
+    // Gemini REST API requires inline_data (base64) for ALL image input — it does
+    // not accept image_url for arbitrary HTTP URLs. We fetch & encode here.
+    const toGeminiImagePart = async (url: string): Promise<any | null> => {
+      try {
+        if (url.startsWith("data:")) {
+          const base64Data = url.includes(",") ? url.split(",")[1] : url;
+          const mimeType = url.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+          return { inline_data: { mime_type: mimeType, data: base64Data } };
         }
-      );
-      const rawGW = openaiGatewayResult as any;
-      const gwText =
-        rawGW?.choices?.[0]?.message?.content ??
-        rawGW?.content?.choices?.[0]?.message?.content ??
-        null;
-      if (gwText) {
-        console.log("[analyzeFoodImage] OpenAI gateway vision response:", gwText.substring(0, 200));
-        const parsed = extractJsonArray(gwText);
-        if (parsed && parsed.length > 0) return parsed;
+        // Fetch public URL and convert to base64
+        const imgResp = await fetch(url);
+        if (!imgResp.ok) return null;
+        const buffer = await imgResp.arrayBuffer();
+        const contentType = imgResp.headers.get("content-type") || "image/jpeg";
+        const mimeType = contentType.includes("png") ? "image/png" : "image/jpeg";
+        // Convert ArrayBuffer to base64
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const base64Data = btoa(binary);
+        return { inline_data: { mime_type: mimeType, data: base64Data } };
+      } catch {
+        return null;
       }
-    } catch (e) {
-      console.error("[analyzeFoodImage] OpenAI gateway vision failed:", e);
-    }
+    };
 
-    // Strategy 2: Gemini Vision via Viktor tool gateway
-    try {
-      const isDataUrl = imageUrl.startsWith("data:");
-      const parts: any[] = [{ text: visionPrompt }];
-      if (isDataUrl) {
-        const base64Data = imageUrl.includes(",") ? imageUrl.split(",")[1] : imageUrl;
-        const mimeType = imageUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
-        parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
-      } else {
-        parts.push({ file_data: { mime_type: "image/jpeg", file_uri: imageUrl } });
-      }
-      const geminiResult = await callTool<{ content?: string; response?: string }>(
-        "mcp_pd_google_gemini_proxy_post",
-        {
-          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-          json_body: {
-            contents: [{ parts }],
-            generationConfig: { maxOutputTokens: 600 },
-          },
-        }
-      );
-      const rawResult = geminiResult as any;
-      // The Viktor tool gateway wraps the response: { response_role, content: "<json string>" }
-      // Parse the nested JSON string if needed
-      let parsedBody: any = rawResult;
-      if (typeof rawResult?.content === "string") {
-        try { parsedBody = JSON.parse(rawResult.content); } catch { /* ignore */ }
-      }
-      const gemText =
-        parsedBody?.body?.candidates?.[0]?.content?.parts?.[0]?.text ??
-        parsedBody?.candidates?.[0]?.content?.parts?.[0]?.text ??
-        rawResult?.candidates?.[0]?.content?.parts?.[0]?.text ??
-        null;
-      if (gemText) {
-        console.log("[analyzeFoodImage] Gemini gateway vision response:", gemText.substring(0, 200));
-        const parsed = extractJsonArray(gemText);
-        if (parsed && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error("[analyzeFoodImage] Gemini gateway vision failed:", e);
-    }
+    // Always use "high" detail for labels, "auto" for food photos
+    const openAIDetail = isLabel ? "high" : "auto";
+    // OpenAI model: use gpt-4o for labels (more accurate OCR), gpt-4o-mini for food
+    const openAIModel = isLabel ? "gpt-4o" : "gpt-4o-mini";
 
-    // Strategy 4: OpenAI Vision API directly (requires OPENAI_API_KEY)
-    try {
-      const openaiText = await callOpenAIDirectly(visionPrompt, imageUrl);
-      if (openaiText) {
-        console.log("[analyzeFoodImage] OpenAI vision response:", openaiText.substring(0, 200));
-        const parsed = extractJsonArray(openaiText);
-        if (parsed && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error("[analyzeFoodImage] OpenAI direct vision failed:", e);
-    }
-
-    // Strategy 5: Gemini Vision API directly (requires GEMINI_API_KEY)
+    // Strategy 1: Gemini Vision API directly (GEMINI_API_KEY) — fastest & most reliable
     try {
       const geminiText = await callGeminiDirectly(visionPrompt, imageUrl);
       if (geminiText) {
-        console.log("[analyzeFoodImage] Gemini vision response:", geminiText.substring(0, 200));
+        console.log("[analyzeFoodImage] Gemini direct vision OK:", geminiText.substring(0, 200));
         const parsed = extractJsonArray(geminiText);
         if (parsed && parsed.length > 0) return parsed;
       }
@@ -432,9 +457,83 @@ If no food visible, return [].`;
       console.error("[analyzeFoodImage] Gemini direct vision failed:", e);
     }
 
-    // Return a specific error object so the frontend can show a helpful message
+    // Strategy 2: OpenAI Vision API directly (OPENAI_API_KEY)
+    try {
+      const openaiText = await callOpenAIDirectly(visionPrompt, imageUrl);
+      if (openaiText) {
+        console.log("[analyzeFoodImage] OpenAI direct vision OK:", openaiText.substring(0, 200));
+        const parsed = extractJsonArray(openaiText);
+        if (parsed && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("[analyzeFoodImage] OpenAI direct vision failed:", e);
+    }
+
+    // Strategy 3: Gemini Vision via Pipedream proxy (always available)
+    // Must use inline_data (base64) — Gemini REST API does not support image_url for arbitrary HTTP URLs
+    try {
+      const geminiImagePart = await toGeminiImagePart(imageUrl);
+      if (geminiImagePart) {
+        const parts: any[] = [{ text: visionPrompt }, geminiImagePart];
+        const geminiResult = await callTool<any>(
+          "mcp_pd_google_gemini_proxy_post",
+          {
+            url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            json_body: {
+              contents: [{ parts }],
+              generationConfig: { maxOutputTokens: 700 },
+            },
+          }
+        );
+        const gemText = extractGeminiText(geminiResult as any);
+        if (gemText) {
+          console.log("[analyzeFoodImage] Gemini gateway vision OK:", gemText.substring(0, 200));
+          const parsed = extractJsonArray(gemText);
+          if (parsed && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {
+      console.error("[analyzeFoodImage] Gemini gateway vision failed:", e);
+    }
+
+    // Strategy 4: OpenAI Vision via Pipedream proxy
+    // For data: URLs, pass as base64 image_url; for public URLs pass directly
+    try {
+      const openaiGatewayResult = await callTool<any>(
+        "mcp_pd_openai_proxy_post",
+        {
+          url: "https://api.openai.com/v1/chat/completions",
+          json_body: {
+            model: openAIModel,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: visionPrompt },
+                  {
+                    type: "image_url",
+                    image_url: { url: imageUrl, detail: openAIDetail },
+                  },
+                ],
+              },
+            ],
+            max_tokens: 700,
+          },
+        }
+      );
+      const gwText = extractOpenAIText(openaiGatewayResult as any);
+      if (gwText) {
+        console.log("[analyzeFoodImage] OpenAI gateway vision OK:", gwText.substring(0, 200));
+        const parsed = extractJsonArray(gwText);
+        if (parsed && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("[analyzeFoodImage] OpenAI gateway vision failed:", e);
+    }
+
+    // All strategies failed
     console.warn("[analyzeFoodImage] All vision strategies failed.");
-    return { error: "vision_api_not_configured", message: "Meal scan unavailable. Please try again." };
+    return { error: "vision_api_not_configured", message: "Scan unavailable. Please try again." };
   },
 });
 

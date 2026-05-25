@@ -25,6 +25,7 @@ import { getLocalDateString } from "@/lib/dateUtils";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { usePaywall } from "@/components/PaywallModal";
 import { calculateHealthScore } from "@/lib/healthScore";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,30 +51,46 @@ interface BarcodeResult {
 // ─── Barcode lookup ───────────────────────────────────────────────────────────
 
 async function lookupBarcode(code: string): Promise<BarcodeResult> {
-  const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`);
-  if (!res.ok) return { found: false, barcode: code };
-  const data = await res.json();
-  if (data.status !== 1 || !data.product) return { found: false, barcode: code };
-  const p = data.product;
-  const n = p.nutriments || {};
-  const hasServing = n["energy-kcal_serving"] != null && n.proteins_serving != null && n.carbohydrates_serving != null && n.fat_serving != null;
-  const calories = Math.round(hasServing ? n["energy-kcal_serving"] : (n["energy-kcal_100g"] || 0));
-  const protein = Math.round(hasServing ? n.proteins_serving : (n.proteins_100g || 0));
-  const carbs = Math.round(hasServing ? n.carbohydrates_serving : (n.carbohydrates_100g || 0));
-  const fat = Math.round(hasServing ? n.fat_serving : (n.fat_100g || 0));
-  let servingLabel = p.serving_size || "";
-  if (!hasServing && !servingLabel) servingLabel = "per 100g";
-  else if (!hasServing && servingLabel) servingLabel = `per 100g (serving: ${servingLabel})`;
-  const { score, color, label, reasons } = calculateHealthScore(p);
-  return {
-    found: true, barcode: code,
-    name: p.product_name || p.generic_name || "Unknown Product",
-    brand: p.brands || "",
-    servingSize: servingLabel || "1 serving",
-    imageUrl: p.image_front_small_url || p.image_url || "",
-    calories, protein, carbs, fat,
-    healthScore: score, healthColor: color, healthLabel: label, healthReasons: reasons,
-  };
+  // Retry up to 3 times with backoff — handles transient network errors
+  let lastErr: any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 600));
+      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) {
+        if (res.status >= 500) { lastErr = new Error(`Server error ${res.status}`); continue; }
+        return { found: false, barcode: code };
+      }
+      const data = await res.json();
+      if (data.status !== 1 || !data.product) return { found: false, barcode: code };
+      const p = data.product;
+      const n = p.nutriments || {};
+      const hasServing = n["energy-kcal_serving"] != null && n.proteins_serving != null && n.carbohydrates_serving != null && n.fat_serving != null;
+      const calories = Math.round(hasServing ? n["energy-kcal_serving"] : (n["energy-kcal_100g"] || 0));
+      const protein = Math.round(hasServing ? n.proteins_serving : (n.proteins_100g || 0));
+      const carbs = Math.round(hasServing ? n.carbohydrates_serving : (n.carbohydrates_100g || 0));
+      const fat = Math.round(hasServing ? n.fat_serving : (n.fat_100g || 0));
+      let servingLabel = p.serving_size || "";
+      if (!hasServing && !servingLabel) servingLabel = "per 100g";
+      else if (!hasServing && servingLabel) servingLabel = `per 100g (serving: ${servingLabel})`;
+      const { score, color, label, reasons } = calculateHealthScore(p);
+      return {
+        found: true, barcode: code,
+        name: p.product_name || p.generic_name || "Unknown Product",
+        brand: p.brands || "",
+        servingSize: servingLabel || "1 serving",
+        imageUrl: p.image_front_small_url || p.image_url || "",
+        calories, protein, carbs, fat,
+        healthScore: score, healthColor: color, healthLabel: label, healthReasons: reasons,
+      };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  // All retries exhausted
+  throw lastErr ?? new Error("Network error");
 }
 
 // ─── Scan Reticle ─────────────────────────────────────────────────────────────
@@ -177,6 +194,8 @@ export function ScannerPage() {
   // Barcode detection
   const barcodeDetectionRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const barcodeHandledRef = useRef(false);
+  // html5-qrcode instance for iOS Safari fallback
+  const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
 
   // Convex
   const localDate = getLocalDateString();
@@ -225,6 +244,12 @@ export function ScannerPage() {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
+    // Clean up html5-qrcode instance
+    if (html5QrcodeRef.current) {
+      html5QrcodeRef.current = null;
+    }
+    const hiddenDiv = document.getElementById("__html5qrcode_hidden");
+    if (hiddenDiv) hiddenDiv.remove();
     setCameraReady(false);
   }, []);
 
@@ -241,53 +266,118 @@ export function ScannerPage() {
     }
   }, [torchOn]);
 
-  // ── Barcode detection loop ────────────────────────────────────────────────
-
-  const startBarcodeDetection = useCallback(() => {
-    barcodeHandledRef.current = false;
-    const hasBarcodeDetector = "BarcodeDetector" in window;
-    if (!hasBarcodeDetector) return;
-
-    let detector: any;
-    try {
-      detector = new (window as any).BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code", "data_matrix"],
-      });
-    } catch { return; }
-
-    const detect = async () => {
-      if (barcodeHandledRef.current || !videoRef.current || !cameraReady) return;
-      try {
-        const barcodes = await detector.detect(videoRef.current);
-        if (barcodes.length > 0 && !barcodeHandledRef.current) {
-          barcodeHandledRef.current = true;
-          hapticMedium();
-          if (barcodeDetectionRef.current) {
-            clearInterval(barcodeDetectionRef.current);
-            barcodeDetectionRef.current = null;
-          }
-          await handleBarcodeFound(barcodes[0].rawValue);
-        }
-      } catch { /* keep scanning */ }
-    };
-
-    barcodeDetectionRef.current = setInterval(detect, 250);
-  }, [cameraReady]);
-
   // ── Handle barcode found ──────────────────────────────────────────────────
 
-  const handleBarcodeFound = async (code: string) => {
+  const handleBarcodeFound = useCallback(async (code: string) => {
     setScanning(true);
     try {
       const result = await lookupBarcode(code);
       trackBarcodeScanned(!!result.found, code);
       setBarcodeResult(result);
-    } catch {
-      toast.error("Couldn't look up that barcode.");
+    } catch (err: any) {
+      // Network error (all retries failed) — allow user to try again
+      trackBarcodeScanned(false, code);
+      toast.error("Network error looking up barcode. Check your connection and try again.");
+      // Reset so scanning can restart
+      barcodeHandledRef.current = false;
     } finally {
       setScanning(false);
     }
-  };
+  }, []);
+
+  // ── Barcode detection loop ────────────────────────────────────────────────
+
+  const startBarcodeDetection = useCallback(() => {
+    barcodeHandledRef.current = false;
+    const hasBarcodeDetector = "BarcodeDetector" in window;
+
+    if (hasBarcodeDetector) {
+      // ── Native BarcodeDetector (Chrome/Android) ──────────────────────────
+      let detector: any;
+      try {
+        detector = new (window as any).BarcodeDetector({
+          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code", "data_matrix"],
+        });
+      } catch { return; }
+
+      const detect = async () => {
+        if (barcodeHandledRef.current || !videoRef.current || !cameraReady) return;
+        try {
+          const barcodes = await detector.detect(videoRef.current);
+          if (barcodes.length > 0 && !barcodeHandledRef.current) {
+            barcodeHandledRef.current = true;
+            hapticMedium();
+            if (barcodeDetectionRef.current) {
+              clearInterval(barcodeDetectionRef.current);
+              barcodeDetectionRef.current = null;
+            }
+            await handleBarcodeFound(barcodes[0].rawValue);
+          }
+        } catch { /* keep scanning */ }
+      };
+
+      barcodeDetectionRef.current = setInterval(detect, 250);
+    } else {
+      // ── html5-qrcode fallback (iOS Safari) ──────────────────────────────
+      // Create a hidden div for html5-qrcode (it needs a DOM node)
+      let hiddenDiv = document.getElementById("__html5qrcode_hidden");
+      if (!hiddenDiv) {
+        hiddenDiv = document.createElement("div");
+        hiddenDiv.id = "__html5qrcode_hidden";
+        hiddenDiv.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;";
+        document.body.appendChild(hiddenDiv);
+      }
+
+      if (!html5QrcodeRef.current) {
+        html5QrcodeRef.current = new Html5Qrcode("__html5qrcode_hidden", {
+          verbose: false,
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+          ],
+        });
+      }
+
+      const scanner = html5QrcodeRef.current;
+
+      const detectFromCanvas = async () => {
+        if (barcodeHandledRef.current || !videoRef.current || !cameraReady) return;
+        try {
+          const video = videoRef.current;
+          if (video.readyState < 2) return;
+          const canvas = document.createElement("canvas");
+          // Crop center 60% width, full height for barcode area
+          const srcW = video.videoWidth;
+          const srcH = video.videoHeight;
+          canvas.width = srcW;
+          canvas.height = srcH;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          ctx.drawImage(video, 0, 0, srcW, srcH);
+
+          // Convert canvas to blob → File
+          const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), "image/jpeg", 0.85));
+          const file = new File([blob], "frame.jpg", { type: "image/jpeg" });
+
+          const result = await scanner.scanFileV2(file, false);
+          if (result?.decodedText && !barcodeHandledRef.current) {
+            barcodeHandledRef.current = true;
+            hapticMedium();
+            if (barcodeDetectionRef.current) {
+              clearInterval(barcodeDetectionRef.current);
+              barcodeDetectionRef.current = null;
+            }
+            await handleBarcodeFound(result.decodedText);
+          }
+        } catch { /* no barcode in frame, keep scanning */ }
+      };
+
+      barcodeDetectionRef.current = setInterval(detectFromCanvas, 400);
+    }
+  }, [cameraReady, handleBarcodeFound]);
 
   // ── Capture frame for food/label scan ────────────────────────────────────
 
@@ -298,23 +388,32 @@ export function ScannerPage() {
     try {
       const video = videoRef.current;
       const canvas = document.createElement("canvas");
-      const MAX_W = 1024;
+      // Label mode needs higher resolution so text is legible to the AI
+      const MAX_W = mode === "label" ? 1920 : 1024;
       const scale = video.videoWidth > MAX_W ? MAX_W / video.videoWidth : 1;
       canvas.width = Math.round(video.videoWidth * scale);
       canvas.height = Math.round(video.videoHeight * scale);
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas error");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+      // Higher JPEG quality for label so small text isn't compressed away
+      const quality = mode === "label" ? 0.92 : 0.75;
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
       setCapturedFrame(dataUrl);
-      const items = await analyzeFoodImage({ imageUrl: dataUrl });
+      const items = await analyzeFoodImage({ imageUrl: dataUrl, mode: mode === "label" ? "label" : "food" });
       if ((items as any)?.error === "vision_api_not_configured") {
-        toast.error("Meal scan needs an AI vision key — contact support.");
+        toast.error("Scan unavailable. Please try again.");
         setScanResult([]);
       } else {
         const arr = Array.isArray(items) ? items : [];
         setScanResult(arr);
-        if (!arr.length) toast.info("No food detected. Try a clearer shot.");
+        if (!arr.length) {
+          if (mode === "label") {
+            toast.info("Couldn't read the label — hold the camera steady and ensure good lighting, then try again.");
+          } else {
+            toast.info("No food detected. Try a clearer shot.");
+          }
+        }
       }
     } catch {
       toast.error("Scan failed. Try again.");
@@ -322,7 +421,7 @@ export function ScannerPage() {
     } finally {
       setCapturing(false);
     }
-  }, [analyzeFoodImage, capturing]);
+  }, [analyzeFoodImage, capturing, mode]);
 
   // ── Log scanned food items ────────────────────────────────────────────────
 
@@ -427,7 +526,7 @@ export function ScannerPage() {
         img.src = rawDataUrl;
       });
       setCapturedFrame(dataUrl);
-      const items = await analyzeFoodImage({ imageUrl: dataUrl });
+      const items = await analyzeFoodImage({ imageUrl: dataUrl, mode: "food" });
       const arr = Array.isArray(items) ? items : [];
       setScanResult(arr);
       if (!arr.length) toast.info("No food detected in this photo.");
