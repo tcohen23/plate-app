@@ -468,8 +468,11 @@ export function ScannerPage() {
   const logBarcodeItem = async () => {
     if (!barcodeResult?.found) return;
     try {
+      // Determine meal slot by time of day (same heuristic used across the app)
+      const hour = new Date().getHours();
+      const mealSlot = hour < 10 ? "breakfast" : hour < 15 ? "lunch" : hour < 20 ? "dinner" : "snack";
       await logFood({
-        mealSlot: "lunch",
+        mealSlot,
         name: barcodeResult.name! + (barcodeResult.brand ? ` (${barcodeResult.brand})` : ""),
         calories: barcodeResult.calories || 0,
         protein: barcodeResult.protein || 0,
