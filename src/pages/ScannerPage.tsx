@@ -5,9 +5,7 @@
  *  food     — Fullscreen camera → tap capture → AI meal analysis
  *  barcode  — Fullscreen camera → auto-detect barcode → lookup product
  *  label    — Fullscreen camera → tap capture → AI food-label analysis
- *  library  — Open photo library → AI meal analysis
- *
- * URL: /scanner?mode=food|barcode|label|library
+ * URL: /scanner?mode=food|barcode|label
  *
  * Quick Actions → Barcode Scan: /scanner?mode=barcode
  * Quick Actions → Meal Scan:    /scanner?mode=food
@@ -18,7 +16,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { ArrowLeft, Zap, ZapOff, Image, Loader2 } from "lucide-react";
+import { ArrowLeft, Zap, ZapOff, Loader2 } from "lucide-react";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { trackBarcodeScanned, trackFoodLogged } from "@/lib/posthog";
 import { getLocalDateString } from "@/lib/dateUtils";
@@ -29,7 +27,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ScanMode = "food" | "barcode" | "label" | "library";
+type ScanMode = "food" | "barcode" | "label";
 
 interface BarcodeResult {
   found: boolean;
@@ -201,9 +199,6 @@ export function ScannerPage() {
   const localDate = getLocalDateString();
   const analyzeFoodImage = useAction(api.viktorTools.analyzeFoodImage);
   const logFood = useMutation(api.foodLogs.logFood);
-
-  // Library file input
-  const libraryInputRef = useRef<HTMLInputElement>(null);
 
   // ── Start camera ──────────────────────────────────────────────────────────
 
@@ -505,71 +500,8 @@ export function ScannerPage() {
       barcodeDetectionRef.current = null;
     }
 
-    // Library: open file picker (no mode change needed, camera keeps running)
-    if (newMode === "library") {
-      libraryInputRef.current?.click();
-      return;
-    }
-
     setMode(newMode);
   }, []);
-
-  // ── Library file handler ──────────────────────────────────────────────────
-
-  const handleLibraryFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (!files.length) return;
-    setMode("library");
-    setCapturing(true);
-    setScanResult(null);
-
-    // Helper: read a File and resize to max 1024px wide JPEG
-    const resizeFile = (file: File): Promise<string> =>
-      new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = reject;
-        reader.onload = () => {
-          const rawDataUrl = reader.result as string;
-          const img: HTMLImageElement = new (window.Image as any)();
-          img.onerror = reject;
-          img.onload = () => {
-            const MAX_W = 1024;
-            const scale = img.naturalWidth > MAX_W ? MAX_W / img.naturalWidth : 1;
-            const c = document.createElement("canvas");
-            c.width = Math.round(img.naturalWidth * scale);
-            c.height = Math.round(img.naturalHeight * scale);
-            const x = c.getContext("2d") as CanvasRenderingContext2D;
-            x.drawImage(img, 0, 0, c.width, c.height);
-            resolve(c.toDataURL("image/jpeg", 0.75));
-          };
-          img.src = rawDataUrl;
-        };
-        reader.readAsDataURL(file);
-      });
-
-    try {
-      // Resize first image for preview
-      const firstDataUrl = await resizeFile(files[0]);
-      setCapturedFrame(firstDataUrl);
-
-      // Analyze all selected photos and merge food items
-      const allItems: any[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const dataUrl = i === 0 ? firstDataUrl : await resizeFile(files[i]);
-        const items = await analyzeFoodImage({ imageUrl: dataUrl, mode: "food" });
-        if (Array.isArray(items)) allItems.push(...items);
-      }
-
-      setScanResult(allItems);
-      if (!allItems.length) toast.info("No food detected in " + (files.length > 1 ? "these photos." : "this photo."));
-    } catch {
-      toast.error("Photo scan failed.");
-      setScanResult([]);
-    } finally {
-      setCapturing(false);
-    }
-  }, [analyzeFoodImage]);
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -581,15 +513,15 @@ export function ScannerPage() {
     }
   }, [isPremium]);
 
-  // Start camera on mount (not for library mode)
+  // Start camera on mount
   useEffect(() => {
-    if (mode !== "library") startCamera();
+    startCamera();
     return () => stopCamera();
   }, []);
 
-  // Restart camera if mode changes to a camera mode and camera is not running
+  // Restart camera if mode changes and camera is not running
   useEffect(() => {
-    if (mode !== "library" && !streamRef.current) {
+    if (!streamRef.current) {
       startCamera();
     }
   }, [mode]);
@@ -687,7 +619,7 @@ export function ScannerPage() {
     }
 
     // Food/label scan processing
-    if ((mode === "food" || mode === "label" || mode === "library") && capturing) {
+    if ((mode === "food" || mode === "label") && capturing) {
       return (
         <div className="flex flex-col items-center gap-3 py-6">
           <Loader2 className="w-7 h-7 animate-spin" style={{ color: "#52B788" }} />
@@ -752,13 +684,12 @@ export function ScannerPage() {
   };
 
   const hasResults = (mode === "barcode" && (barcodeResult || scanning)) ||
-    ((mode === "food" || mode === "label" || mode === "library") && (capturing || scanResult !== null));
+    ((mode === "food" || mode === "label") && (capturing || scanResult !== null));
 
   const MODES: { key: ScanMode; label: string; emoji: string }[] = [
     { key: "food", label: "Scan food", emoji: "📷" },
     { key: "barcode", label: "Barcode", emoji: "📦" },
     { key: "label", label: "Food label", emoji: "🏷️" },
-    { key: "library", label: "Library", emoji: "🖼️" },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -774,7 +705,7 @@ export function ScannerPage() {
           playsInline
           muted
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ display: mode === "library" && capturedFrame ? "none" : "block" }}
+          style={{ display: "block" }}
         />
 
         {/* Captured frame preview (for food/label scan) */}
@@ -787,14 +718,14 @@ export function ScannerPage() {
         )}
 
         {/* Dark overlay when camera not ready */}
-        {!cameraReady && mode !== "library" && (
+        {!cameraReady && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
             <Loader2 className="w-8 h-8 animate-spin text-white/50" />
           </div>
         )}
 
         {/* Scan reticle */}
-        {cameraReady && !hasResults && mode !== "library" && (
+        {cameraReady && !hasResults && (
           <ScanReticle mode={mode} />
         )}
 
@@ -832,7 +763,7 @@ export function ScannerPage() {
         </div>
 
         {/* Hint text */}
-        {cameraReady && !hasResults && mode !== "library" && (
+        {cameraReady && !hasResults && (
           <div
             className="absolute left-0 right-0 flex justify-center pointer-events-none"
             style={{ bottom: 40, zIndex: 20 }}
@@ -883,18 +814,11 @@ export function ScannerPage() {
           {/* Mode selector pills */}
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
             {MODES.map(m => {
-              const isActive = mode === m.key || (mode === "library" && m.key === "library");
+              const isActive = mode === m.key;
               return (
                 <button
                   key={m.key}
-                  onClick={() => {
-                    if (m.key === "library") {
-                      // open library picker without switching mode
-                      libraryInputRef.current?.click();
-                    } else {
-                      switchMode(m.key);
-                    }
-                  }}
+                  onClick={() => switchMode(m.key)}
                   className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all"
                   style={{
                     background: isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.09)",
@@ -902,7 +826,7 @@ export function ScannerPage() {
                     border: isActive ? "none" : "1px solid rgba(255,255,255,0.1)",
                   }}
                 >
-                  {m.key === "library" ? <Image className="w-3.5 h-3.5" /> : <span style={{ fontSize: 14 }}>{m.emoji}</span>}
+                  <span style={{ fontSize: 14 }}>{m.emoji}</span>
                   {m.label}
                 </button>
               );
@@ -910,16 +834,6 @@ export function ScannerPage() {
           </div>
         </div>
       </div>
-
-      {/* Hidden library input */}
-      <input
-        ref={libraryInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={handleLibraryFile}
-      />
 
       {/* Paywall nodes */}
       {barcodePaywall}
