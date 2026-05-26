@@ -517,35 +517,52 @@ export function ScannerPage() {
   // ── Library file handler ──────────────────────────────────────────────────
 
   const handleLibraryFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
+    if (!files.length) return;
     setMode("library");
     setCapturing(true);
     setScanResult(null);
-    try {
-      const reader = new FileReader();
-      const rawDataUrl: string = await new Promise(res => { reader.onload = () => res(reader.result as string); reader.readAsDataURL(file); });
-      // Resize to max 1024px wide to keep payload small
-      const dataUrl: string = await new Promise((resolve) => {
-        const img: HTMLImageElement = new (window.Image as any)();
-        img.onload = () => {
-          const MAX_W = 1024;
-          const scale = img.naturalWidth > MAX_W ? MAX_W / img.naturalWidth : 1;
-          const c = document.createElement("canvas");
-          c.width = Math.round(img.naturalWidth * scale);
-          c.height = Math.round(img.naturalHeight * scale);
-          const x = c.getContext("2d") as CanvasRenderingContext2D;
-          x.drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL("image/jpeg", 0.75));
+
+    // Helper: read a File and resize to max 1024px wide JPEG
+    const resizeFile = (file: File): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const rawDataUrl = reader.result as string;
+          const img: HTMLImageElement = new (window.Image as any)();
+          img.onerror = reject;
+          img.onload = () => {
+            const MAX_W = 1024;
+            const scale = img.naturalWidth > MAX_W ? MAX_W / img.naturalWidth : 1;
+            const c = document.createElement("canvas");
+            c.width = Math.round(img.naturalWidth * scale);
+            c.height = Math.round(img.naturalHeight * scale);
+            const x = c.getContext("2d") as CanvasRenderingContext2D;
+            x.drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL("image/jpeg", 0.75));
+          };
+          img.src = rawDataUrl;
         };
-        img.src = rawDataUrl;
+        reader.readAsDataURL(file);
       });
-      setCapturedFrame(dataUrl);
-      const items = await analyzeFoodImage({ imageUrl: dataUrl, mode: "food" });
-      const arr = Array.isArray(items) ? items : [];
-      setScanResult(arr);
-      if (!arr.length) toast.info("No food detected in this photo.");
+
+    try {
+      // Resize first image for preview
+      const firstDataUrl = await resizeFile(files[0]);
+      setCapturedFrame(firstDataUrl);
+
+      // Analyze all selected photos and merge food items
+      const allItems: any[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const dataUrl = i === 0 ? firstDataUrl : await resizeFile(files[i]);
+        const items = await analyzeFoodImage({ imageUrl: dataUrl, mode: "food" });
+        if (Array.isArray(items)) allItems.push(...items);
+      }
+
+      setScanResult(allItems);
+      if (!allItems.length) toast.info("No food detected in " + (files.length > 1 ? "these photos." : "this photo."));
     } catch {
       toast.error("Photo scan failed.");
       setScanResult([]);
@@ -899,6 +916,7 @@ export function ScannerPage() {
         ref={libraryInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         onChange={handleLibraryFile}
       />
