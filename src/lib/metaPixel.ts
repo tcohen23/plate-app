@@ -4,66 +4,38 @@
  *
  * Pixel ID is set via VITE_META_PIXEL_ID env var.
  *
- * Configuration:
- * - autoConfig: false  — prevents FB from auto-capturing button clicks and
- *   doing extra URL manipulation. We fire events manually where needed.
- * - PageView fires manually from PageViewTracker in App.tsx on each route change.
+ * ⚠️ CLIENT-SIDE FBEVENTS.JS IS DISABLED (2026-05-26, second time)
+ * Facebook's fbevents.js calls history.replaceState() internally when it loads,
+ * which crashes React Router ("An unexpected error occurred") on every page.
+ * autoConfig: false does NOT prevent this — FB still calls replaceState to clean
+ * up ?fbclid= from the URL, which crashes React Router regardless.
  *
- * NOTE: Facebook's fbevents.js calls history.replaceState to clean up ?fbclid=
- * from the URL after capturing it. This is safe now that PostHog's history
- * patching (autocapture) has been disabled — there's no longer a conflicting
- * history wrapper that crashes React Router.
+ * Confirmed crashing on iOS Safari / Facebook in-app browser.
+ * Previously disabled 2026-05-25, re-enabled 2026-05-25, crashing again 2026-05-26.
+ *
+ * FIX: We set up the fbq stub (so calls don't throw) but do NOT inject fbevents.js.
+ * TODO: Wire up Meta Conversions API server-side from Convex for reliable tracking.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-declare global {
-  interface Window {
-    fbq: (...args: any[]) => void;
-    _fbq: (...args: any[]) => void;
-  }
-}
-
 const PIXEL_ID = (import.meta as any).env?.VITE_META_PIXEL_ID as string | undefined;
 
-let initialized = false;
-
-/** Initialize the Meta Pixel and inject fbevents.js */
-export function initMetaPixel() {
-  if (!PIXEL_ID || initialized) return;
-  initialized = true;
-
-  // Set up the fbq stub before the script loads
-  if (!window.fbq) {
-    const fbq: any = function (...args: any[]) {
-      (fbq as any).callMethod
-        ? (fbq as any).callMethod.apply(fbq, args)
-        : (fbq as any).queue.push(args);
-    };
-    fbq.push = fbq;
-    fbq.loaded = true;
-    fbq.version = "2.0";
-    fbq.queue = [];
-    window.fbq = fbq;
-    window._fbq = fbq;
-  }
-
-  // autoConfig: false — prevent FB from auto-capturing clicks and doing
-  // extra URL manipulation that could interfere with React Router
-  window.fbq("set", "autoConfig", false, PIXEL_ID);
-  window.fbq("init", PIXEL_ID);
-
-  // Inject fbevents.js
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = "https://connect.facebook.net/en_US/fbevents.js";
-  document.head.appendChild(script);
+// No-op stub so trackMetaEvent calls don't throw
+function fbqNoOp(..._args: any[]) {
+  // fbevents.js is not loaded — crashes React Router
 }
 
-/** Fire PageView — called manually from PageViewTracker on each route change */
+/** Initialize the Meta Pixel stub (does NOT inject fbevents.js) */
+export function initMetaPixel() {
+  if (!PIXEL_ID) return;
+  // Intentionally not loading fbevents.js — see file header for explanation
+  // Events fire into the stub below and are silently dropped client-side.
+}
+
+/** Fire a named event — no-op while fbevents.js is disabled */
 export function trackMetaEvent(eventName: string, params?: Record<string, any>) {
-  if (!window.fbq) return;
-  window.fbq("track", eventName, params);
+  fbqNoOp("track", eventName, params);
 }
 
 /** Fire CompleteRegistration — call when a new account is fully verified */
