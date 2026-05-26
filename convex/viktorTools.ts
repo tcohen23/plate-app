@@ -145,9 +145,13 @@ async function callGeminiDirectly(prompt: string, imageInput?: string): Promise<
           const buffer = await imgResp.arrayBuffer();
           const contentType = imgResp.headers.get("content-type") || "image/jpeg";
           const mimeType = contentType.includes("png") ? "image/png" : "image/jpeg";
+          // Use chunked encoding to avoid stack overflow on large buffers
           const bytes = new Uint8Array(buffer);
           let binary = "";
-          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          const CHUNK = 8192;
+          for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+          }
           parts.push({ inline_data: { mime_type: mimeType, data: btoa(binary) } });
         }
       } catch (e) {
@@ -429,10 +433,13 @@ If no food visible, return [].`;
         const buffer = await imgResp.arrayBuffer();
         const contentType = imgResp.headers.get("content-type") || "image/jpeg";
         const mimeType = contentType.includes("png") ? "image/png" : "image/jpeg";
-        // Convert ArrayBuffer to base64
+        // Use chunked encoding to avoid stack overflow on large buffers
         const bytes = new Uint8Array(buffer);
         let binary = "";
-        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const CHUNK = 8192;
+        for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+        }
         const base64Data = btoa(binary);
         return { inline_data: { mime_type: mimeType, data: base64Data } };
       } catch {

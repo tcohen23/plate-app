@@ -287,6 +287,66 @@ export function ScannerPage() {
 
   // ── Barcode detection loop ────────────────────────────────────────────────
 
+  // ── html5-qrcode fallback barcode detection (iOS Safari / unsupported browsers) ──
+  const startFallbackBarcodeDetection = useCallback(() => {
+    // Create a hidden div for html5-qrcode (it needs a DOM node to initialize)
+    let hiddenDiv = document.getElementById("__html5qrcode_hidden");
+    if (!hiddenDiv) {
+      hiddenDiv = document.createElement("div");
+      hiddenDiv.id = "__html5qrcode_hidden";
+      hiddenDiv.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;";
+      document.body.appendChild(hiddenDiv);
+    }
+
+    if (!html5QrcodeRef.current) {
+      html5QrcodeRef.current = new Html5Qrcode("__html5qrcode_hidden", {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ],
+      });
+    }
+
+    const scanner = html5QrcodeRef.current;
+
+    const detectFromCanvas = async () => {
+      if (barcodeHandledRef.current || !videoRef.current || !cameraReady) return;
+      try {
+        const video = videoRef.current;
+        if (video.readyState < 2) return;
+        const canvas = document.createElement("canvas");
+        const srcW = video.videoWidth;
+        const srcH = video.videoHeight;
+        canvas.width = srcW;
+        canvas.height = srcH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, srcW, srcH);
+
+        // Convert canvas to blob → File for html5-qrcode
+        const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), "image/jpeg", 0.85));
+        const file = new File([blob], "frame.jpg", { type: "image/jpeg" });
+
+        const result = await scanner.scanFileV2(file, false);
+        if (result?.decodedText && !barcodeHandledRef.current) {
+          barcodeHandledRef.current = true;
+          hapticMedium();
+          if (barcodeDetectionRef.current) {
+            clearInterval(barcodeDetectionRef.current);
+            barcodeDetectionRef.current = null;
+          }
+          await handleBarcodeFound(result.decodedText);
+        }
+      } catch { /* no barcode in frame — keep scanning */ }
+    };
+
+    barcodeDetectionRef.current = setInterval(detectFromCanvas, 400);
+  }, [cameraReady, handleBarcodeFound]);
+
   const startBarcodeDetection = useCallback(() => {
     barcodeHandledRef.current = false;
     const hasBarcodeDetector = "BarcodeDetector" in window;
@@ -298,7 +358,16 @@ export function ScannerPage() {
         detector = new (window as any).BarcodeDetector({
           formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code", "data_matrix"],
         });
-      } catch { return; }
+      } catch {
+        // BarcodeDetector exists but construction failed (unsupported formats on this browser)
+        // Fall through to html5-qrcode fallback
+        detector = null;
+      }
+
+      if (!detector) {
+        startFallbackBarcodeDetection();
+        return;
+      }
 
       const detect = async () => {
         if (barcodeHandledRef.current || !videoRef.current || !cameraReady) return;
@@ -319,65 +388,9 @@ export function ScannerPage() {
       barcodeDetectionRef.current = setInterval(detect, 250);
     } else {
       // ── html5-qrcode fallback (iOS Safari) ──────────────────────────────
-      // Create a hidden div for html5-qrcode (it needs a DOM node)
-      let hiddenDiv = document.getElementById("__html5qrcode_hidden");
-      if (!hiddenDiv) {
-        hiddenDiv = document.createElement("div");
-        hiddenDiv.id = "__html5qrcode_hidden";
-        hiddenDiv.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;";
-        document.body.appendChild(hiddenDiv);
-      }
-
-      if (!html5QrcodeRef.current) {
-        html5QrcodeRef.current = new Html5Qrcode("__html5qrcode_hidden", {
-          verbose: false,
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_128,
-          ],
-        });
-      }
-
-      const scanner = html5QrcodeRef.current;
-
-      const detectFromCanvas = async () => {
-        if (barcodeHandledRef.current || !videoRef.current || !cameraReady) return;
-        try {
-          const video = videoRef.current;
-          if (video.readyState < 2) return;
-          const canvas = document.createElement("canvas");
-          // Crop center 60% width, full height for barcode area
-          const srcW = video.videoWidth;
-          const srcH = video.videoHeight;
-          canvas.width = srcW;
-          canvas.height = srcH;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          ctx.drawImage(video, 0, 0, srcW, srcH);
-
-          // Convert canvas to blob → File
-          const blob: Blob = await new Promise(resolve => canvas.toBlob(b => resolve(b!), "image/jpeg", 0.85));
-          const file = new File([blob], "frame.jpg", { type: "image/jpeg" });
-
-          const result = await scanner.scanFileV2(file, false);
-          if (result?.decodedText && !barcodeHandledRef.current) {
-            barcodeHandledRef.current = true;
-            hapticMedium();
-            if (barcodeDetectionRef.current) {
-              clearInterval(barcodeDetectionRef.current);
-              barcodeDetectionRef.current = null;
-            }
-            await handleBarcodeFound(result.decodedText);
-          }
-        } catch { /* no barcode in frame, keep scanning */ }
-      };
-
-      barcodeDetectionRef.current = setInterval(detectFromCanvas, 400);
+      startFallbackBarcodeDetection();
     }
-  }, [cameraReady, handleBarcodeFound]);
+  }, [cameraReady, handleBarcodeFound, startFallbackBarcodeDetection]);
 
   // ── Capture frame for food/label scan ────────────────────────────────────
 
@@ -431,7 +444,7 @@ export function ScannerPage() {
       await Promise.all(
         scanResult.map(item =>
           logFood({
-            mealSlot: "lunch",
+            mealSlot: item.mealSlot || "snack",
             name: item.name,
             calories: item.calories || 0,
             protein: item.protein || 0,
@@ -483,13 +496,13 @@ export function ScannerPage() {
     setBarcodeResult(null);
     barcodeHandledRef.current = false;
 
-    // Stop barcode detection if leaving barcode mode
+    // Stop barcode detection interval if leaving barcode mode
     if (barcodeDetectionRef.current) {
       clearInterval(barcodeDetectionRef.current);
       barcodeDetectionRef.current = null;
     }
 
-    // Library: open file picker
+    // Library: open file picker (no mode change needed, camera keeps running)
     if (newMode === "library") {
       libraryInputRef.current?.click();
       return;
@@ -553,6 +566,13 @@ export function ScannerPage() {
     if (mode !== "library") startCamera();
     return () => stopCamera();
   }, []);
+
+  // Restart camera if mode changes to a camera mode and camera is not running
+  useEffect(() => {
+    if (mode !== "library" && !streamRef.current) {
+      startCamera();
+    }
+  }, [mode]);
 
   // Start barcode detection when mode=barcode and camera is ready
   useEffect(() => {
@@ -792,7 +812,7 @@ export function ScannerPage() {
         </div>
 
         {/* Hint text */}
-        {cameraReady && !hasResults && (
+        {cameraReady && !hasResults && mode !== "library" && (
           <div
             className="absolute left-0 right-0 flex justify-center pointer-events-none"
             style={{ bottom: 40, zIndex: 20 }}
@@ -803,8 +823,7 @@ export function ScannerPage() {
             >
               {mode === "barcode" ? "Point at barcode to scan automatically" :
                mode === "food" ? "Point at your meal and tap capture" :
-               mode === "label" ? "Point at a nutrition label and tap capture" :
-               "Select a photo from your library"}
+               "Point at a nutrition label and tap capture"}
             </span>
           </div>
         )}
