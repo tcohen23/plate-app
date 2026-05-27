@@ -22,13 +22,13 @@ export function initPostHog() {
     capture_pageleave: false,
     autocapture: false,
     persistence: "localStorage+cookie",
-    session_recording: {
-      maskAllInputs: false,
-      maskInputOptions: {
-        password: true,
-      },
-    },
-    disable_session_recording: false,
+    // CRITICAL: session recording MUST stay disabled.
+    // PostHog session recording patches window.history.replaceState to track URL changes.
+    // React Router calls replaceState internally during navigation — PostHog's patched
+    // version throws, which propagates into React and triggers the ErrorBoundary
+    // ("An unexpected error occurred"). Confirmed crash on iOS/Safari/FB in-app browser.
+    // Session recording will remain off until PostHog ships a non-patching alternative.
+    disable_session_recording: true,
     loaded: (_ph) => {
       if (window.location.hostname === "localhost") {
         // ph.opt_out_capturing();
