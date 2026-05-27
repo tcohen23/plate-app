@@ -37,6 +37,8 @@ import { Step03Goals } from "./pages/onboarding/Step03Goals";
 import { StepInterstitialRealtalk } from "./pages/onboarding/StepInterstitialRealtalk";
 import { Step04Activity } from "./pages/onboarding/Step04Activity";
 import { StepAboutYou } from "./pages/onboarding/StepAboutYou";
+import { StepNameGoals } from "./pages/onboarding/StepNameGoals";
+import { StepAllStats } from "./pages/onboarding/StepAllStats";
 import { Step12Measurements } from "./pages/onboarding/Step12Measurements";
 import { StepCreateAccount } from "./pages/onboarding/StepCreateAccount";
 import { StepVerifyEmail } from "./pages/onboarding/StepVerifyEmail";
@@ -152,6 +154,12 @@ function App() {
 
           {/* Screen 8: measurements */}
           <Route path="/onboarding/measurements" element={<Step12Measurements />} />
+
+          {/* ── Test 6 (ob_screen_count) Variant B — 8-screen slim flow ── */}
+          {/* Slim screen 3: Name + Goals combined */}
+          <Route path="/onboarding/name-goals" element={<StepNameGoals />} />
+          {/* Slim screen 5: All stats combined (sex + age + height + weight) */}
+          <Route path="/onboarding/all-stats" element={<StepAllStats />} />
 
           {/* Screen 9: create account */}
           <Route path="/onboarding/create-account" element={<StepCreateAccount />} />

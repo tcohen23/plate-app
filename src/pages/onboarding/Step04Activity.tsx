@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { OnboardingLayout, OnboardingHeadline, OnboardingSubtext, OnboardingCTA, SelectChip } from "./OnboardingLayout";
+import { getScreenCountVariant } from "@/lib/posthog";
 
 const ACTIVITY = [
   {
@@ -39,7 +40,8 @@ export function Step04Activity() {
 
   const handleContinue = () => {
     sessionStorage.setItem("ob_activity", value);
-    navigate("/onboarding/about-you");
+    const variant = getScreenCountVariant();
+    navigate(variant === "variant_b" ? "/onboarding/all-stats" : "/onboarding/about-you");
   };
 
   return (

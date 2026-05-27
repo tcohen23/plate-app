@@ -75,3 +75,18 @@ export function trackAppInstallBannerSeen() {}
 export function getFlag(_flagKey: string): string | boolean | undefined {
   return undefined;
 }
+
+// ── A/B test variant assignment (client-side, sessionStorage-based) ──────────
+/**
+ * ob_screen_count — Test 6
+ * Returns "control" (12-screen flow) or "variant_b" (8-screen slim flow).
+ * Assigned once per session via Math.random(), persisted in sessionStorage.
+ * 50/50 split.
+ */
+export function getScreenCountVariant(): "control" | "variant_b" {
+  const stored = sessionStorage.getItem("ob_screen_count");
+  if (stored === "control" || stored === "variant_b") return stored;
+  const assigned = Math.random() < 0.5 ? "control" : "variant_b";
+  sessionStorage.setItem("ob_screen_count", assigned);
+  return assigned;
+}

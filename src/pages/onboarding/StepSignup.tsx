@@ -12,7 +12,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ChevronLeft } from "lucide-react";
 import { useState, useEffect } from "react";
-import { trackSignup } from "@/lib/posthog";
+import { trackSignup, getScreenCountVariant } from "@/lib/posthog";
 
 export function StepSignup() {
   const navigate = useNavigate();
@@ -32,8 +32,10 @@ export function StepSignup() {
     try {
       trackSignup(provider);
       import("@/lib/metaPixel").then(m => m.trackMetaRegistration());
+      const variant = getScreenCountVariant();
+      const oauthDest = variant === "variant_b" ? "/onboarding/name-goals" : "/onboarding/goals";
       await signIn(provider as any, {
-        redirectTo: "/onboarding/goals",
+        redirectTo: oauthDest,
       });
     } catch (err) {
       console.error("OAuth error", err);
@@ -73,7 +75,10 @@ export function StepSignup() {
 
         {/* Primary email CTA */}
         <button
-          onClick={() => navigate("/onboarding/name")}
+          onClick={() => {
+            const variant = getScreenCountVariant();
+            navigate(variant === "variant_b" ? "/onboarding/name-goals" : "/onboarding/name");
+          }}
           className="w-full font-bold text-base rounded-full transition-all active:scale-[0.98] mb-4"
           style={{
             background: "#52B788",
