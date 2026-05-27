@@ -11,27 +11,38 @@ let initialized = false;
 
 export function initPostHog() {
   if (initialized) return;
+
+  // ── HISTORY GUARD ────────────────────────────────────────────────────────
+  // PostHog patches window.history.replaceState and pushState during init —
+  // even with capture_pageview:false / autocapture:false / disable_session_recording:true —
+  // because it needs URL-change detection for feature flags and person tracking.
+  // React Router calls replaceState internally during navigation; PostHog's patched
+  // version can throw (especially on iOS Safari / FB in-app browser), which propagates
+  // into React and triggers the ErrorBoundary ("An unexpected error occurred").
+  //
+  // Fix: save the native history methods, let PostHog init (and do its patching),
+  // then immediately restore the originals so React Router always has clean methods.
+  const nativeReplaceState = window.history.replaceState.bind(window.history);
+  const nativePushState = window.history.pushState.bind(window.history);
+
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     person_profiles: "identified_only",
-    // CRITICAL: disable PostHog's built-in pageview capture and autocapture.
-    // PostHog patches history.replaceState/pushState to detect URL changes,
-    // which conflicts with React Router and causes "An unexpected error occurred"
-    // on every navigation. We fire $pageview manually from PageViewTracker instead.
+    // Disable PostHog's built-in pageview capture and autocapture.
+    // We fire $pageview manually from PageViewTracker instead.
     capture_pageview: false,
     capture_pageleave: false,
     autocapture: false,
     persistence: "localStorage+cookie",
-    // CRITICAL: session recording MUST stay disabled.
-    // PostHog session recording patches window.history.replaceState to track URL changes.
-    // React Router calls replaceState internally during navigation — PostHog's patched
-    // version throws, which propagates into React and triggers the ErrorBoundary
-    // ("An unexpected error occurred"). Confirmed crash on iOS/Safari/FB in-app browser.
-    // Session recording will remain off until PostHog ships a non-patching alternative.
     disable_session_recording: true,
     loaded: (_ph) => {
-      if (window.location.hostname === "localhost") {
-        // ph.opt_out_capturing();
+      // Restore native history methods after PostHog has patched them.
+      // This ensures React Router always calls the real browser implementation.
+      try {
+        window.history.replaceState = nativeReplaceState;
+        window.history.pushState = nativePushState;
+      } catch {
+        // Some browsers make history non-writable; that's fine — nothing to restore.
       }
     },
   });
