@@ -288,6 +288,15 @@ export function StepUpgrade() {
 
       {/* Sticky bottom CTA */}
       <div className="mt-auto">
+        {/* Trial badge */}
+        <div
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-full mb-4 text-xs font-semibold tracking-wide uppercase"
+          style={{ background: "rgba(82,183,136,0.15)", border: "1px solid rgba(82,183,136,0.35)", color: "var(--plate-green-accent)" }}
+        >
+          <span>🎁</span>
+          <span>7 Days Free — No Charge Today</span>
+        </div>
+
         <button
           onClick={handleStartTrial}
           disabled={loading}
@@ -306,11 +315,11 @@ export function StepUpgrade() {
               </svg>
               Loading...
             </span>
-          ) : copy.cta}
+          ) : "Start My Free Trial"}
         </button>
 
         <p className="text-center text-[13px] mt-3" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Then {plan === "annual" ? "$71.88/yr" : "$14.99/mo"} · Cancel anytime
+          Then {plan === "annual" ? "$5.99/mo billed annually" : "$14.99/mo"} · Cancel anytime
         </p>
 
         <button

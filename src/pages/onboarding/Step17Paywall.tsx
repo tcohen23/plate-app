@@ -81,6 +81,12 @@ export function Step17Paywall() {
       <div className="flex-1 flex flex-col px-6 pb-10">
         {/* Hero */}
         <div className="text-center mb-8 pt-2">
+          <img
+            src="/plate-logo.jpg"
+            alt="Plate"
+            className="mx-auto mb-5 rounded-2xl object-contain"
+            style={{ width: 80, height: 80 }}
+          />
           <div
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-4"
             style={{ background: "rgba(82,183,136,0.15)", color: "#52B788", border: "1px solid rgba(82,183,136,0.3)" }}
@@ -155,6 +161,15 @@ export function Step17Paywall() {
 
         {error && <p className="text-xs text-center mb-4" style={{ color: "#ef4444" }}>{error}</p>}
 
+        {/* Trial badge */}
+        <div
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-full mb-4 text-xs font-semibold tracking-wide uppercase"
+          style={{ background: "rgba(82,183,136,0.15)", border: "1px solid rgba(82,183,136,0.35)", color: "#52B788" }}
+        >
+          <span>🎁</span>
+          <span>7 Days Free — No Charge Today</span>
+        </div>
+
         {/* CTA */}
         <button
           onClick={handleSubscribe}
@@ -171,12 +186,12 @@ export function Step17Paywall() {
               Starting trial...
             </span>
           ) : (
-            "Start free trial →"
+            "Start My Free Trial"
           )}
         </button>
 
         <p className="text-white/30 text-xs text-center mt-4">
-          No charge for 7 days. Cancel before trial ends to avoid billing.
+          Then {selectedPlan === "annual" ? "$5.99/mo billed annually" : "$14.99/mo"} · Cancel anytime
         </p>
       </div>
 

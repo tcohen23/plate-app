@@ -169,17 +169,13 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-safe text-center">
-        {/* Lock icon */}
-        <div
-          className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6"
-          style={{ background: "var(--plate-green-deep)", border: "1px solid rgba(82,183,136,0.3)" }}
-        >
-          <img
-            src="/plate-logo.jpg"
-            alt="Plate"
-            className="w-14 h-14 rounded-2xl object-contain"
-          />
-        </div>
+        {/* Logo */}
+        <img
+          src="/plate-logo.jpg"
+          alt="Plate"
+          className="mb-6 rounded-2xl object-contain"
+          style={{ width: 80, height: 80 }}
+        />
 
         <h2 className="text-2xl font-serif text-white mb-2">{copy.headline}</h2>
         <p className="text-sm mb-8" style={{ color: "rgba(255,255,255,0.5)" }}>{copy.sub}</p>
@@ -199,16 +195,25 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
           ))}
         </ul>
 
+        {/* Trial badge */}
+        <div
+          className="flex items-center gap-2 px-4 py-2 rounded-full mb-4 text-xs font-semibold tracking-wide uppercase"
+          style={{ background: "rgba(82,183,136,0.15)", border: "1px solid rgba(82,183,136,0.35)", color: "var(--plate-green-accent)" }}
+        >
+          <span>🎁</span>
+          <span>7 Days Free — No Charge Today</span>
+        </div>
+
         {/* CTA */}
         <button
           onClick={handleUpgrade}
           className="w-full max-w-xs py-4 rounded-2xl text-base font-bold transition-opacity active:opacity-80"
           style={{ background: "var(--plate-green-accent)", color: "#0a1a0a" }}
         >
-          Start 7-Day Free Trial
+          Start My Free Trial
         </button>
         <p className="text-xs mt-3" style={{ color: "rgba(255,255,255,0.35)" }}>
-          $14.99/mo · or $5.99/mo billed annually · Cancel anytime
+          Then $14.99/mo · or $5.99/mo billed annually · Cancel anytime
         </p>
       </div>
     </div>
