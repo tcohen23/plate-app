@@ -12,7 +12,7 @@ import {
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { getLocalDateString, dateToLocalStr } from "@/lib/dateUtils";
+import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
 import { trackDashboardLoad, trackHydrationLogged, trackGoPremiumTap } from "@/lib/posthog";
