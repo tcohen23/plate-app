@@ -171,9 +171,8 @@ export function ScannerPage() {
   const initialMode = (searchParams.get("mode") as ScanMode) || "food";
   const [mode, setMode] = useState<ScanMode>(initialMode);
 
-  const { isPremium: _isPremium } = useAccessLevel();
-  const { paywallNode: barcodePaywall, openPaywall: _openBarcodePaywall } = usePaywall("barcode");
-  const { paywallNode: mealScanPaywall, openPaywall: _openMealScanPaywall } = usePaywall("meal_scan");
+  const { paywallNode: barcodePaywall } = usePaywall("barcode");
+  const { paywallNode: mealScanPaywall } = usePaywall("meal_scan");
 
   // Camera
   const videoRef = useRef<HTMLVideoElement>(null);
