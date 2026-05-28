@@ -27,7 +27,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 relative">
+    <div className="flex-1 flex items-center justify-center p-4 py-8 relative min-h-0 overflow-y-auto">
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute top-0 left-1/4 size-96 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 size-96 rounded-full bg-primary/5 blur-3xl" />
