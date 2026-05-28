@@ -6,7 +6,7 @@
  */
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useConvex } from "convex/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { api } from "../../convex/_generated/api";
 import {
   Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus,
@@ -19,7 +19,7 @@ import { identifyUser, setUserProperties, setConvexClientForAnalytics } from "..
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { RefreshCw } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
-import { QuickActionsSheet } from "@/components/QuickActionsSheet";
+
 
 /* ─── Nav definitions ─── */
 const BOTTOM_TABS = [
@@ -57,7 +57,7 @@ function AvatarDisplay({ profilePictureUrl, profile, initial }: { profilePicture
 }
 
 /* ─── Desktop sidebar ─── */
-function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, hasWorkout, navigate, location, onQuickAction }: {
+function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, hasWorkout, navigate, location }: {
   profile: any;
   profilePictureUrl: string | null | undefined;
   isPremium: boolean;
@@ -65,7 +65,6 @@ function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, has
   hasWorkout: boolean;
   navigate: (path: string) => void;
   location: ReturnType<typeof useLocation>;
-  onQuickAction: () => void;
 }) {
   const initial = (profile?.name || "U")[0].toUpperCase();
   const navItems = SIDEBAR_NAV.filter(item => !item.requiresWorkout || hasWorkout);
@@ -88,12 +87,12 @@ function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, has
       {/* Quick Log button */}
       <div className="px-4 pt-4 pb-2">
         <button
-          onClick={onQuickAction}
+          onClick={() => navigate("/track")}
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-2.5 font-semibold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
           style={{ background: "#52B788", color: "#0d1f13" }}
         >
           <Plus className="w-4 h-4" strokeWidth={2.5} />
-          Quick Log
+          Log Food
         </button>
       </div>
 
@@ -187,7 +186,7 @@ export function MobileLayout() {
   // Wire Convex client into analytics so posthog.ts can fire server-side events
   useEffect(() => { setConvexClientForAnalytics(convex); }, [convex]);
 
-  const [showQuickActions, setShowQuickActions] = useState(false);
+
 
 
 
@@ -250,7 +249,6 @@ export function MobileLayout() {
         hasWorkout={!!hasWorkout}
         navigate={navigate}
         location={location}
-        onQuickAction={() => { hapticMedium(); setShowQuickActions(true); }}
       />
 
       {/* ── Right side: header + content ── */}
@@ -305,12 +303,12 @@ export function MobileLayout() {
               );
             })}
 
-            {/* Center "+" — opens Quick Actions menu */}
+            {/* Center "+" — navigates directly to Food Tracker */}
             <button
-              onClick={() => { hapticMedium(); setShowQuickActions(true); }}
+              onClick={() => { hapticMedium(); navigate("/track"); }}
               className="flex items-center justify-center rounded-full transition-all active:scale-[0.94] shadow-lg"
               style={{ width: 52, height: 52, background: "#52B788", boxShadow: "0 4px 16px rgba(82,183,136,0.4)", marginBottom: 8 }}
-              aria-label="Quick actions"
+              aria-label="Log food"
             >
               <Plus className="w-6 h-6" style={{ color: "#0d1f13", strokeWidth: 2.5 }} />
             </button>
@@ -330,7 +328,7 @@ export function MobileLayout() {
       </div>
 
       {/* Quick Actions Sheet — opened by center "+" button */}
-      <QuickActionsSheet open={showQuickActions} onClose={() => setShowQuickActions(false)} />
+
 
     </div>
   );

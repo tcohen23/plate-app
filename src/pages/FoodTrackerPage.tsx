@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Camera, Plus, X, Trash2, Edit3, AlertCircle, CheckCircle2, Info, ChevronLeft, ChevronDown, Mic, MicOff, Loader2 } from "lucide-react";
+import { Search, Camera, Plus, X, Trash2, AlertCircle, CheckCircle2, Info, ChevronLeft, ChevronDown, Mic, MicOff, Loader2, ScanLine, Zap } from "lucide-react";
 import { trackFoodLogged, trackBarcodeScanned } from "@/lib/posthog";
 
 
@@ -15,6 +15,8 @@ import { calculateHealthScore } from "@/lib/healthScore";
 import { searchFoodDatabase } from "@/lib/foodDatabase";
 import type { FoodItem } from "@/lib/foodDatabase";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import { usePaywall } from "@/components/PaywallModal";
+import { useAccessLevel } from "@/components/RequireSubscription";
 
 type ViewMode = "log" | "search" | "quick" | "custom" | "scanner" | "barcode_result" | "meal_detail" | "food_detail";
 type TrackTab = "History" | "My Meals" | "My Recipes" | "My Foods";
@@ -35,6 +37,12 @@ export function FoodTrackerPage() {
 
 
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Premium / paywall
+  const { isPremium } = useAccessLevel();
+  const { paywallNode: barcodePaywallNode, openPaywall: openBarcodePaywall } = usePaywall("barcode");
+  const { paywallNode: mealScanPaywallNode, openPaywall: openMealScanPaywall } = usePaywall("meal_scan");
+  const { paywallNode: voicePaywallNode, openPaywall: openVoicePaywall } = usePaywall("voice_log");
 
   // Meal scan state
   const [mealScanLoading, setMealScanLoading] = useState(false);
@@ -115,7 +123,7 @@ export function FoodTrackerPage() {
 
   const [view, setView] = useState<ViewMode>("log");
   const [searchQuery, setSearchQuery] = useState("");
-  const initialMeal = searchParams.get("meal") || "breakfast";
+  const initialMeal = searchParams.get("meal") || searchParams.get("slot") || "breakfast";
   const [selectedSlot, setSelectedSlot] = useState(
     ["breakfast","lunch","dinner","snack"].includes(initialMeal) ? initialMeal : "breakfast"
   );
@@ -475,26 +483,40 @@ export function FoodTrackerPage() {
 
   return (
     <div className="pb-28 max-w-lg mx-auto animate-page-enter">
-      {/* ── MFP Header: Select a Meal ▼ ── */}
+      {/* ── MFP Header: ← Select a Meal ▼ ── */}
       <div className="sticky top-0 z-20 px-4 pt-3 pb-0" style={{ background: "var(--background)" }}>
-        {/* Meal selector — MFP-style styled dropdown */}
-        <div className="flex items-center justify-between mb-2 relative">
+        {/* Meal selector — MFP-style: ← [Select a Meal ▼] spacer */}
+        <div className="flex items-center mb-2 relative">
+          {/* Back arrow */}
+          <button
+            onClick={() => { hapticLight(); navigate(-1); }}
+            className="w-9 h-9 flex items-center justify-center rounded-full active:opacity-60 transition-opacity flex-shrink-0"
+            style={{ background: "var(--surface-card)" }}
+            aria-label="Go back"
+          >
+            <ChevronLeft className="w-5 h-5" style={{ color: "var(--foreground)" }} />
+          </button>
+
+          {/* Centered meal picker */}
           <button
             onClick={() => { hapticLight(); setShowMealPicker(p => !p); }}
-            className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
+            className="flex-1 flex items-center justify-center gap-1.5 active:opacity-70 transition-opacity"
           >
-            <span className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
+            <span className="text-base font-semibold" style={{ color: "#60a5fa" }}>
               {{ breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snacks" }[selectedSlot] ?? "Select a Meal"}
             </span>
-            <ChevronDown className="w-5 h-5 mt-0.5" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+            <ChevronDown className="w-4 h-4" style={{ color: "#60a5fa" }} />
           </button>
+
+          {/* Spacer to balance back button */}
+          <div className="w-9 flex-shrink-0" />
 
           {/* Meal picker popup */}
           {showMealPicker && (
             <>
               <div className="fixed inset-0 z-[50]" onClick={() => setShowMealPicker(false)} />
               <div
-                className="absolute left-0 top-full mt-2 z-[51] rounded-2xl overflow-hidden"
+                className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-[51] rounded-2xl overflow-hidden"
                 style={{
                   background: "#1c1e26",
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -531,10 +553,10 @@ export function FoodTrackerPage() {
           )}
         </div>
 
-        {/* MFP-style search bar */}
-        <div className="flex items-center gap-2 mb-3">
+        {/* MFP-style search bar — full width pill */}
+        <div className="flex items-center mb-3">
           <div
-            className="flex-1 flex items-center gap-2 px-3 h-11 rounded-xl"
+            className="flex-1 flex items-center gap-2 px-4 h-12 rounded-full"
             style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
           >
             <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -542,26 +564,15 @@ export function FoodTrackerPage() {
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setView("search"); else setView("log"); }}
               onFocus={() => { if (view !== "search") setView("search"); }}
-              placeholder="Search for a food"
+              placeholder="Search foods, brands, flavors..."
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
             />
+            {searchQuery.length > 0 && (
+              <button onClick={() => { setSearchQuery(""); setView("log"); }} className="flex-shrink-0">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            )}
           </div>
-          {/* Mic */}
-          <button
-            onClick={() => { hapticLight(); setShowVoiceResults(true); }}
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
-          >
-            <Mic className="w-4 h-4" style={{ color: voiceActive ? "#52B788" : "rgba(255,255,255,0.5)" }} />
-          </button>
-          {/* Camera */}
-          <button
-            onClick={() => { hapticLight(); setShowCameraDropdown(d => !d); }}
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
-          >
-            <Camera className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} />
-          </button>
         </div>
 
         {/* Camera dropdown */}
@@ -570,13 +581,13 @@ export function FoodTrackerPage() {
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left border-b transition-opacity active:opacity-60"
               style={{ borderColor: "var(--border)" }}
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); setView("scanner"); startScanner(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
             >
               <span className="mr-3">📦</span> Barcode Scan
             </button>
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left transition-opacity active:opacity-60"
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); mealScanInputRef.current?.click(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
             >
               <span className="mr-3">🍽️</span> Meal Scan
             </button>
@@ -614,14 +625,44 @@ export function FoodTrackerPage() {
         className="hidden"
       />
 
-      {/* Quick add / custom food toggle buttons */}
-      <div className="flex gap-2 mb-3">
-        <Button variant="outline" size="sm" className="rounded-full h-8 text-xs px-3" onClick={() => setView("quick")}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Quick add
-        </Button>
-        <Button variant="outline" size="sm" className="rounded-full h-8 text-xs px-3" onClick={() => setView("custom")}>
-          <Edit3 className="w-3.5 h-3.5 mr-1" /> Custom food
-        </Button>
+      {/* ── 4 Quick-action tiles: Barcode scan · Voice log · Meal scan · Quick add ── */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {/* Barcode scan — premium gated */}
+        <button
+          onClick={() => { hapticLight(); if (!isPremium) { openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+        >
+          <ScanLine className="w-5 h-5" style={{ color: "#60a5fa" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Barcode scan</span>
+        </button>
+        {/* Voice log — premium gated */}
+        <button
+          onClick={() => { hapticLight(); if (!isPremium) { openVoicePaywall(); return; } setShowVoiceResults(true); }}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+        >
+          <Mic className="w-5 h-5" style={{ color: "#60a5fa" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Voice log</span>
+        </button>
+        {/* Meal scan — premium gated */}
+        <button
+          onClick={() => { hapticLight(); if (!isPremium) { openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+        >
+          <Camera className="w-5 h-5" style={{ color: "#60a5fa" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Meal scan</span>
+        </button>
+        {/* Quick add — free */}
+        <button
+          onClick={() => { hapticLight(); setView("quick"); }}
+          className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+        >
+          <Zap className="w-5 h-5" style={{ color: "#60a5fa" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Quick add</span>
+        </button>
       </div>
 
       {/* Search overlay */}
@@ -1864,6 +1905,11 @@ export function FoodTrackerPage() {
           )}
         </div>
       )}
+
+      {/* Paywall modals for premium features */}
+      {barcodePaywallNode}
+      {mealScanPaywallNode}
+      {voicePaywallNode}
     </div>
   );
 }
