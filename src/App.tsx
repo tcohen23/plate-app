@@ -62,14 +62,20 @@ function SmartToaster() {
 }
 
 // Generates a stable anonymous session ID for the browser session
+// Wrapped in try/catch — sessionStorage throws SecurityError in Slack/Facebook
+// in-app browsers and QuotaExceededError in iOS Safari Private Browsing
 function getSessionId(): string {
-  const key = "plate_sid";
-  let sid = sessionStorage.getItem(key);
-  if (!sid) {
-    sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    sessionStorage.setItem(key, sid);
+  try {
+    const key = "plate_sid";
+    let sid = sessionStorage.getItem(key);
+    if (!sid) {
+      sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem(key, sid);
+    }
+    return sid;
+  } catch {
+    return Math.random().toString(36).slice(2);
   }
-  return sid;
 }
 
 // Tracks page views on every route change
