@@ -8,13 +8,20 @@ import { useState } from "react";
 export function LoginPage() {
   const { signIn } = useAuthActions();
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
+  const [oauthError, setOauthError] = useState("");
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setOauthLoading(provider);
+    setOauthError("");
     try {
       await signIn(provider as any, { redirectTo: "/dashboard" });
-    } catch (err) {
+    } catch (err: any) {
       console.error("OAuth error", err);
+      setOauthError(
+        err?.message && !err.message.includes("undefined")
+          ? err.message
+          : `Could not sign in with ${provider === "google" ? "Google" : "Apple"}. Please try email below or contact support.`
+      );
       setOauthLoading(null);
     }
   };
@@ -89,6 +96,12 @@ export function LoginPage() {
           )}
           Continue with Apple
         </button>
+
+        {oauthError && (
+          <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 text-center">
+            {oauthError}
+          </p>
+        )}
 
         {/* Divider */}
         <div className="flex items-center gap-3">
