@@ -2,12 +2,14 @@
  * "Building Your Plan" screen — uses the existing PlanBuildAnimation component.
  * Route: /onboarding/building-plan
  *
- * Fires completeOnboarding in background, shows the animated plan build,
- * then navigates straight to /dashboard. No paywall.
+ * Fires createMinimalProfile (idempotent) then completeOnboarding in background.
+ * createMinimalProfile must run first because completeOnboarding requires the profile
+ * to already exist. This screen is behind ProtectedRoute so auth is guaranteed —
+ * no race condition unlike calling createMinimalProfile in StepVerifyEmail.
  */
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "convex/react";
+import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { trackEvent, trackExperimentAssigned, getScreenCountVariant, getWelcomeHookVariant, getPaywallCopyVariant } from "@/lib/posthog";
 import { PlanBuildAnimation } from "@/components/PlanBuildAnimation";
@@ -43,6 +45,8 @@ function calculateCalories(): number {
 
 export function StepBuildingPlan() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useConvexAuth();
+  const createMinimalProfile = useMutation(api.onboarding.createMinimalProfile);
   const completeOnboarding = useMutation(api.onboarding.completeOnboarding);
 
   const calories = calculateCalories();
@@ -70,35 +74,44 @@ export function StepBuildingPlan() {
     trackExperimentAssigned("ob_paywall_copy", getPaywallCopyVariant());
   }, []);
 
-  // Fire completeOnboarding in background immediately on mount
+  // Ensure profile exists first (covers the OTP race condition where createMinimalProfile
+  // couldn't run in StepVerifyEmail because the auth session hadn't propagated yet).
+  // Then fire completeOnboarding. Both run behind ProtectedRoute so auth is guaranteed.
   useEffect(() => {
-    completeOnboarding({
-      firstName: sessionStorage.getItem("ob_firstName") || "",
-      goals: JSON.parse(sessionStorage.getItem("ob_goals") || "[]"),
-      glp1Status: sessionStorage.getItem("ob_glp1") || "no",
-      pastBarriers: JSON.parse(sessionStorage.getItem("ob_barriers") || "[]"),
-      habits: JSON.parse(sessionStorage.getItem("ob_habits") || "[]"),
-      mealPlanOptIn: true,
-      planningFrequency: sessionStorage.getItem("ob_frequency") || "daily",
-      sex: sessionStorage.getItem("ob_sex") || "other",
-      age: parseInt(sessionStorage.getItem("ob_age") || "25"),
-      country: sessionStorage.getItem("ob_country") || "US",
-      zip: sessionStorage.getItem("ob_zip") || undefined,
-      currentWeightLb: parseFloat(sessionStorage.getItem("ob_currentWeight") || "160"),
-      goalWeightLb: parseFloat(
-        sessionStorage.getItem("ob_goalWeight") ||
-        sessionStorage.getItem("ob_currentWeight") ||
-        "150"
-      ),
-      heightFt: parseInt(sessionStorage.getItem("ob_heightFt") || "5"),
-      heightIn: parseInt(sessionStorage.getItem("ob_heightIn") || "6"),
-      reminderOptIn: true,
-      emailOptIn: true,
-      personalizationConsent: true,
-      calorieTarget: calories,
-      activityLevel: sessionStorage.getItem("ob_activity") || "moderate",
-    }).catch(console.error);
-  }, []);
+    if (!isAuthenticated) return;
+    const firstName = sessionStorage.getItem("ob_firstName") || "";
+    // createMinimalProfile is idempotent (updates if exists, creates if not).
+    // We chain completeOnboarding after it because completeOnboarding throws
+    // "Profile not found" if the profile doesn't exist yet.
+    createMinimalProfile({ firstName })
+      .then(() => completeOnboarding({
+        firstName: sessionStorage.getItem("ob_firstName") || "",
+        goals: JSON.parse(sessionStorage.getItem("ob_goals") || "[]"),
+        glp1Status: sessionStorage.getItem("ob_glp1") || "no",
+        pastBarriers: JSON.parse(sessionStorage.getItem("ob_barriers") || "[]"),
+        habits: JSON.parse(sessionStorage.getItem("ob_habits") || "[]"),
+        mealPlanOptIn: true,
+        planningFrequency: sessionStorage.getItem("ob_frequency") || "daily",
+        sex: sessionStorage.getItem("ob_sex") || "other",
+        age: parseInt(sessionStorage.getItem("ob_age") || "25"),
+        country: sessionStorage.getItem("ob_country") || "US",
+        zip: sessionStorage.getItem("ob_zip") || undefined,
+        currentWeightLb: parseFloat(sessionStorage.getItem("ob_currentWeight") || "160"),
+        goalWeightLb: parseFloat(
+          sessionStorage.getItem("ob_goalWeight") ||
+          sessionStorage.getItem("ob_currentWeight") ||
+          "150"
+        ),
+        heightFt: parseInt(sessionStorage.getItem("ob_heightFt") || "5"),
+        heightIn: parseInt(sessionStorage.getItem("ob_heightIn") || "6"),
+        reminderOptIn: true,
+        emailOptIn: true,
+        personalizationConsent: true,
+        calorieTarget: calories,
+        activityLevel: sessionStorage.getItem("ob_activity") || "moderate",
+      }))
+      .catch(console.error);
+  }, [isAuthenticated]);
 
   const handleComplete = () => {
     trackEvent("onboarding_completed", { source: "building_plan" });
