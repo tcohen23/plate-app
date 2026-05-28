@@ -415,8 +415,15 @@ export function MobileLayout() {
     }
   }, [profile]);
 
-  if (profile === null) { navigate("/onboarding", { replace: true }); return null; }
-  if (profile === undefined) {
+  // Navigate to onboarding inside an effect — never call navigate() during render,
+  // it's a side-effect and crashes React 19 (causes replaceState in render phase).
+  useEffect(() => {
+    if (profile === null) {
+      navigate("/onboarding", { replace: true });
+    }
+  }, [profile, navigate]);
+
+  if (profile === undefined || profile === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <RefreshCw className="w-6 h-6 text-muted-foreground animate-spin" />
