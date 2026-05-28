@@ -23,10 +23,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-type Period = "1M" | "3M" | "6M";
+type Period = "7D" | "1M" | "3M" | "6M";
 
-const PERIOD_DAYS: Record<Period, number> = { "1M": 30, "3M": 90, "6M": 180 };
+const PERIOD_DAYS: Record<Period, number> = { "7D": 7, "1M": 30, "3M": 90, "6M": 180 };
 const PERIOD_LABELS: Record<Period, string> = {
+  "7D": "Last 7 Days",
   "1M": "1 Month",
   "3M": "3 Months",
   "6M": "6 Months",
@@ -185,7 +186,7 @@ export function MeasurementsPage() {
   const initialTab =
     searchParams.get("tab") === "weight" ? "Weight" : "Steps";
   const [tab, setTab] = useState<"Steps" | "Weight">(initialTab as "Steps" | "Weight");
-  const [period, setPeriod] = useState<Period>("6M");
+  const [period, setPeriod] = useState<Period>("1M");
   const [showPeriodMenu, setShowPeriodMenu] = useState(false);
   const [showLogWeight, setShowLogWeight] = useState(false);
   const [showLogSteps, setShowLogSteps] = useState(false);
@@ -398,7 +399,7 @@ export function MeasurementsPage() {
                 minWidth: 120,
               }}
             >
-              {(["1M", "3M", "6M"] as Period[]).map((p) => (
+              {(["7D", "1M", "3M", "6M"] as Period[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => {

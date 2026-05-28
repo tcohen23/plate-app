@@ -171,9 +171,9 @@ export function ScannerPage() {
   const initialMode = (searchParams.get("mode") as ScanMode) || "food";
   const [mode, setMode] = useState<ScanMode>(initialMode);
 
-  const { isPremium } = useAccessLevel();
-  const { paywallNode: barcodePaywall, openPaywall: openBarcodePaywall } = usePaywall("barcode");
-  const { paywallNode: mealScanPaywall, openPaywall: openMealScanPaywall } = usePaywall("meal_scan");
+  const { isPremium: _isPremium } = useAccessLevel();
+  const { paywallNode: barcodePaywall, openPaywall: _openBarcodePaywall } = usePaywall("barcode");
+  const { paywallNode: mealScanPaywall, openPaywall: _openMealScanPaywall } = usePaywall("meal_scan");
 
   // Camera
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -505,13 +505,7 @@ export function ScannerPage() {
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
-  // Check premium gate
-  useEffect(() => {
-    if (isPremium === false) {
-      if (mode === "barcode") openBarcodePaywall();
-      else openMealScanPaywall();
-    }
-  }, [isPremium]);
+  // Paywall is triggered only when user attempts to scan, not on entry
 
   // Start camera on mount
   useEffect(() => {

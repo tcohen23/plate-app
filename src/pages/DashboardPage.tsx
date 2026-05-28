@@ -12,7 +12,7 @@ import {
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { getLocalDateString, dateToLocalStr } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
 import { trackDashboardLoad, trackHydrationLogged, trackGoPremiumTap } from "@/lib/posthog";
@@ -193,18 +193,18 @@ function WeekStrip({ selectedDateStr, onDateChange }: { selectedDateStr: string;
   const weekDates = days.map((_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
-    return d.toISOString().split("T")[0];
+    return dateToLocalStr(d);
   });
 
   const goToPrevWeek = () => {
     const d = new Date(selectedDateStr + "T12:00:00");
     d.setDate(d.getDate() - 7);
-    onDateChange(d.toISOString().split("T")[0]);
+    onDateChange(dateToLocalStr(d));
   };
   const goToNextWeek = () => {
     const d = new Date(selectedDateStr + "T12:00:00");
     d.setDate(d.getDate() + 7);
-    const next = d.toISOString().split("T")[0];
+    const next = dateToLocalStr(d);
     if (next <= todayStr) onDateChange(next);
   };
 
@@ -475,23 +475,6 @@ function MacrosBarCard({
   );
 }
 
-/* ─── Premium Upsell Banner (replaces ad slot) ─── */
-function _PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
-  return (
-    <div
-      className="rounded-xl px-4 py-3 mb-3 flex items-center justify-between"
-      style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.2)" }}
-    >
-      <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
-        Get ad-free tracking in Premium —{" "}
-        <button onClick={() => { trackGoPremiumTap("dashboard_upsell_banner"); navigate("/onboarding/upgrade"); }} className="font-semibold underline" style={{ color: "#E5B454" }}>
-          upgrade now
-        </button>
-      </span>
-      <Crown className="w-4 h-4 flex-shrink-0 ml-2" style={{ color: "#E5B454" }} />
-    </div>
-  );
-}
 
 /* ─── Diary Meal Row ─── */
 const MEAL_ICONS: Record<string, React.ReactNode> = {
