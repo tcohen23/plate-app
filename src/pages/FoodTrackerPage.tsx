@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, Camera, Plus, X, Trash2, Edit3, AlertCircle, CheckCircle2, Info, ChevronLeft, Mic, MicOff, Loader2 } from "lucide-react";
-import { trackFoodLogged, trackBarcodeScanned } from "@/lib/posthog";
+import { trackFoodLogged, trackBarcodeScanned, trackGateHit } from "@/lib/posthog";
 import { usePaywall } from "@/components/PaywallModal";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { calculateHealthScore } from "@/lib/healthScore";
@@ -160,11 +160,11 @@ export function FoodTrackerPage() {
     const voice = searchParams.get("voice");
     if (mode === "scanner" || mode === "1") {
       setSearchParams({}, { replace: true });
-      if (!isPremium) { setTimeout(() => openBarcodePaywall(), 300); }
+      if (!isPremium) { trackGateHit("barcode"); setTimeout(() => openBarcodePaywall(), 300); }
       else { setTimeout(() => { setView("scanner"); startScanner(); }, 300); }
     } else if (mealscan === "1") {
       setSearchParams({}, { replace: true });
-      if (!isPremium) { setTimeout(() => openMealScanPaywall(), 300); }
+      if (!isPremium) { trackGateHit("meal_scan"); setTimeout(() => openMealScanPaywall(), 300); }
       else { setTimeout(() => { mealScanInputRef.current?.click(); }, 400); }
     } else if (mealscan === "image") {
       // Image captured via QuickActionSheet, stored in sessionStorage
@@ -188,7 +188,7 @@ export function FoodTrackerPage() {
       }
     } else if (voice === "1") {
       setSearchParams({}, { replace: true });
-      if (!isPremium) { setTimeout(() => openVoicePaywall(), 300); }
+      if (!isPremium) { trackGateHit("voice_log"); setTimeout(() => openVoicePaywall(), 300); }
       else { setShowVoiceResults(true); } // show modal so user can tap to start (iOS requires user gesture)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -509,7 +509,7 @@ export function FoodTrackerPage() {
           </div>
           {/* Mic */}
           <button
-            onClick={() => { hapticLight(); if (!isPremium) { openVoicePaywall(); return; } setShowVoiceResults(true); }}
+            onClick={() => { hapticLight(); if (!isPremium) { trackGateHit("voice_log"); openVoicePaywall(); return; } setShowVoiceResults(true); }}
             className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
           >
@@ -531,13 +531,13 @@ export function FoodTrackerPage() {
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left border-b transition-opacity active:opacity-60"
               style={{ borderColor: "var(--border)" }}
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { trackGateHit("barcode"); openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
             >
               <span className="mr-3">📦</span> Barcode Scan
             </button>
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left transition-opacity active:opacity-60"
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { trackGateHit("meal_scan"); openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
             >
               <span className="mr-3">🍽️</span> Meal Scan
             </button>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { hapticLight } from "@/lib/haptics";
 import {
   Plus, Droplets, ChevronRight,
-  Crown, Zap, ChevronDown, ChevronLeft,
+  X, Crown, Zap, ChevronDown, ChevronLeft,
   MoreHorizontal, Dumbbell, Footprints,
   Weight, StickyNote, Coffee, Sandwich, Utensils, Cookie,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
-import { trackDashboardLoad, trackHydrationLogged, trackWeightLogged, trackGoPremiumTap } from "@/lib/posthog";
+import { trackDashboardLoad, trackHydrationLogged, trackGoPremiumTap } from "@/lib/posthog";
 
 /* ─── PWA detection ─── */
 
