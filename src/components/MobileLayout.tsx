@@ -411,12 +411,12 @@ export function MobileLayout() {
               );
             })}
 
-            {/* Center "+" */}
+            {/* Center "+" — navigates to food log (MFP-style) */}
             <button
-              onClick={() => { hapticMedium(); setShowQuickActions(true); }}
+              onClick={() => { hapticMedium(); navigate("/track"); }}
               className="flex items-center justify-center rounded-full transition-all active:scale-[0.94] shadow-lg"
               style={{ width: 52, height: 52, background: "#52B788", boxShadow: "0 4px 16px rgba(82,183,136,0.4)", marginBottom: 8 }}
-              aria-label="Quick actions"
+              aria-label="Log food"
             >
               <Plus className="w-6 h-6" style={{ color: "#0d1f13", strokeWidth: 2.5 }} />
             </button>
