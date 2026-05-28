@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { hapticLight } from "@/lib/haptics";
 import {
   Plus, Droplets, ChevronRight,
-  X, Zap, ChevronDown, ChevronLeft,
+  X, Crown, Zap, ChevronDown, ChevronLeft,
   MoreHorizontal, Dumbbell, Footprints,
   Weight, StickyNote, Coffee, Sandwich, Utensils, Cookie,
 } from "lucide-react";
@@ -683,7 +683,6 @@ export function DashboardPage() {
           carbs={Math.round(consumed.carbs)} carbsGoal={targetCarbs}
           fat={Math.round(consumed.fat)} fatGoal={targetFat}
           protein={Math.round(consumed.protein)} proteinGoal={targetProtein}
-          onViewDetail={() => navigate("/more/nutrition")}
         />
       </div>
 
