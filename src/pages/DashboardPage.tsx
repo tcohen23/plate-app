@@ -548,7 +548,7 @@ function PremiumUpsellBanner({ onTap }: { onTap: () => void }) {
       </div>
       <div className="flex-1 text-left">
         <div className="text-sm font-bold" style={{ color: "#52B788" }}>Upgrade to Premium</div>
-        <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Unlock macros, meal planning, workout plans &amp; more</div>
+        <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Barcode scanner, 7 day meal plans, meal scan &amp; workout plans</div>
       </div>
       <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "#52B788", color: "#0d1f13" }}>Try free</span>
     </button>
