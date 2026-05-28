@@ -290,3 +290,39 @@ export const getDailySummary = query({
     };
   },
 });
+
+export const getDateRangeSummaries = query({
+  args: { startDate: v.string(), endDate: v.string() },
+  returns: v.any(),
+  handler: async (ctx, { startDate, endDate }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return {};
+    const allLogs = await ctx.db
+      .query("foodLogs")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    const filtered = allLogs.filter(
+      (l) => l.date >= startDate && l.date <= endDate
+    );
+    const byDate: Record<
+      string,
+      { calories: number; protein: number; carbs: number; fat: number }
+    > = {};
+    for (const log of filtered) {
+      if (!byDate[log.date])
+        byDate[log.date] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      byDate[log.date].calories += log.calories;
+      byDate[log.date].protein += log.protein;
+      byDate[log.date].carbs += log.carbs;
+      byDate[log.date].fat += log.fat;
+    }
+    // Round values
+    for (const d of Object.keys(byDate)) {
+      byDate[d].calories = Math.round(byDate[d].calories);
+      byDate[d].protein = Math.round(byDate[d].protein * 10) / 10;
+      byDate[d].carbs = Math.round(byDate[d].carbs * 10) / 10;
+      byDate[d].fat = Math.round(byDate[d].fat * 10) / 10;
+    }
+    return byDate;
+  },
+});

@@ -14,7 +14,7 @@ import { useAccessLevel } from "@/components/RequireSubscription";
 import { calculateHealthScore } from "@/lib/healthScore";
 import { searchFoodDatabase } from "@/lib/foodDatabase";
 import type { FoodItem } from "@/lib/foodDatabase";
-import { hapticLight } from "@/lib/haptics";
+import { hapticLight, hapticMedium } from "@/lib/haptics";
 
 type ViewMode = "log" | "search" | "quick" | "custom" | "scanner" | "barcode_result" | "meal_detail" | "food_detail";
 type TrackTab = "History" | "My Meals" | "My Recipes" | "My Foods";
@@ -629,7 +629,31 @@ export function FoodTrackerPage() {
                         <div className="text-sm font-medium truncate">{food.name}</div>
                         <div className="text-xs text-muted-foreground">{food.calories} kcal · {food.protein}g protein · {food.servingSize}</div>
                       </div>
-                      <ChevronLeft className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 rotate-180" />
+                      <button
+                        className="flex-shrink-0 ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                        style={{ background: "rgba(82,183,136,0.15)", border: "1.5px solid rgba(82,183,136,0.4)" }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          hapticMedium();
+                          try {
+                            await logFood({
+                              mealSlot: selectedSlot,
+                              name: food.name,
+                              calories: food.calories,
+                              protein: food.protein ?? 0,
+                              carbs: food.carbs ?? 0,
+                              fat: food.fat ?? 0,
+                              localDate,
+                            });
+                            trackFoodLogged("search");
+                            toast.success(`${food.name} logged ✓`);
+                          } catch (err: any) {
+                            toast.error(err.message);
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" style={{ color: "#52B788", strokeWidth: 2.5 }} />
+                      </button>
                     </Card>
                   ))}
                 </>
@@ -654,7 +678,32 @@ export function FoodTrackerPage() {
                         <div className="text-sm font-medium truncate">{meal.name}</div>
                         <div className="text-xs text-muted-foreground">{Math.round(meal.calories)} kcal · {Math.round(meal.protein)}g protein</div>
                       </div>
-                      <ChevronLeft className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 rotate-180" />
+                      <button
+                        className="flex-shrink-0 ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                        style={{ background: "rgba(82,183,136,0.15)", border: "1.5px solid rgba(82,183,136,0.4)" }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          hapticMedium();
+                          try {
+                            await logFood({
+                              mealSlot: selectedSlot,
+                              name: meal.name,
+                              calories: Math.round(meal.calories),
+                              protein: Math.round(meal.protein * 10) / 10,
+                              carbs: Math.round(meal.carbs * 10) / 10,
+                              fat: Math.round(meal.fat * 10) / 10,
+                              mealId: meal._id,
+                              localDate,
+                            });
+                            trackFoodLogged("search");
+                            toast.success(`${meal.name} logged ✓`);
+                          } catch (err: any) {
+                            toast.error(err.message);
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" style={{ color: "#52B788", strokeWidth: 2.5 }} />
+                      </button>
                     </Card>
                   ))}
                 </>
@@ -665,10 +714,61 @@ export function FoodTrackerPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">No results found. Try a different search or create a custom food.</p>
               )}
 
-              {/* Hint when no query */}
-              {!hasQuery && (
-                <p className="text-sm text-muted-foreground text-center py-6">Start typing to search 1,000+ foods</p>
-              )}
+              {/* Suggestions when no query — show today's logged foods as quick re-add */}
+              {!hasQuery && (() => {
+                const allTodayItems: any[] = Object.values(logsBySlot).flat();
+                // Deduplicate by name (case-insensitive)
+                const seen = new Set<string>();
+                const suggestions = allTodayItems.filter((l: any) => {
+                  const key = l.name.toLowerCase();
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+                return suggestions.length > 0 ? (
+                  <>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 pt-1">Suggestions</p>
+                    {suggestions.map((item: any) => (
+                      <Card
+                        key={item._id}
+                        className="p-3 rounded-xl flex items-center justify-between hover:bg-accent/30 active:scale-[0.99] transition-all"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{item.name}</div>
+                          <div className="text-xs text-muted-foreground">{Math.round(item.calories)} kcal · {Math.round(item.protein)}g P · {Math.round(item.carbs)}g C · {Math.round(item.fat)}g F</div>
+                        </div>
+                        <button
+                          className="flex-shrink-0 ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                          style={{ background: "rgba(82,183,136,0.15)", border: "1.5px solid rgba(82,183,136,0.4)" }}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            hapticMedium();
+                            try {
+                              await logFood({
+                                mealSlot: selectedSlot,
+                                name: item.name,
+                                calories: Math.round(item.calories),
+                                protein: Math.round(item.protein * 10) / 10,
+                                carbs: Math.round(item.carbs * 10) / 10,
+                                fat: Math.round(item.fat * 10) / 10,
+                                localDate,
+                              });
+                              trackFoodLogged("search");
+                              toast.success(`${item.name} logged ✓`);
+                            } catch (err: any) {
+                              toast.error(err.message);
+                            }
+                          }}
+                        >
+                          <Plus className="w-4 h-4" style={{ color: "#52B788", strokeWidth: 2.5 }} />
+                        </button>
+                      </Card>
+                    ))}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-6">Start typing to search 1,000+ foods</p>
+                );
+              })()}
             </div>
           </div>
         );

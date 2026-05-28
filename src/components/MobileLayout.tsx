@@ -5,7 +5,7 @@
  * Desktop (≥ 1024px): fixed sidebar nav + full-width content area
  */
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import {
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { parseAvatarChoice } from "@/pages/SettingsPage";
-import { identifyUser, setUserProperties } from "../lib/posthog";
+import { identifyUser, setUserProperties, setConvexClientForAnalytics } from "../lib/posthog";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { RefreshCw } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
@@ -291,11 +291,15 @@ function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, has
 export function MobileLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const convex = useConvex();
   const profile = useQuery(api.profiles.getProfile);
   const profilePictureUrl = useQuery(api.profiles.getProfilePictureUrl);
   const { isPremium, isTrialing, hasWorkout } = useAccessLevel();
 
-  const [showQuickActions, setShowQuickActions] = useState(false);
+  // Wire Convex client into analytics so posthog.ts can fire server-side events
+  useEffect(() => { setConvexClientForAnalytics(convex); }, [convex]);
+
+
 
   // Identify user in PostHog
   const identified = useRef(false);
@@ -356,7 +360,7 @@ export function MobileLayout() {
         hasWorkout={!!hasWorkout}
         navigate={navigate}
         location={location}
-        onQuickAction={() => { hapticMedium(); setShowQuickActions(true); }}
+        onQuickAction={() => { hapticMedium(); navigate("/track"); }}
       />
 
       {/* ── Right side: header + content ── */}
@@ -411,7 +415,7 @@ export function MobileLayout() {
               );
             })}
 
-            {/* Center "+" — navigates to food log (MFP-style) */}
+            {/* Center "+" — navigate directly to Food Log (MFP-style) */}
             <button
               onClick={() => { hapticMedium(); navigate("/track"); }}
               className="flex items-center justify-center rounded-full transition-all active:scale-[0.94] shadow-lg"
@@ -434,12 +438,6 @@ export function MobileLayout() {
           </div>
         </nav>
       </div>
-
-      {/* ── Sheets ── */}
-      <BottomSheet open={showQuickActions} onClose={() => setShowQuickActions(false)}>
-        <QuickActionSheet onClose={() => setShowQuickActions(false)} navigate={navigate} isPremium={!!isPremium} />
-      </BottomSheet>
-
 
     </div>
   );

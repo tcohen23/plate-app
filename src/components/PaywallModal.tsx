@@ -1,6 +1,7 @@
 /**
- * PaywallModal — Full-screen overlay paywall that fires when a free user taps
- * a premium-only feature. Uses createPortal so it works from any component.
+ * PaywallModal — Bottom-sheet paywall that animates up from the bottom when a
+ * free user taps a premium-only feature. Uses createPortal so it works from
+ * any component.
  *
  * Usage:
  *   const [showPaywall, setShowPaywall] = useState(false);
@@ -10,7 +11,7 @@
  *   const { paywallNode, openPaywall } = usePaywall();
  *   // call openPaywall() on any premium tap, render paywallNode in JSX
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";

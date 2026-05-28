@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
@@ -229,7 +230,7 @@ function WeekStrip({ selectedDateStr, onDateChange }: { selectedDateStr: string;
           const dateNum = parseInt(dateStr.split("-")[2]);
           return (
             <button
-              key={i}
+              key={dateStr}
               disabled={isFuture}
               onClick={() => { if (!isFuture) { hapticLight(); onDateChange(dateStr); }}}
               className="flex flex-col items-center gap-0.5 focus:outline-none active:scale-90 transition-transform"
@@ -264,7 +265,7 @@ function WeekStrip({ selectedDateStr, onDateChange }: { selectedDateStr: string;
         style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
         aria-label="Next week"
       >
-        <ChevronLeft className="w-3.5 h-3.5 rotate-180" style={{ transform: "rotate(180deg)" }} />
+        <ChevronRight className="w-3.5 h-3.5" />
       </button>
     </div>
   );
@@ -302,7 +303,8 @@ function DatePickerDropdown({ selectedDateStr, onSelect, onClose }: {
   const canGoPrev = !(year === today.getFullYear() - 1 && month === 0); // limit 1 year back
   const canGoNext = !(year === today.getFullYear() && month === today.getMonth());
 
-  return (
+  // Render via portal so fixed positioning works even inside CSS-transformed parents
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -406,7 +408,8 @@ function DatePickerDropdown({ selectedDateStr, onSelect, onClose }: {
           </button>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

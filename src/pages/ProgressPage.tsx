@@ -113,7 +113,14 @@ export function ProgressPage() {
         {TABS.map(t => (
           <button
             key={t}
-            onClick={() => { hapticLight(); setTab(t); }}
+            onClick={() => {
+              hapticLight();
+              if (t === "Sleep") {
+                navigate("/more/sleep");
+                return;
+              }
+              setTab(t);
+            }}
             className="px-4 py-3 text-sm font-medium flex-shrink-0 border-b-2 transition-all"
             style={{
               borderBottomColor: tab === t ? "#52B788" : "transparent",

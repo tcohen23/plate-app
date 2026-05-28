@@ -25,21 +25,35 @@ export function TestUserLoginSection() {
     setError("");
     setLoading(true);
 
-    const formData = new FormData();
-    formData.set("email", TEST_USER.email);
-    formData.set("password", TEST_USER.password);
-    formData.set("flow", "signIn");
-
     try {
-      await signIn("test", formData);
-    } catch {
-      formData.set("flow", "signUp");
-      formData.set("name", TEST_USER.name);
+      // Try sign-in first
+      const signInData = new FormData();
+      signInData.set("email", TEST_USER.email);
+      signInData.set("password", TEST_USER.password);
+      signInData.set("flow", "signIn");
       try {
-        await signIn("test", formData);
-      } catch {
-        setError("Failed to sign in as test user. Please try again.");
+        await signIn("test", signInData);
+        return; // success
+      } catch (signInErr: any) {
+        const msg = String(signInErr?.message || "").toLowerCase();
+        // If provider not found, don't bother trying signUp
+        if (msg.includes("provider") || msg.includes("not configured") || msg.includes("not found")) {
+          setError("Test auth not available on this deployment.");
+          return;
+        }
+        // Otherwise try creating the account
       }
+
+      // Sign-up (create account)
+      const signUpData = new FormData();
+      signUpData.set("email", TEST_USER.email);
+      signUpData.set("password", TEST_USER.password);
+      signUpData.set("name", TEST_USER.name);
+      signUpData.set("flow", "signUp");
+      await signIn("test", signUpData);
+    } catch (err: any) {
+      const msg = String(err?.message || "");
+      setError(msg || "Failed to sign in as test user. Please try again.");
     } finally {
       setLoading(false);
     }

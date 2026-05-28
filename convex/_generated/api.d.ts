@@ -10,6 +10,7 @@
 
 import type * as ViktorSpacesEmail from "../ViktorSpacesEmail.js";
 import type * as admin from "../admin.js";
+import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
 import type * as barcode from "../barcode.js";
@@ -31,6 +32,7 @@ import type * as profiles from "../profiles.js";
 import type * as progress from "../progress.js";
 import type * as rehab from "../rehab.js";
 import type * as seedTestUser from "../seedTestUser.js";
+import type * as steps from "../steps.js";
 import type * as stores from "../stores.js";
 import type * as stripe from "../stripe.js";
 import type * as testAuth from "../testAuth.js";
@@ -50,6 +52,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ViktorSpacesEmail: typeof ViktorSpacesEmail;
   admin: typeof admin;
+  analytics: typeof analytics;
   auth: typeof auth;
   authHelpers: typeof authHelpers;
   barcode: typeof barcode;
@@ -71,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   progress: typeof progress;
   rehab: typeof rehab;
   seedTestUser: typeof seedTestUser;
+  steps: typeof steps;
   stores: typeof stores;
   stripe: typeof stripe;
   testAuth: typeof testAuth;

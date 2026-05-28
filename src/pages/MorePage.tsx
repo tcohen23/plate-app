@@ -17,7 +17,6 @@
  *   Reminders
  *   Apps & Devices
  *   Steps
- *   Community
  *   Learn
  *   Friends
  *   Messages
@@ -33,7 +32,7 @@ import { hapticLight } from "@/lib/haptics";
 import {
   Crown, User, Pill, Clock, Moon, ChefHat, Dumbbell, Target,
   BarChart2, FileText, Utensils, Bell, Smartphone, Footprints,
-  Users, GraduationCap, UserPlus, MessageSquare, Settings, Shield,
+  GraduationCap, UserPlus, MessageSquare, Settings, Shield,
   HelpCircle, RefreshCw, ChevronRight,
 } from "lucide-react";
 
@@ -48,7 +47,7 @@ type MenuItem = {
 const MENU_ITEMS: MenuItem[] = [
   { label: "Try Premium for Free", icon: <Crown className="w-5 h-5" style={{ color: "#E5B454" }} />, path: "/onboarding/upgrade", isPremiumGate: true },
   { label: "My Profile", icon: <User className="w-5 h-5" />, path: "/more/profile" },
-  { label: "GLP-1 Support", icon: <Pill className="w-5 h-5" />, path: "/more/glp1", badge: "Beta" },
+  { label: "GLP-1 Support", icon: <Pill className="w-5 h-5" />, path: "/more/glp1" },
   { label: "Intermittent Fasting", icon: <Clock className="w-5 h-5" />, path: "/more/fasting" },
   { label: "Sleep", icon: <Moon className="w-5 h-5" />, path: "/more/sleep" },
   { label: "Recipe Discovery", icon: <ChefHat className="w-5 h-5" />, path: "/plan" },
@@ -61,7 +60,6 @@ const MENU_ITEMS: MenuItem[] = [
   { label: "Reminders", icon: <Bell className="w-5 h-5" />, path: "/more/reminders" },
   { label: "Apps & Devices", icon: <Smartphone className="w-5 h-5" />, path: "/more/apps-devices" },
   { label: "Steps", icon: <Footprints className="w-5 h-5" />, path: "/more/measurements?tab=steps" },
-  { label: "Community", icon: <Users className="w-5 h-5" />, path: "/more/community" },
   { label: "Learn", icon: <GraduationCap className="w-5 h-5" />, path: "/more/learn" },
   { label: "Friends", icon: <UserPlus className="w-5 h-5" />, path: "/more/friends" },
   { label: "Messages", icon: <MessageSquare className="w-5 h-5" />, path: "/more/messages" },
