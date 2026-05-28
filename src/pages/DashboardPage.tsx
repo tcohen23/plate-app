@@ -1,3 +1,13 @@
+/**
+ * DashboardPage — "Today" tab
+ *
+ * Redesign: MFP-psychology layout
+ * - Prominent calorie ring (top focus) with macro breakdown below
+ * - Water tracking (tap each segment = 1 glass — Tyler's tap-to-add, improved)
+ * - Today's meals with log/skip/swap
+ * - Streak + coach nudge card
+ * - Crown/premium upsell pill in header
+ */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useNavigate } from "react-router-dom";
@@ -6,8 +16,7 @@ import { trackMealPlanGenerated } from "@/lib/posthog";
 import { hapticLight, hapticMedium, hapticSuccess, hapticHeavy } from "@/lib/haptics";
 import {
   Flame, Plus, RefreshCw, Droplets, ChevronRight,
-  Download, X, Share, MoreVertical,
-  CheckCircle2, Clock, Share2, Crown,
+  Download, X, Share, MoreVertical, CheckCircle2, Clock, Share2, Crown,
 } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { toast } from "sonner";
@@ -23,7 +32,6 @@ function isRunningStandalone() {
   if ((navigator as any).standalone === true) return true;
   return false;
 }
-
 
 /* ─── Animated number counter ─── */
 function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: number }) {
@@ -60,235 +68,186 @@ const MACRO_DETAILS: Record<string, { unit: string; description: string; tip: st
   },
   Protein: {
     unit: "g",
-    description: "Protein builds and repairs muscle, keeps you full, and has the highest thermic effect of all macros, meaning your body burns more calories digesting it.",
+    description: "Protein builds and repairs muscle, keeps you full, and has the highest thermic effect of all macros.",
     tip: "Prioritize protein at breakfast and lunch. It is the hardest macro to hit and the most important for body composition.",
   },
   Carbs: {
     unit: "g",
-    description: "Carbohydrates are your body's preferred fuel source for workouts and brain function. Complex carbs like oats, rice, and sweet potatoes give steady energy without blood sugar spikes.",
-    tip: "Time your carbs around training for best performance. Reduce them later in the day if fat loss is the goal.",
+    description: "Carbohydrates are your body's preferred fuel source for workouts and brain function.",
+    tip: "Time your carbs around training for best performance. Reduce later in the day if fat loss is the goal.",
   },
   Fat: {
     unit: "g",
-    description: "Dietary fat supports hormone production, brain health, and absorption of vitamins A, D, E, and K. Healthy fats from avocado, nuts, and olive oil are essential, not optional.",
+    description: "Dietary fat supports hormone production, brain health, and absorption of vitamins A, D, E, and K.",
     tip: "Do not cut fat below 0.3g per pound of bodyweight. Low fat diets tank testosterone and slow recovery.",
   },
 };
 
-/* ─── Single ring unit for EditorialCalorieCard ─── */
-function MacroRing({
-  label, value, target, color, isSelected, onTap,
-}: {
-  label: string; value: number; target: number; color: string;
-  isSelected: boolean; onTap: () => void;
-}) {
-  const size = 96;
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = 38;
-  const stroke = 6;
-  const pct = target > 0 ? Math.min(value / target, 1) : 0;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - pct);
-
-  return (
-    <button
-      className="flex flex-col items-center transition-transform active:scale-95"
-      style={{ gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer" }}
-      onClick={onTap}
-      aria-label={`${label} details`}
-    >
-      {/* Label above ring */}
-      <span
-        style={{
-          fontFamily: "var(--font-sans)",
-          fontSize: 12,
-          fontWeight: isSelected ? 500 : 300,
-          letterSpacing: "0.01em",
-          color: isSelected ? color : "var(--muted-foreground)",
-          lineHeight: 1,
-          transition: "color 0.2s",
-        }}
-      >
-        {label}
-      </span>
-
-      {/* Ring with centered value */}
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg
-          className="w-full h-full"
-          viewBox={`0 0 ${size} ${size}`}
-          style={{ transform: "rotate(-90deg)" }}
-        >
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--ring-track)" strokeWidth={stroke} />
-          <circle
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={circ}
-            strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)" }}
-          />
-        </svg>
-        {/* Centered text overlay */}
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center"
-          style={{ pointerEvents: "none" }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: label === "Calories" ? 20 : 18,
-              lineHeight: 1,
-              letterSpacing: "-0.01em",
-              color: "var(--foreground)",
-              fontWeight: 400,
-            }}
-          >
-            <AnimatedNumber value={Math.round(value)} />
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 8,
-              letterSpacing: "0.04em",
-              color: "var(--muted-foreground)",
-              marginTop: 3,
-              lineHeight: 1,
-            }}
-          >
-            of {target.toLocaleString()}
-          </span>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-/* ─── Editorial Calorie Card — 4 individual rings ─── */
-function EditorialCalorieCard({
+/* ─── Calorie + macro hero card ─── */
+function CalorieHeroCard({
   calories, calTarget,
   protein, proteinTarget,
   carbs, carbsTarget,
   fat, fatTarget,
+  onNavigateWhy,
 }: {
   calories: number; calTarget: number;
   protein: number; proteinTarget: number;
   carbs: number; carbsTarget: number;
   fat: number; fatTarget: number;
+  onNavigateWhy: () => void;
 }) {
-  const navigate = useNavigate();
-  const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const remaining = Math.max(calTarget - calories, 0);
+  const over = calories > calTarget ? calories - calTarget : 0;
+  const pct = calTarget > 0 ? Math.min(calories / calTarget, 1) : 0;
 
+  // Ring geometry
+  const size = 180;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 76;
+  const stroke = 10;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - pct);
+
+  // Macro bar helpers
   const macros = [
-    { label: "Calories", value: calories, target: calTarget,     color: "#4ade80" },
-    { label: "Protein",  value: protein,  target: proteinTarget, color: "#60a5fa" },
-    { label: "Carbs",    value: carbs,    target: carbsTarget,   color: "#fbbf24" },
-    { label: "Fat",      value: fat,      target: fatTarget,     color: "#f87171" },
+    { label: "Protein", value: protein, target: proteinTarget, color: "#4A9EFF" },
+    { label: "Carbs", value: carbs, target: carbsTarget, color: "#F5A623" },
+    { label: "Fat", value: fat, target: fatTarget, color: "#FF6B6B" },
   ];
-
-  const selectedDetail = selectedMacro ? MACRO_DETAILS[selectedMacro] : null;
-  const selectedColor = selectedMacro ? macros.find(m => m.label === selectedMacro)?.color : null;
 
   return (
     <div
-      className="relative overflow-hidden w-full"
+      className="rounded-3xl overflow-hidden"
       style={{
         background: "var(--surface-card)",
         border: "1px solid var(--border)",
-        borderRadius: 24,
-        padding: "24px 20px 20px",
       }}
     >
-      {/* Grain texture overlay */}
-      <svg
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 w-full h-full"
-        style={{ opacity: 0.025, mixBlendMode: "overlay" }}
-      >
-        <filter id="grain-cal">
-          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#grain-cal)" />
-      </svg>
+      {/* Calorie ring section */}
+      <div className="px-5 pt-5 pb-4 flex flex-col items-center">
+        {/* Eyebrow */}
+        <p className="text-xs font-medium tracking-widest uppercase mb-4" style={{ color: "var(--muted-foreground)", letterSpacing: "0.12em" }}>
+          Today's Calories
+        </p>
 
-      {/* Eyebrow */}
-      <div
-        className="text-center mb-6"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color: "var(--muted-foreground)",
-        }}
-      >
-        — Today's Intake —
-      </div>
+        {/* Ring */}
+        <div className="relative" style={{ width: size, height: size }}>
+          <svg
+            viewBox={`0 0 ${size} ${size}`}
+            style={{ width: size, height: size, transform: "rotate(-90deg)" }}
+          >
+            {/* Track */}
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
+            {/* Progress */}
+            <circle
+              cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={over > 0 ? "#FF6B6B" : "var(--plate-green-accent)"}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circ}
+              strokeDashoffset={offset}
+              style={{ transition: "stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1), stroke 0.3s" }}
+            />
+          </svg>
+          {/* Center text */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+            <span
+              className="leading-none"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 38,
+                fontWeight: 400,
+                color: "var(--foreground)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              <AnimatedNumber value={calories} />
+            </span>
+            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+              / {calTarget} kcal
+            </span>
+            {over > 0 ? (
+              <span className="text-xs font-semibold mt-0.5" style={{ color: "#FF6B6B" }}>
+                +{over} over
+              </span>
+            ) : (
+              <span className="text-xs font-medium mt-0.5" style={{ color: "var(--plate-green-accent)" }}>
+                {remaining} left
+              </span>
+            )}
+          </div>
+        </div>
 
-      {/* 2x2 ring grid */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-6" style={{ justifyItems: "center" }}>
-        {macros.map(m => (
-          <MacroRing
-            key={m.label}
-            label={m.label}
-            value={m.value}
-            target={m.target}
-            color={m.color}
-            isSelected={selectedMacro === m.label}
-            onTap={() => {
-              hapticLight();
-              setSelectedMacro(prev => prev === m.label ? null : m.label);
-            }}
-          />
-        ))}
+        {/* Macro row: consumed / target */}
+        <div className="w-full flex justify-around mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+          {macros.map((m) => (
+            <button
+              key={m.label}
+              onClick={() => { hapticLight(); setExpanded(expanded === m.label ? null : m.label); }}
+              className="flex flex-col items-center gap-1 flex-1 transition-all active:scale-95"
+            >
+              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: "var(--border)", maxWidth: 52 }}>
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${Math.min((m.value / m.target) * 100, 100)}%`,
+                    background: m.color,
+                  }}
+                />
+              </div>
+              <span className="text-xs font-semibold" style={{ color: m.color }}>
+                {Math.round(m.value)}g
+              </span>
+              <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                {m.label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Macro detail expansion */}
-      {selectedDetail && selectedMacro && selectedColor && (
+      {expanded && MACRO_DETAILS[expanded] && (
         <div
-          className="mt-5 rounded-2xl px-4 py-4"
+          className="mx-4 mb-4 rounded-2xl px-4 py-3.5"
           style={{
-            background: `color-mix(in srgb, ${selectedColor} 8%, transparent)`,
-            border: `1px solid color-mix(in srgb, ${selectedColor} 25%, transparent)`,
-            animation: "fadeIn 0.18s ease",
+            background: "var(--surface-elevated, rgba(255,255,255,0.03))",
+            border: "1px solid var(--border)",
+            animation: "fadeIn 0.15s ease",
           }}
         >
           <div className="flex items-center justify-between mb-2">
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: selectedColor }}>
-              {selectedMacro}
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--plate-green-accent)" }}>
+              {expanded}
             </span>
             <button
-              onClick={() => setSelectedMacro(null)}
-              className="w-5 h-5 flex items-center justify-center rounded-full transition-opacity active:opacity-60"
+              onClick={() => setExpanded(null)}
+              className="w-5 h-5 rounded-full flex items-center justify-center"
               style={{ background: "rgba(255,255,255,0.08)" }}
-              aria-label="Close"
             >
-              <X className="w-3 h-3" style={{ color: "var(--muted-foreground)" }} />
+              <X className="w-3 h-3 text-muted-foreground" />
             </button>
           </div>
-          <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--foreground)", lineHeight: 1.55, marginBottom: 8 }}>
-            {selectedDetail.description}
+          <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--foreground)" }}>
+            {MACRO_DETAILS[expanded].description}
           </p>
-          <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-            <span style={{ color: selectedColor, fontWeight: 500 }}>Tip: </span>{selectedDetail.tip}
+          <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+            <span style={{ color: "var(--plate-green-accent)", fontWeight: 500 }}>Tip: </span>
+            {MACRO_DETAILS[expanded].tip}
           </p>
         </div>
       )}
 
       {/* Why these numbers */}
-      <div className="flex justify-center mt-5">
+      <div className="flex justify-center pb-4">
         <button
-          onClick={() => { hapticLight(); navigate("/why"); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all active:scale-95"
-          style={{
-            background: "var(--surface-overlay, rgba(255,255,255,0.06))",
-            border: "1px solid var(--border)",
-            color: "var(--muted-foreground)",
-          }}
+          onClick={onNavigateWhy}
+          className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-full transition-all active:scale-95"
+          style={{ color: "var(--muted-foreground)", background: "var(--surface-elevated, rgba(255,255,255,0.04))", border: "1px solid var(--border)" }}
         >
           Why these numbers?
         </button>
@@ -297,20 +256,92 @@ function EditorialCalorieCard({
   );
 }
 
-
-/* ─── Smart context coach card ─── */
-function CoachCard({ message }: { message: string }) {
+/* ─── Water tracker — Tyler's tap-to-add (improved) ─── */
+function WaterTracker({ current, target, onLog }: {
+  current: number;
+  target: number;
+  onLog: (n: number) => void;
+}) {
   return (
-    <div className="context-card">
-      <div className="flex items-start gap-2.5">
-        <span className="text-lg mt-0.5">💬</span>
-        <p className="text-body text-muted-foreground leading-relaxed">{message}</p>
+    <div
+      className="rounded-2xl px-4 py-4"
+      style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Droplets className="w-4 h-4" style={{ color: "#4A9EFF" }} />
+          <span className="text-sm font-semibold">Hydration</span>
+        </div>
+        <span className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+          {current} / {target} glasses
+        </span>
       </div>
+
+      {/* Tap-to-add segments */}
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: target }).map((_, i) => {
+          const isFilled = i < current;
+          return (
+            <button
+              key={i}
+              onClick={() => { hapticLight(); onLog(i + 1); }}
+              className="flex-1 rounded-full transition-all duration-200 active:scale-y-90"
+              style={{
+                height: 20,
+                background: isFilled
+                  ? "#4A9EFF"
+                  : "var(--border)",
+                boxShadow: isFilled ? "0 0 6px rgba(74,158,255,0.35)" : "none",
+              }}
+              aria-label={`Log ${i + 1} glass${i > 0 ? "es" : ""}`}
+            />
+          );
+        })}
+      </div>
+
+      {/* Quick +1 button */}
+      {current < target && (
+        <button
+          onClick={() => { hapticLight(); onLog(current + 1); }}
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-all active:scale-[0.98]"
+          style={{ background: "rgba(74,158,255,0.1)", color: "#4A9EFF", border: "1px solid rgba(74,158,255,0.2)" }}
+        >
+          <Plus className="w-3 h-3" /> Add a glass
+        </button>
+      )}
+      {current >= target && (
+        <p className="mt-2 text-center text-xs font-medium" style={{ color: "#4A9EFF" }}>
+          🎉 Goal reached!
+        </p>
+      )}
     </div>
   );
 }
 
-/* ─── Tappable meal card (Today's plan) ─── */
+/* ─── Coach card ─── */
+function CoachCard({ message }: { message: string }) {
+  return (
+    <div
+      className="rounded-2xl px-4 py-3.5 flex items-start gap-3"
+      style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+    >
+      <span className="text-lg leading-none mt-0.5">💬</span>
+      <p className="text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>{message}</p>
+    </div>
+  );
+}
+
+/* ─── Meal slot label ─── */
+function formatSlot(slot: string) {
+  const map: Record<string, string> = {
+    breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner",
+    snack: "Snack", "morning-snack": "Morning Snack",
+    "afternoon-snack": "Afternoon Snack", "evening-snack": "Evening Snack",
+  };
+  return map[slot] ?? slot;
+}
+
+/* ─── Meal card ─── */
 function TodayMealCard({
   meal, mealData, dayIndex, mealIndex,
   onSwap, onSkip, onNavigate, isLogged,
@@ -326,127 +357,111 @@ function TodayMealCard({
 
   return (
     <div
-      className="meal-card animate-card-stagger"
+      className="rounded-2xl p-3.5 transition-all active:scale-[0.99] cursor-pointer"
       style={{
-        opacity: isSkipped ? 0.4 : isLogged ? 0.55 : 1,
-        animationDelay: `${mealIndex * 70}ms`,
+        background: "var(--surface-card)",
+        border: `1px solid ${isLogged ? "rgba(82,183,136,0.3)" : "var(--border)"}`,
+        opacity: isSkipped ? 0.4 : 1,
       }}
       onClick={() => mealData && onNavigate(meal.mealId)}
     >
-      <div className="flex items-start gap-3">
-        {/* Emoji avatar */}
+      <div className="flex items-center gap-3">
+        {/* Emoji */}
         <div
-          className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-          style={{ background: "var(--surface-overlay)" }}
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+          style={{ background: "var(--surface-overlay, rgba(255,255,255,0.05))" }}
         >
           {mealData?.imageEmoji || "🍽️"}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-card-label" style={{ color: "#555" }}>{formatSlot(meal.slot)}</span>
-            {isSkipped && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(245,166,35,0.15)", color: "#F5A623" }}>
-                SKIPPED
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--muted-foreground)" }}>
+              {formatSlot(meal.slot)}
+            </span>
+            {isLogged && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(82,183,136,0.12)", color: "#52B788" }}>
+                <CheckCircle2 className="w-2.5 h-2.5" /> Logged
               </span>
             )}
-            {isLogged && !isSkipped && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(82,183,136,0.15)", color: "#52B788" }}>
-                <CheckCircle2 className="w-2.5 h-2.5" /> LOGGED
+            {isSkipped && !isLogged && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(245,166,35,0.12)", color: "#F5A623" }}>
+                Skipped
               </span>
             )}
           </div>
-          <div className={`text-meal-name ${isSkipped || isLogged ? "line-through" : ""}`}
-            style={isLogged && !isSkipped ? { textDecorationColor: "#52B788" } : {}}
+          <p
+            className="text-sm font-semibold truncate"
+            style={{
+              color: "var(--foreground)",
+              textDecoration: isLogged || isSkipped ? "line-through" : "none",
+              textDecorationColor: isLogged ? "#52B788" : "#F5A623",
+            }}
           >
             {mealData?.name || "Loading…"}
-          </div>
+          </p>
           {mealData && (
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <span className="macro-pill macro-pill-kcal">{Math.round(mealData.calories)} kcal</span>
-              <span className="macro-pill macro-pill-protein">{Math.round(mealData.protein * 10) / 10}p</span>
-              <span className="macro-pill macro-pill-carbs">{Math.round(mealData.carbs * 10) / 10}c</span>
-              <span className="macro-pill macro-pill-fat">{Math.round(mealData.fat * 10) / 10}f</span>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+                {Math.round(mealData.calories)} kcal
+              </span>
+              <span className="text-xs" style={{ color: "#4A9EFF" }}>{Math.round(mealData.protein)}p</span>
+              <span className="text-xs" style={{ color: "#F5A623" }}>{Math.round(mealData.carbs)}c</span>
+              <span className="text-xs" style={{ color: "#FF6B6B" }}>{Math.round(mealData.fat)}f</span>
               {totalTime > 0 && (
-                <span className="cook-time-pill ml-1"><Clock className="w-3 h-3" />{totalTime}m</span>
+                <span className="text-xs flex items-center gap-0.5" style={{ color: "var(--muted-foreground)" }}>
+                  <Clock className="w-2.5 h-2.5" />{totalTime}m
+                </span>
               )}
             </div>
           )}
         </div>
 
-        {/* Action buttons — tap meal to log/unlog from detail page */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           {!isLogged && (
             <button
               onClick={() => onSkip(dayIndex, mealIndex)}
-              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground"
-              style={{ background: "var(--surface-overlay)" }}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+              style={{ background: "var(--surface-overlay, rgba(255,255,255,0.05))" }}
               title={isSkipped ? "Restore" : "Skip"}
             >
               {isSkipped
                 ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#52B788" }} />
-                : <X className="w-3.5 h-3.5" />
-              }
+                : <X className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
           )}
           <button
             onClick={() => onSwap(dayIndex, mealIndex)}
             disabled={isLogged}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
-            style={{ background: "var(--surface-overlay)" }}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-30"
+            style={{ background: "var(--surface-overlay, rgba(255,255,255,0.05))" }}
             title={isLogged ? "Unlog first to swap" : "Swap meal"}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </div>
       </div>
-
-      {/* View recipe hint */}
-      {mealData && !isSkipped && (
-        <div className="flex items-center justify-end mt-2.5">
-          <span className="flex items-center gap-0.5 text-xs font-medium" style={{ color: "#52B788" }}>
-            View recipe <ChevronRight className="w-3 h-3" />
-          </span>
-        </div>
-      )}
     </div>
   );
 }
 
-function formatSlot(slot: string): string {
-  return slot.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-/* ═══════════════════════════════════════════════════
-   COACH MESSAGE — human-written, time-aware
-   ═══════════════════════════════════════════════════ */
-function getCoachMessage(consumed: any, targets: any): string {
+/* ─── Coach message logic ─── */
+function getCoachMessage(consumed: any, targets: { targetCals: number; targetProtein: number }) {
+  const { targetCals, targetProtein } = targets;
   const { calories, protein } = consumed;
-  const hour = new Date().getHours();
+  const pctDone = Math.round((calories / targetCals) * 100);
+  const proteinLeft = Math.max(targetProtein - protein, 0);
 
-  if (calories === 0) {
-    if (hour < 10) return "Morning. Start with something protein-heavy and the rest of the day practically takes care of itself.";
-    if (hour < 13) return "No food logged yet today. Even a quick entry keeps you honest with your numbers.";
-    if (hour < 17) return "Afternoon and nothing logged. You can still finish the day strong if you're intentional from here.";
-    return "Evening and the log is empty. Don't stress it — just make tomorrow count.";
+  if (calories > targetCals * 1.1) {
+    return `You've gone ${Math.round(calories - targetCals)} kcal over today. Tomorrow's a fresh start — don't let one day derail the week.`;
   }
-
-  const proteinLeft = Math.round(targets.targetProtein - protein);
-  const calLeft = Math.round(targets.targetCals - calories);
-  const pctDone = Math.round((calories / targets.targetCals) * 100);
-
-  if (calories > targets.targetCals * 1.15) {
-    return `You're ${Math.abs(calLeft)} calories over today. It happens. Reset tomorrow and keep the bigger picture in view.`;
+  if (proteinLeft > targetProtein * 0.5) {
+    return `Protein is still ${Math.round(proteinLeft)}g short. Prioritize a high-protein meal or snack before the day ends.`;
   }
-  if (protein >= targets.targetProtein && calLeft >= 0) {
-    return "Protein goal locked in. That's the hardest one to hit consistently — nice work today.";
-  }
-  if (proteinLeft > 50 && hour >= 15) {
-    return `Still need ${proteinLeft}g protein before bed. A chicken breast or a scoop of whey gets you there.`;
-  }
-  if (calLeft > 0 && calLeft < 250 && hour >= 17) {
-    return `Only ${calLeft} calories left in your budget. A small, protein-forward snack rounds this out perfectly.`;
+  if (pctDone >= 90) {
+    return `Almost at your target for today. Stay the course — precision over the last stretch is where results happen.`;
   }
   if (pctDone >= 75) {
     return `${pctDone}% of your calories logged. You're in a solid spot — just stay consistent through the end of the day.`;
@@ -455,6 +470,71 @@ function getCoachMessage(consumed: any, targets: any): string {
     return `You're through ${pctDone}% of your daily target. On pace and tracking well.`;
   }
   return "You're building a solid foundation today. Keep logging and let the numbers do the work.";
+}
+
+/* ─── Install banner ─── */
+function InstallAppBanner({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <div
+      className="rounded-2xl overflow-hidden mb-4"
+      style={{ border: "1px solid var(--plate-green-deep)", background: "var(--surface-card)" }}
+    >
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 p-3.5 transition-colors hover:bg-accent/10"
+      >
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--plate-green-deep)" }}>
+          <Download className="w-4 h-4" style={{ color: "var(--plate-green-accent)" }} />
+        </div>
+        <div className="flex-1 text-left">
+          <p className="text-sm font-semibold">📲 Add Plate to your home screen</p>
+          <p className="text-xs text-muted-foreground">Until we're in the App Store</p>
+        </div>
+        <ChevronRight
+          className="w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          <div className="rounded-xl p-3.5 space-y-2" style={{ background: "var(--surface-elevated, rgba(255,255,255,0.03))", border: "1px solid var(--border)" }}>
+            <span className="text-xs font-semibold">📱 iPhone / iPad (Safari)</span>
+            <ol className="space-y-1.5 text-xs text-muted-foreground">
+              <li>1. Open in <strong className="text-foreground">Safari</strong></li>
+              <li>2. Tap the <strong className="text-foreground">Share</strong> <Share className="w-3 h-3 inline" /> button</li>
+              <li>3. Tap <strong className="text-foreground">"Add to Home Screen"</strong></li>
+            </ol>
+          </div>
+          <div className="rounded-xl p-3.5 space-y-2" style={{ background: "var(--surface-elevated, rgba(255,255,255,0.03))", border: "1px solid var(--border)" }}>
+            <span className="text-xs font-semibold">🤖 Android (Chrome)</span>
+            <ol className="space-y-1.5 text-xs text-muted-foreground">
+              <li>1. Open in <strong className="text-foreground">Chrome</strong></li>
+              <li>2. Tap <strong className="text-foreground">⋮</strong> <MoreVertical className="w-3 h-3 inline" /></li>
+              <li>3. Tap <strong className="text-foreground">"Add to Home Screen"</strong></li>
+            </ol>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Skeleton ─── */
+function DashboardSkeleton() {
+  return (
+    <div className="px-4 pt-5 pb-6 max-w-lg mx-auto space-y-4">
+      <div className="flex justify-center">
+        <div className="w-44 h-44 rounded-full" style={{ background: "var(--surface-card)", animation: "pulse 1.5s ease-in-out infinite" }} />
+      </div>
+      <div className="h-16 rounded-2xl" style={{ background: "var(--surface-card)", animation: "pulse 1.5s ease-in-out infinite" }} />
+      <div className="h-20 rounded-2xl" style={{ background: "var(--surface-card)", animation: "pulse 1.5s ease-in-out infinite" }} />
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-20 rounded-2xl" style={{ background: "var(--surface-card)", animation: "pulse 1.5s ease-in-out infinite", animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════════
@@ -473,7 +553,6 @@ export function DashboardPage() {
   const generatePlan = useMutation(api.mealPlans.generatePlan);
   const swapMealMut = useMutation(api.mealPlans.swapMeal);
   const skipMealMut = useMutation(api.mealPlans.skipMeal);
-
   const logHydration = useMutation(api.progress.logHydration);
   const { check: checkAchievements, popup: achievementPopup } = useAchievementPoller();
 
@@ -484,9 +563,7 @@ export function DashboardPage() {
     try { return localStorage.getItem("plate_floor_banner_dismissed") === "1"; } catch { return false; }
   });
 
-  useEffect(() => {
-    checkAchievements();
-  }, []);
+  useEffect(() => { checkAchievements(); }, []);
 
   if (!profile || !summary) {
     return <DashboardSkeleton />;
@@ -498,7 +575,6 @@ export function DashboardPage() {
   const targetFat = profile.targetFat || 60;
   const consumed = summary.totals;
 
-
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
@@ -509,19 +585,16 @@ export function DashboardPage() {
   const todayPlan = todayDayIndex >= 0 ? planData?.plan?.days?.[todayDayIndex] : null;
 
   const currentGlasses = hydration?.glasses || 0;
-  const hydrationTarget = profile.hydrationTarget || 8;
+  const hydrationTarget = (profile as any).hydrationTarget || 8;
 
-  // Build set of mealIds already logged today (for strikethrough on plan)
   const loggedMealIds = new Set<string>(
     (todaysLog || [])
       .filter((l: any) => l.mealId)
       .map((l: any) => l.mealId.toString())
   );
 
-  // Coach message: context-aware for nutrition state, plus daily rotating message
   const contextMsg = getCoachMessage(consumed, { targetCals, targetProtein });
   const dailyMsg = getDailyMessage();
-  // Show context message when it's personalized (not the default fallback), otherwise show daily
   const isDefaultMsg = contextMsg === "You're building a solid foundation today. Keep logging and let the numbers do the work.";
   const coachMessage = isDefaultMsg ? dailyMsg : contextMsg;
 
@@ -570,211 +643,200 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="px-5 pt-5 pb-6 max-w-lg md:max-w-2xl lg:max-w-6xl mx-auto animate-page-enter">
+    <div className="px-4 pt-4 pb-6 max-w-lg md:max-w-2xl lg:max-w-5xl mx-auto">
       {achievementPopup}
-      {/* Install banner */}
-      {showInstallBanner && <InstallAppBanner open={installOpen} onToggle={() => setInstallOpen(o => !o)} />}
 
-      {/* Calorie floor activation banner — shown when aggressive cut would drop below BMR */}
+      {/* Install banner */}
+      {showInstallBanner && (
+        <InstallAppBanner open={installOpen} onToggle={() => setInstallOpen((o) => !o)} />
+      )}
+
+      {/* Calorie floor warning */}
       {(profile as any).calorieFloorActivated && !floorBannerDismissed && (
-        <div className="rounded-xl px-4 py-3 text-sm flex items-start gap-3 mb-3" style={{ background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.3)", color: "var(--foreground)" }}>
-          <span className="text-lg leading-none mt-0.5">⚠️</span>
+        <div
+          className="rounded-xl px-4 py-3 text-sm flex items-start gap-3 mb-4"
+          style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)", color: "var(--foreground)" }}
+        >
+          <span className="text-base leading-none mt-0.5">⚠️</span>
           <span className="flex-1">Your goal has been adjusted to a safer minimum. For faster fat loss, increase your activity level instead of dropping calories further.</span>
           <button
             onClick={() => {
               setFloorBannerDismissed(true);
               try { localStorage.setItem("plate_floor_banner_dismissed", "1"); } catch {}
             }}
-            className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-opacity active:opacity-60 hover:opacity-80"
+            className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
             style={{ background: "rgba(251,191,36,0.2)" }}
-            aria-label="Dismiss"
           >
-            <X className="w-3.5 h-3.5" style={{ color: "rgba(251,191,36,0.9)" }} />
+            <X className="w-3 h-3" style={{ color: "rgba(251,191,36,0.9)" }} />
           </button>
         </div>
       )}
 
-      {/* ── Date + Streak + Go Premium header ── */}
-      <div className="flex items-center justify-between">
+      {/* ── Header: date + streak + premium ── */}
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <div className="text-card-label text-muted-foreground">{dateStr.toUpperCase()}</div>
+          <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-foreground)", letterSpacing: "0.1em" }}>
+            {dateStr}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Trial badge — shown only during free trial */}
-          {isTrialing && (
+          {isTrialing && !isPremium && (
             <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-              style={{
-                background: "rgba(82,183,136,0.12)",
-                color: "#52B788",
-                border: "1px solid rgba(82,183,136,0.3)",
-              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold"
+              style={{ background: "rgba(82,183,136,0.1)", color: "#52B788", border: "1px solid rgba(82,183,136,0.25)" }}
             >
-              🎉 Trial active
+              🎉 Trial
             </div>
           )}
-          {/* Go Premium gold pill — only for fully free users (no trial, no paid) */}
-          {!isPremium && isPremium !== undefined && (
+          {!isPremium && (
             <button
               onClick={() => navigate("/onboarding/upgrade")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-[0.97]"
-              style={{
-                background: "var(--plate-gold-bg, #2A2418)",
-                color: "var(--plate-gold, #E5B454)",
-                border: "1px solid rgba(229,180,84,0.3)",
-              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all active:scale-95"
+              style={{ background: "var(--plate-gold-bg)", color: "var(--plate-gold)", border: "1px solid rgba(229,180,84,0.25)" }}
             >
-              <Crown className="w-3 h-3" />
-              Go Premium
+              <Crown className="w-2.5 h-2.5" /> Go Premium
             </button>
           )}
           {stats && stats.currentStreak > 0 && (
             <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold animate-streak"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold"
               style={{ background: "var(--plate-green-deep)", color: "var(--plate-green-accent)" }}
             >
-              <Flame className="w-3.5 h-3.5" />
-              {stats.currentStreak} day streak
+              <Flame className="w-2.5 h-2.5" /> {stats.currentStreak}d
             </div>
           )}
           <button
             onClick={() => setShowShareBadge(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity active:opacity-60"
-            style={{ background: "var(--surface-overlay)", color: "var(--muted-foreground)" }}
+            className="w-7 h-7 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
           >
-            <Share2 className="w-3.5 h-3.5" />
-            Share
+            <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </div>
       </div>
 
-      {/* ── Responsive 2-col grid on desktop ── */}
-      <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-start space-y-6 lg:space-y-0 mt-6">
-      {/* ── LEFT COLUMN ── */}
-      <div className="space-y-6">
+      {/* ── Responsive 2-col grid on lg ── */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-start space-y-4 lg:space-y-0">
 
-      {/* ── Editorial Calorie Card ── */}
-      <EditorialCalorieCard
-        calories={Math.round(consumed.calories)} calTarget={targetCals}
-        protein={Math.round(consumed.protein)} proteinTarget={targetProtein}
-        carbs={Math.round(consumed.carbs)} carbsTarget={targetCarbs}
-        fat={Math.round(consumed.fat)} fatTarget={targetFat}
-      />
+        {/* LEFT COLUMN */}
+        <div className="space-y-4">
 
-      {/* ── Coach card ── */}
-      <CoachCard message={coachMessage} />
+          {/* Calorie hero card */}
+          <CalorieHeroCard
+            calories={Math.round(consumed.calories)}
+            calTarget={targetCals}
+            protein={Math.round(consumed.protein)}
+            proteinTarget={targetProtein}
+            carbs={Math.round(consumed.carbs)}
+            carbsTarget={targetCarbs}
+            fat={Math.round(consumed.fat)}
+            fatTarget={targetFat}
+            onNavigateWhy={() => navigate("/why")}
+          />
 
-      {/* ── Today's Plan ── */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-section-header">Today's plan</h2>
-          <button
-            onClick={() => navigate("/plan")}
-            className="text-caption text-muted-foreground flex items-center gap-0.5 hover:text-foreground transition-colors"
-          >
-            View all <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          {/* Coach card */}
+          <CoachCard message={coachMessage} />
+
+          {/* Today's plan */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Today's Plan</h2>
+              <button
+                onClick={() => navigate("/plan")}
+                className="flex items-center gap-0.5 text-xs transition-colors active:opacity-60"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                View all <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {todayPlan ? (
+              <div className="space-y-2.5">
+                {todayPlan.meals.map((meal: any, idx: number) => {
+                  const mealData = meal.mealId ? planData?.mealsMap?.[meal.mealId] : null;
+                  const isLogged = meal.mealId ? loggedMealIds.has(meal.mealId.toString()) : false;
+                  return (
+                    <TodayMealCard
+                      key={idx}
+                      meal={meal}
+                      mealData={mealData}
+                      dayIndex={todayDayIndex}
+                      mealIndex={idx}
+                      onSwap={handleSwap}
+                      onSkip={handleSkip}
+                      onNavigate={(id) => navigate(`/meal/${id}`)}
+                      isLogged={isLogged}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div
+                className="p-8 text-center rounded-2xl"
+                style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+              >
+                <p className="text-sm text-muted-foreground mb-4">No meal plan yet.</p>
+                <Button onClick={handleGeneratePlan} size="sm" className="rounded-full px-6">
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Generate Plan
+                </Button>
+              </div>
+            )}
+          </div>
+
         </div>
 
-        {todayPlan ? (
-          <div className="space-y-3">
-            {todayPlan.meals.map((meal: any, idx: number) => {
-              const mealData = meal.mealId ? planData?.mealsMap?.[meal.mealId] : null;
-              const isLogged = meal.mealId ? loggedMealIds.has(meal.mealId.toString()) : false;
-              return (
-                <TodayMealCard
-                  key={idx}
-                  meal={meal}
-                  mealData={mealData}
-                  dayIndex={todayDayIndex}
-                  mealIndex={idx}
-                  onSwap={handleSwap}
-                  onSkip={handleSkip}
-                  onNavigate={(id) => navigate(`/meal/${id}`)}
-                  isLogged={isLogged}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-8 text-center rounded-2xl" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
-            <p className="text-body text-muted-foreground mb-4">No meal plan yet.</p>
-            <Button onClick={handleGeneratePlan} size="sm" className="rounded-full px-6">
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Generate Plan
+        {/* RIGHT COLUMN */}
+        <div className="space-y-4">
+
+          {/* Water tracker */}
+          <WaterTracker
+            current={currentGlasses}
+            target={hydrationTarget}
+            onLog={(n) => { hapticLight(); logHydration({ glasses: n }); }}
+          />
+
+          {/* Quick action buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => { hapticLight(); navigate("/track"); }}
+              className="h-12 text-sm font-semibold rounded-xl active:scale-95 transition-all"
+              style={{ background: "var(--plate-green-deep)", color: "var(--plate-green-accent)", border: "none" }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Log Food
+            </Button>
+            <Button
+              onClick={() => { hapticLight(); navigate("/grocery"); }}
+              className="h-12 text-sm font-medium rounded-xl active:scale-95 transition-all"
+              variant="outline"
+            >
+              Grocery List
             </Button>
           </div>
-        )}
+
+          {/* Feedback / Ideas card */}
+          <button
+            onClick={() => { hapticLight(); navigate("/feedback"); }}
+            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98]"
+            style={{ background: "var(--surface-card)", border: "1px solid rgba(82,183,136,0.15)" }}
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base"
+              style={{ background: "rgba(82,183,136,0.1)" }}
+            >
+              💡
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Share an idea</p>
+              <p className="text-xs text-muted-foreground">What should we build next?</p>
+            </div>
+            <ChevronRight className="w-4 h-4" style={{ color: "rgba(82,183,136,0.5)" }} />
+          </button>
+
+        </div>
+
       </div>
 
-      </div>{/* end left col */}
-
-      {/* ── RIGHT COLUMN ── */}
-      <div className="space-y-6">
-
-      {/* ── Hydration ── */}
-      <div className="rounded-2xl p-4" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Droplets className="w-4 h-4" style={{ color: "#4A9EFF" }} />
-            <span className="text-body font-medium">Hydration</span>
-          </div>
-          <span className="text-caption text-muted-foreground">{currentGlasses}/{hydrationTarget} glasses</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {Array.from({ length: hydrationTarget }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => { hapticLight(); logHydration({ glasses: i + 1 }); }}
-              className="flex-1 h-5 rounded-full transition-all duration-300 tap-scale"
-              style={{ background: i < currentGlasses ? "#4A9EFF" : "var(--border)" }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Quick Actions ── */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          onClick={() => { hapticLight(); navigate("/track"); }}
-          className="h-12 text-sm font-semibold rounded-xl tap-scale"
-          style={{ background: "var(--plate-green-deep)", color: "var(--plate-green-accent)", border: "none" }}
-        >
-          <Plus className="w-4 h-4 mr-2" /> Log Food
-        </Button>
-        <Button
-          onClick={() => { hapticLight(); navigate("/grocery"); }}
-          className="h-12 text-sm font-medium rounded-xl tap-scale"
-          variant="outline"
-        >
-          Grocery List
-        </Button>
-      </div>
-
-      {/* ── Feedback / Ideas card ── */}
-      <button
-        onClick={() => { hapticLight(); navigate("/feedback"); }}
-        className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98]"
-        style={{ background: "#141414", border: "1px solid rgba(82,183,136,0.2)" }}
-      >
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base"
-          style={{ background: "rgba(82,183,136,0.12)" }}
-        >
-          💡
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-white">Share an idea</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-            What should we build next?
-          </p>
-        </div>
-        <ChevronRight className="w-4 h-4" style={{ color: "rgba(82,183,136,0.6)" }} />
-      </button>
-
-      </div>{/* end right col */}
-      </div>{/* end grid */}
-
-      {/* Share Badge Modal */}
+      {/* Share badge modal */}
       {showShareBadge && stats && (
         <ShareBadgeModal
           onClose={() => setShowShareBadge(false)}
@@ -792,82 +854,6 @@ export function DashboardPage() {
           }}
         />
       )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════
-   INSTALL BANNER
-   ═══════════════════════════════════════════════════ */
-function InstallAppBanner({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  return (
-    <div
-      className="rounded-2xl overflow-hidden border"
-      style={{ borderColor: "var(--plate-green-deep)", background: "var(--background)" }}
-    >
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 p-3.5 hover:bg-accent/20 transition-colors"
-      >
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "var(--plate-green-deep)" }}
-        >
-          <Download className="w-4 h-4" style={{ color: "var(--plate-green-accent)" }} />
-        </div>
-        <div className="flex-1 text-left">
-          <span className="text-sm font-semibold">📲 Add Plate to your home screen</span>
-          <p className="text-xs text-muted-foreground">Until we're in the App Store</p>
-        </div>
-        <ChevronRight
-          className="w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform"
-          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
-        />
-      </button>
-      {open && (
-        <div className="px-4 pb-4 space-y-3">
-          <div className="bg-secondary rounded-xl p-3.5 space-y-2 border border-border/50">
-            <span className="text-xs font-semibold">📱 iPhone / iPad (Safari)</span>
-            <ol className="space-y-1.5 text-xs text-muted-foreground">
-              <li>1. Open this page in <strong className="text-foreground">Safari</strong></li>
-              <li>2. Tap the <strong className="text-foreground">Share button</strong> <Share className="w-3 h-3 inline" /> at the bottom</li>
-              <li>3. Tap <strong className="text-foreground">"Add to Home Screen"</strong></li>
-            </ol>
-          </div>
-          <div className="bg-secondary rounded-xl p-3.5 space-y-2 border border-border/50">
-            <span className="text-xs font-semibold">🤖 Android (Chrome)</span>
-            <ol className="space-y-1.5 text-xs text-muted-foreground">
-              <li>1. Open this page in <strong className="text-foreground">Chrome</strong></li>
-              <li>2. Tap <strong className="text-foreground">⋮</strong> <MoreVertical className="w-3 h-3 inline" /> in the top right</li>
-              <li>3. Tap <strong className="text-foreground">"Add to Home Screen"</strong> or <strong className="text-foreground">"Install app"</strong></li>
-            </ol>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════
-   SKELETON
-   ═══════════════════════════════════════════════════ */
-function DashboardSkeleton() {
-  return (
-    <div className="px-5 pt-5 pb-6 max-w-lg md:max-w-2xl lg:max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-center">
-        <div className="w-[220px] h-[220px] rounded-full skeleton-shimmer" />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="h-24 skeleton-shimmer rounded-2xl" />
-        <div className="h-24 skeleton-shimmer rounded-2xl" />
-        <div className="h-24 skeleton-shimmer rounded-2xl" />
-      </div>
-      <div className="h-16 skeleton-shimmer rounded-2xl" />
-      <div className="space-y-3">
-        <div className="h-24 skeleton-shimmer rounded-2xl" />
-        <div className="h-24 skeleton-shimmer rounded-2xl" />
-        <div className="h-24 skeleton-shimmer rounded-2xl" />
-      </div>
     </div>
   );
 }
