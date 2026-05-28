@@ -11,7 +11,7 @@ import { api } from "../../convex/_generated/api";
 import {
   Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus, X,
   ShoppingCart, UtensilsCrossed, Settings, Dumbbell, Lightbulb,
-  HelpCircle, Crown, Droplets, Minus,
+  HelpCircle, Crown, Droplets,
 } from "lucide-react";
 
 import { parseAvatarChoice } from "@/pages/SettingsPage";
@@ -19,8 +19,6 @@ import { identifyUser, setUserProperties } from "../lib/posthog";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { RefreshCw } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
-import { PaywallModal } from "@/components/PaywallModal";
-import type { PaywallFeature } from "@/components/PaywallModal";
 import { toast } from "sonner";
 
 /* ─── Nav definitions ─── */
@@ -44,61 +42,22 @@ const SIDEBAR_NAV = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
-const QUICK_ACTIONS = [
-  { icon: "🎙️", label: "Voice Log", action: "voice", premium: true },
-  { icon: "📸", label: "Meal Scan", action: "photo", premium: true },
-  { icon: "📦", label: "Barcode Scan", action: "barcode", premium: true },
-  { icon: "🍽️", label: "Log Food", action: "log", route: "/track" },
-  { icon: "💧", label: "Log Water", action: "water" },
-  { icon: "⚖️", label: "Log Weight", action: "weight", route: "/progress?logWeight=1" },
-];
 
-
-
-/* ─── Quick action sheet ─── */
-const ACTION_FEATURE_MAP: Record<string, PaywallFeature> = {
-  barcode: "barcode",
-  voice: "voice_log",
-  photo: "meal_scan",
-};
-
-function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => void; navigate: (path: string) => void; isPremium: boolean }) {
-  const [paywallFeature, setPaywallFeature] = useState<PaywallFeature | null>(null);
-  const [showWater, setShowWater] = useState(false);
-  const [glasses, setGlasses] = useState(1);
+function QuickActionSheet({ onClose, navigate, isPremium: _isPremium }: { onClose: () => void; navigate: (path: string) => void; isPremium: boolean }) {
   const [waterLogging, setWaterLogging] = useState(false);
   const logHydration = useMutation(api.progress.logHydration);
-  const todaysHydration = useQuery(api.progress.getTodaysHydration);
-  const handleAction = (action: (typeof QUICK_ACTIONS)[0]) => {
-    hapticLight();
-    if (action.action === "water") {
-      setShowWater(true);
-      return;
-    }
-    if ((action as any).premium && !isPremium) {
-      setPaywallFeature(ACTION_FEATURE_MAP[action.action] ?? "general");
-      return;
-    }
-    // For meal scan: navigate to scanner page in food mode
-    if (action.action === "photo") {
-      onClose();
-      navigate("/scanner?mode=food");
-      return;
-    }
-    onClose();
-    if (action.action === "voice") { navigate("/track?voice=1"); return; }
-    if (action.action === "barcode") { onClose(); navigate("/scanner?mode=barcode"); return; }
-    if ((action as any).route) navigate((action as any).route);
-  };
+  const todaysHydration = useQuery(api.progress.getTodaysHydration, {});
+  const currentGlasses = todaysHydration?.glasses ?? 0;
+  const hydrationTarget = todaysHydration?.target ?? 8;
 
-  const handleLogWater = async () => {
+  const handleAddGlass = async () => {
+    if (waterLogging || currentGlasses >= hydrationTarget) return;
+    hapticLight();
     setWaterLogging(true);
     try {
-      const current = todaysHydration?.glasses ?? 0;
-      await logHydration({ glasses: current + glasses });
+      await logHydration({ glasses: currentGlasses + 1 });
       hapticMedium();
-      toast.success(`+${glasses} glass${glasses > 1 ? "es" : ""} logged 💧`);
-      onClose();
+      toast.success("Glass logged 💧");
     } catch {
       toast.error("Failed to log water");
     } finally {
@@ -106,95 +65,71 @@ function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => voi
     }
   };
 
-  if (showWater) {
-    return (
-      <div className="px-5 pb-6 pt-4">
-        <div className="flex items-center gap-3 mb-5">
-          <button onClick={() => setShowWater(false)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-            <X className="w-4 h-4 text-white" />
-          </button>
-          <h3 className="font-semibold text-white text-base">Log Water</h3>
-        </div>
-        <div className="flex items-center justify-center gap-6 mb-6">
-          <button
-            onClick={() => setGlasses(Math.max(1, glasses - 1))}
-            className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
-            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-          >
-            <Minus className="w-5 h-5 text-white" />
-          </button>
-          <div className="flex flex-col items-center">
-            <Droplets className="w-8 h-8 mb-1" style={{ color: "#52B788" }} />
-            <span className="text-4xl font-bold text-white">{glasses}</span>
-            <span className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-              glass{glasses > 1 ? "es" : ""} · {glasses * 8}oz
-            </span>
+  return (
+    <div className="px-5 pb-8 pt-2">
+      {/* ── Hydration ── */}
+      <div className="mb-4 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Droplets className="w-4 h-4" style={{ color: "#52B788" }} />
+            <span className="text-sm font-semibold text-white">Hydration</span>
           </div>
-          <button
-            onClick={() => setGlasses(Math.min(16, glasses + 1))}
-            className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
-            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-          >
-            <Plus className="w-5 h-5 text-white" />
-          </button>
+          <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>
+            {currentGlasses} / {hydrationTarget} glasses
+          </span>
         </div>
-        {todaysHydration && (
-          <p className="text-center text-xs mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Today so far: {todaysHydration.glasses} / {todaysHydration.target ?? 8} glasses
-          </p>
-        )}
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          {Array.from({ length: hydrationTarget }).map((_, i) => (
+            <div
+              key={i}
+              className="w-5 h-5 rounded-full transition-all"
+              style={{ background: i < currentGlasses ? "#52B788" : "rgba(255,255,255,0.1)" }}
+            />
+          ))}
+        </div>
         <button
-          onClick={handleLogWater}
-          disabled={waterLogging}
-          className="w-full py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50"
-          style={{ background: "#52B788", color: "#0d1f13" }}
+          onClick={handleAddGlass}
+          disabled={waterLogging || currentGlasses >= hydrationTarget}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
+          style={{ background: "rgba(82,183,136,0.15)", color: "#52B788", border: "1px solid rgba(82,183,136,0.25)" }}
         >
-          {waterLogging ? "Logging..." : "Log Water"}
+          + Add a glass
         </button>
       </div>
-    );
-  }
 
-  return (
-    <>
-      <div className="px-5 pb-6 pt-4">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-white text-base">Quick Actions</h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-            <X className="w-4 h-4 text-white" />
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {QUICK_ACTIONS.map((action) => {
-            const isPremiumGated = (action as any).premium && !isPremium;
-            return (
-              <button
-                key={action.action}
-                onClick={() => handleAction(action)}
-                className="flex flex-col items-center gap-2 py-4 px-3 rounded-2xl transition-all active:scale-[0.96] relative"
-                style={{
-                  background: isPremiumGated ? "rgba(229,180,84,0.08)" : "rgba(255,255,255,0.06)",
-                  border: isPremiumGated ? "1px solid rgba(229,180,84,0.2)" : "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                {isPremiumGated && (
-                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(229,180,84,0.2)", color: "#E5B454" }}>PRO</span>
-                )}
-                <span className="text-xl">{action.icon}</span>
-                <span className="text-xs font-medium text-center leading-tight" style={{ color: isPremiumGated ? "rgba(229,180,84,0.8)" : "rgba(255,255,255,0.8)" }}>
-                  {action.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {/* ── Log Food + Grocery List ── */}
+      <div className="flex gap-3 mb-3">
+        <button
+          onClick={() => { hapticMedium(); onClose(); navigate("/track"); }}
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
+          style={{ background: "#52B788", color: "#0d1f13" }}
+        >
+          <Plus className="w-4 h-4" strokeWidth={2.5} />
+          Log Food
+        </button>
+        <button
+          onClick={() => { hapticLight(); onClose(); navigate("/grocery"); }}
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
+          style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.1)" }}
+        >
+          <ShoppingCart className="w-4 h-4" />
+          Grocery List
+        </button>
       </div>
-      <PaywallModal
-        open={paywallFeature !== null}
-        onClose={() => setPaywallFeature(null)}
-        feature={paywallFeature ?? "general"}
-      />
-    </>
+
+      {/* ── Share an idea ── */}
+      <button
+        onClick={() => { hapticLight(); onClose(); navigate("/feedback"); }}
+        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-[0.97]"
+        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <Lightbulb className="w-5 h-5 flex-shrink-0" style={{ color: "#E5B454" }} />
+        <div className="flex-1 text-left">
+          <div className="text-sm font-semibold text-white">Share an idea</div>
+          <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>What should we build next?</div>
+        </div>
+      </button>
+    </div>
   );
 }
 

@@ -534,12 +534,12 @@ export const logHydration = mutation({
 });
 
 export const getTodaysHydration = query({
-  args: {},
+  args: { localDate: v.optional(v.string()) },
   returns: v.any(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    const today = new Date().toISOString().split("T")[0];
+    const today = args.localDate || new Date().toISOString().split("T")[0];
     return await ctx.db.query("hydrationLogs")
       .withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", today))
       .unique();
