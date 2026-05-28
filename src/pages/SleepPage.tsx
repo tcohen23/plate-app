@@ -8,10 +8,10 @@
  */
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Crown } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { hapticLight } from "@/lib/haptics";
 import { Button } from "@/components/ui/button";
-import { useAccessLevel } from "@/components/RequireSubscription";
+
 
 function SleepDonut({ hours, mins }: { hours: number; mins: number }) {
   const size = 200; const cx = 100; const cy = 100; const r = 80; const stroke = 14;
@@ -50,7 +50,6 @@ function SleepStageRow({ label, color, value }: StageRow) {
 
 export function SleepPage() {
   const navigate = useNavigate();
-  const { isPremium } = useAccessLevel();
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const formatDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -96,27 +95,7 @@ export function SleepPage() {
         {stages.map(s => <SleepStageRow key={s.label} {...s} />)}
       </div>
 
-      {/* Premium upsell: "Psst...you awake?" */}
-      {!isPremium && (
-        <div className="mx-4 mb-4 rounded-2xl p-5" style={{ background: "linear-gradient(135deg, #1a1a4e, #2d2066)", border: "1px solid rgba(107,123,212,0.3)" }}>
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <div className="text-base font-bold mb-1">Psst...you awake? 👀</div>
-              <div className="text-xs text-muted-foreground leading-relaxed">
-                Unlock sleep stage tracking, insights, and sleep quality scores with Plate Premium.
-              </div>
-            </div>
-            <Crown className="w-5 h-5 ml-3 flex-shrink-0" style={{ color: "#E5B454" }} />
-          </div>
-          <Button
-            onClick={() => navigate("/onboarding/upgrade")}
-            className="w-full rounded-full font-bold"
-            style={{ background: "#E5B454", color: "#000" }}
-          >
-            Unlock Sleep Tracking
-          </Button>
-        </div>
-      )}
+
 
       {/* Log meals insight */}
       <div className="mx-4 rounded-2xl p-4" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>

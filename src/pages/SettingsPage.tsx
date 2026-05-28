@@ -16,7 +16,7 @@ import {
   Pencil, User, Phone, Ruler, Weight, Calendar, Activity,
   Target, UtensilsCrossed, Pill, Trash2, AlertTriangle, Info, ChevronDown, Heart,
   Camera, DollarSign, Clock, ChefHat, Smile, CheckCircle2 as CheckCircle, X, Share2,
-  Crown, ExternalLink, Sparkles, Lock, Mail, Inbox,
+  Crown, ExternalLink, Sparkles, Mail, Inbox,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { getFoodChipsForDiet } from "@/lib/foodChips";
@@ -478,18 +478,12 @@ export function SettingsPage() {
                             borderColor: isSelected ? "#52B788" : "transparent",
                             background: av.bg,
                             fontSize: "1.75rem",
-                            opacity: isPremiumAvatar && !canUse ? 0.7 : 1,
                           }}
                         >
                           {av.emoji}
                           {isSelected && (
                             <div className="absolute bottom-0.5 right-0.5">
                               <CheckCircle className="w-3.5 h-3.5" style={{ color: "#52B788" }} />
-                            </div>
-                          )}
-                          {isPremiumAvatar && !canUse && (
-                            <div className="absolute inset-0 rounded-2xl flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>
-                              <Lock className="w-4 h-4 text-white" />
                             </div>
                           )}
                         </button>

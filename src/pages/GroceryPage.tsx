@@ -13,12 +13,10 @@ export function GroceryPage() {
   const groceryList = useQuery(api.grocery.getCurrentGroceryList);
   const syncStatus = useQuery(api.grocery.getGrocerySyncStatus);
   const storeData = useQuery(api.stores.getStoresForUser);
-  const _generateList = useMutation(api.grocery.generateGroceryList);
-  const _regenerateList = useMutation(api.grocery.regenerateGroceryList);
   const switchStore = useMutation(api.grocery.switchStore);
   const toggleItem = useMutation(api.grocery.toggleGroceryItem);
-  const [_generating, _setGenerating] = useState(false);
-  const [_regenerating, _setRegenerating] = useState(false);
+  const generating = false; // paywall active — show loading state only
+  const regenerating = false;
   const [switching, setSwitching] = useState(false);
   const [showAllStores, setShowAllStores] = useState(false);
   const [storeSearch, setStoreSearch] = useState("");

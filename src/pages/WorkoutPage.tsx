@@ -15,6 +15,7 @@ import {
 import { hapticSuccess } from "@/lib/haptics";
 import { usePremiumAccess } from "@/components/PremiumGate";
 import { RehabModal } from "@/components/RehabModal";
+import { PaywallModal } from "@/components/PaywallModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ExerciseInPlan {
@@ -592,10 +593,47 @@ function ExerciseCard({
 // ─── WorkoutPage ──────────────────────────────────────────────────────────────
 export function WorkoutPage() {
   const hasPremium = usePremiumAccess();
+  const [paywallOpen, setPaywallOpen] = useState(true);
 
   if (hasPremium === false) {
-    window.location.replace("/upgrade");
-    return null;
+    return (
+      <>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-12 text-center">
+          <div
+            className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+            style={{ background: "rgba(82,183,136,0.1)", border: "1px solid rgba(82,183,136,0.25)", color: "#52B788" }}
+          >
+            <Dumbbell className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-serif mb-3 text-white">Unlock Workout Generator</h2>
+          <ul className="text-sm space-y-2 mb-8 text-left max-w-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
+            {[
+              "Personalized workout plans based on your goals and equipment",
+              "RIR-based Push Harder coaching — know exactly how hard to push",
+              "Auto-deload every 6 weeks, rest timer, streak tracking",
+            ].map((b, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span style={{ color: "#52B788" }}>✓</span>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={() => setPaywallOpen(true)}
+            className="w-full max-w-xs py-4 rounded-2xl text-base font-bold transition-opacity active:opacity-80"
+            style={{ background: "#52B788", color: "#0a1a0a" }}
+          >
+            Start 7-Day Free Trial
+          </button>
+          <p className="text-xs mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>$14.99/mo · or $5.99/mo billed annually · Cancel anytime</p>
+        </div>
+        <PaywallModal
+          open={paywallOpen}
+          onClose={() => setPaywallOpen(false)}
+          feature="workout"
+        />
+      </>
+    );
   }
 
   return <WorkoutContent />;

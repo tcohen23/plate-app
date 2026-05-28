@@ -15,10 +15,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, ChevronRight, Crown, Target, Plus, X } from "lucide-react";
+import { Download, ChevronRight, Target, Plus, X } from "lucide-react";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { hapticLight } from "@/lib/haptics";
-import { useAccessLevel } from "@/components/RequireSubscription";
+
 
 type ProgressTab = "Overview" | "Calories" | "Nutrients" | "Macros" | "Steps" | "Weight" | "Sleep";
 
@@ -52,7 +52,7 @@ export function ProgressPage() {
   const [newWeight, setNewWeight] = useState("");
   const [newBodyFat, setNewBodyFat] = useState("");
   const [notes, setNotes] = useState("");
-  const { isPremium } = useAccessLevel();
+
 
   const stats = useQuery(api.progress.getUserStats, {});
   const progressLogs = useQuery(api.progress.getProgressLogs);
@@ -283,18 +283,7 @@ export function ProgressPage() {
               </div>
             ))}
           </div>
-          {/* Premium: swap macros */}
-          {!isPremium && (
-            <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.25)" }}>
-              <div className="flex items-center gap-2">
-                <Crown className="w-4 h-4" style={{ color: "#E5B454" }} />
-                <span className="text-sm">Swap macro targets</span>
-              </div>
-              <button onClick={() => navigate("/onboarding/upgrade")} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#E5B454", color: "#000" }}>
-                Upgrade
-              </button>
-            </div>
-          )}
+
         </div>
       )}
 

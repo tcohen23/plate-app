@@ -263,7 +263,7 @@ export function MealPlanPage() {
           {regenBlocked ? (
             <Button
               size="sm"
-              onClick={() => navigate("/upgrade")}
+              onClick={() => setPaywallFeature("meal_plan")}
               className="h-9 rounded-full text-xs px-4"
               style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff", border: "none" }}
             >
@@ -555,7 +555,7 @@ export function MealPlanPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => regenBlocked ? navigate("/upgrade") : handleSwap(activeDay, mealIdx)}
+                          onClick={() => regenBlocked ? setPaywallFeature("meal_plan") : handleSwap(activeDay, mealIdx)}
                           disabled={isSwapping || isLogged}
                           className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
                           style={{ background: "var(--surface-overlay)" }}

@@ -1,16 +1,17 @@
 /**
- * PaywallModal — Animated bottom-sheet carousel paywall.
- * Slides up from the bottom when a free user taps a premium feature.
- * Shows feature-specific slides (phone mockup + copy) then a CTA slide.
- * Uses createPortal so it works from any component.
+ * PaywallModal — Paywall that adapts based on feature type.
+ *
+ * SCANNER features (barcode, voice_log, meal_scan):
+ *   → Animated bottom-sheet carousel. Slides up from bottom, phone mockup
+ *     preview, swipeable slides per feature, CTA on the last slide.
+ *
+ * ALL OTHER features (workout, meal_plan, analytics, grocery, glp1, etc.):
+ *   → Existing full-screen animated overlay (blurred backdrop, logo, bullets,
+ *     trial CTA). Now with a slide-up entrance animation.
  *
  * Usage:
- *   const [showPaywall, setShowPaywall] = useState(false);
- *   <PaywallModal open={showPaywall} onClose={() => setShowPaywall(false)} feature="barcode" />
- *
- * Or use the hook:
  *   const { paywallNode, openPaywall } = usePaywall("barcode");
- *   // call openPaywall() on any premium tap, render paywallNode in JSX
+ *   // call openPaywall() on premium tap, render paywallNode in JSX
  */
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -30,20 +31,20 @@ export type PaywallFeature =
   | "premium_avatar"
   | "general";
 
-// ─── Slide definitions per feature ───────────────────────────────────────────
+// ─── Scanner features → carousel bottom-sheet ────────────────────────────────
+
+const SCANNER_FEATURES = new Set<PaywallFeature>(["barcode", "voice_log", "meal_scan"]);
+
+// ─── Carousel slide definitions (scanner features only) ──────────────────────
 
 interface Slide {
-  /** Large emoji/icon shown inside the phone mockup */
   mockupEmoji: string;
-  /** Short lines shown inside the phone mockup preview */
   mockupLines?: string[];
-  /** Slide headline */
   headline: string;
-  /** Slide subtext */
   sub: string;
 }
 
-const FEATURE_SLIDES: Record<PaywallFeature, Slide[]> = {
+const SCANNER_SLIDES: Record<string, Slide[]> = {
   barcode: [
     {
       mockupEmoji: "📦",
@@ -104,131 +105,104 @@ const FEATURE_SLIDES: Record<PaywallFeature, Slide[]> = {
       sub: "Confirm what looks right, remove anything off, and log the whole meal at once.",
     },
   ],
-  workout: [
-    {
-      mockupEmoji: "🏋️",
-      mockupLines: ["Push Day — Week 1"],
-      headline: "Personalized Workout Plans",
-      sub: "Tell Plate your goals and equipment — it builds a science-backed split just for you.",
-    },
-    {
-      mockupEmoji: "📈",
-      mockupLines: ["RIR Coach: Push harder"],
-      headline: "RIR-Based Coaching",
-      sub: "Know exactly how hard to push each set with Reps in Reserve guidance built in.",
-    },
-    {
-      mockupEmoji: "🔄",
-      mockupLines: ["Auto-deload in 2 weeks"],
-      headline: "Auto-Deload & Progress",
-      sub: "Plate auto-deloads every 6 weeks and tracks your streaks, rest, and progress.",
-    },
-  ],
-  meal_plan: [
-    {
-      mockupEmoji: "📅",
-      mockupLines: ["Full 7-Day Plan"],
-      headline: "Your Full 7-Day Meal Plan",
-      sub: "See all 7 days of meals, not just 2. Every meal matched to your exact macros.",
-    },
-    {
-      mockupEmoji: "🔁",
-      mockupLines: ["Regenerate any meal"],
-      headline: "Unlimited Regenerations",
-      sub: "Don't like a meal? Swap it. Regenerate as many times as you want.",
-    },
-    {
-      mockupEmoji: "🛒",
-      mockupLines: ["Grocery list ready"],
-      headline: "Auto Grocery List",
-      sub: "Every ingredient from your 7-day plan, sorted by store section. Ready to shop.",
-    },
-  ],
-  analytics: [
-    {
-      mockupEmoji: "📊",
-      mockupLines: ["Weekly macro trends"],
-      headline: "Weekly Macro Trends",
-      sub: "See how consistent you've been across protein, carbs, and fat — week by week.",
-    },
-    {
-      mockupEmoji: "⚖️",
-      mockupLines: ["Weight projection"],
-      headline: "Weight Trend Projection",
-      sub: "Plate charts your progress and projects where you're headed based on real data.",
-    },
-    {
-      mockupEmoji: "🔥",
-      mockupLines: ["Streak: 12 days"],
-      headline: "Streak & Habit Insights",
-      sub: "Track your logging streaks, habit scores, and what's driving your results.",
-    },
-  ],
-  grocery: [
-    {
-      mockupEmoji: "🛒",
-      mockupLines: ["This week's list"],
-      headline: "Auto-Generated Grocery List",
-      sub: "Every ingredient from your weekly meal plan, deduplicated and sorted by aisle.",
-    },
-    {
-      mockupEmoji: "✅",
-      mockupLines: ["Chicken ✓", "Greek yogurt ✓"],
-      headline: "Check Off As You Shop",
-      sub: "Tap items as you grab them. Plate tracks what you've got and what's left.",
-    },
-  ],
-  glp1: [
-    {
-      mockupEmoji: "💉",
-      mockupLines: ["GLP-1 Mode active"],
-      headline: "Tuned for GLP-1 Medications",
-      sub: "Macros and portions adjusted for semaglutide and tirzepatide's appetite effects.",
-    },
-    {
-      mockupEmoji: "💪",
-      mockupLines: ["Protein priority: High"],
-      headline: "Protect Your Lean Mass",
-      sub: "Higher protein targets to prevent muscle loss — the biggest risk on GLP-1s.",
-    },
-  ],
-  premium_avatar: [
-    {
-      mockupEmoji: "⭐",
-      mockupLines: ["Premium collection"],
-      headline: "Exclusive Avatar Collection",
-      sub: "Stand out with rare, limited-edition avatar styles on the leaderboard and in sharing.",
-    },
-  ],
-  general: [
-    {
-      mockupEmoji: "📸",
-      mockupLines: ["Meal Scan · Voice Log", "Barcode Scan"],
-      headline: "Log Food 10× Faster",
-      sub: "Scan a barcode, snap a photo, or just say what you ate. No more manual entry.",
-    },
-    {
-      mockupEmoji: "📅",
-      mockupLines: ["7-Day Meal Plan", "Auto grocery list"],
-      headline: "Full 7-Day Meal Plan",
-      sub: "See every meal, swap anything you don't like, and get your grocery list built automatically.",
-    },
-    {
-      mockupEmoji: "🏋️",
-      mockupLines: ["Push Day — Week 1", "RIR Coach active"],
-      headline: "Workout Generator",
-      sub: "Science-backed splits with RIR coaching, auto-deload, and full progress tracking.",
-    },
-    {
-      mockupEmoji: "📊",
-      mockupLines: ["Weekly macro trends", "Streak: 12 days"],
-      headline: "Advanced Analytics",
-      sub: "Weekly consistency scores, weight projections, and habit insights in one view.",
-    },
-  ],
 };
 
-// ─── Phone Mockup Component ───────────────────────────────────────────────────
+// ─── Full-screen paywall copy (all non-scanner features) ─────────────────────
+
+const FULLSCREEN_COPY: Record<
+  string,
+  { headline: string; sub: string; bullets: string[] }
+> = {
+  workout: {
+    headline: "Unlock Workout Plans",
+    sub: "Science-backed training, built for your goals",
+    bullets: [
+      "Personalized push/pull/legs or full-body splits",
+      "RIR-based coaching — know exactly how hard to push",
+      "Auto-deload every 6 weeks, rest timer, streak tracking",
+      "All workout types: gym, home, calisthenics",
+    ],
+  },
+  meal_plan: {
+    headline: "Unlock Your Full 7-Day Meal Plan",
+    sub: "See all 7 days — not just 2",
+    bullets: [
+      "Full week of meals matched to your exact macros",
+      "Unlimited plan regenerations",
+      "Swap out any meal you don't like",
+      "Auto-generates your grocery list",
+    ],
+  },
+  analytics: {
+    headline: "Unlock Advanced Analytics",
+    sub: "Understand your progress with weekly trends",
+    bullets: [
+      "Weekly macro consistency scores",
+      "Weight trend charts with projection",
+      "Streak analysis and habit insights",
+      "Export your data anytime",
+    ],
+  },
+  grocery: {
+    headline: "Unlock Grocery List",
+    sub: "Auto-generated from your weekly meal plan",
+    bullets: [
+      "Full week of ingredients, deduplicated and sorted by aisle",
+      "Check off items as you shop",
+      "Syncs every time your plan changes",
+      "Never forget an ingredient again",
+    ],
+  },
+  glp1: {
+    headline: "Unlock GLP-1 Support",
+    sub: "Nutrition tuned for semaglutide & tirzepatide",
+    bullets: [
+      "Macro targets adjusted for GLP-1 appetite changes",
+      "Higher protein to protect lean muscle mass",
+      "Smaller portions, more frequent meals",
+      "Built on clinical semaglutide/tirzepatide data",
+    ],
+  },
+  premium_avatar: {
+    headline: "Unlock Premium Avatars",
+    sub: "Stand out with exclusive avatar styles",
+    bullets: [
+      "Full access to the premium avatar collection",
+      "Rare and limited-edition picks",
+      "Personalize your profile and leaderboard presence",
+    ],
+  },
+  general: {
+    headline: "Go Premium for Full Access",
+    sub: "Unlock everything Plate has to offer",
+    bullets: [
+      "Meal Photo Scan, Voice Logging, Barcode Scan",
+      "Full 7-day meal plan with unlimited regenerations",
+      "Workout generator with RIR coaching",
+      "Advanced analytics, Grocery List, GLP-1 support",
+    ],
+  },
+};
+
+// ─── Public interface ─────────────────────────────────────────────────────────
+
+interface PaywallModalProps {
+  open: boolean;
+  onClose: () => void;
+  feature?: PaywallFeature;
+}
+
+/** Routes to the correct paywall style based on feature type */
+export function PaywallModal({ open, onClose, feature = "general" }: PaywallModalProps) {
+  if (SCANNER_FEATURES.has(feature)) {
+    return <ScannerCarouselPaywall open={open} onClose={onClose} feature={feature} />;
+  }
+  return <FullScreenPaywall open={open} onClose={onClose} feature={feature} />;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCANNER CAROUSEL — barcode / voice_log / meal_scan
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function PhoneMockup({ slide }: { slide: Slide }) {
   return (
@@ -246,12 +220,12 @@ function PhoneMockup({ slide }: { slide: Slide }) {
         flexDirection: "column",
       }}
     >
-      {/* Phone notch */}
+      {/* Notch */}
       <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
         <div style={{ width: 60, height: 10, background: "#222", borderRadius: 8 }} />
       </div>
 
-      {/* Plate header bar */}
+      {/* Plate header */}
       <div
         style={{
           height: 36,
@@ -268,7 +242,7 @@ function PhoneMockup({ slide }: { slide: Slide }) {
         </span>
       </div>
 
-      {/* Content area */}
+      {/* Content */}
       <div
         style={{
           flex: 1,
@@ -281,12 +255,9 @@ function PhoneMockup({ slide }: { slide: Slide }) {
           gap: 10,
         }}
       >
-        {/* Big emoji */}
         <div style={{ fontSize: 52, lineHeight: 1, filter: "drop-shadow(0 4px 12px rgba(82,183,136,0.3))" }}>
           {slide.mockupEmoji}
         </div>
-
-        {/* Preview lines */}
         {slide.mockupLines && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
             {slide.mockupLines.map((line, i) => (
@@ -322,16 +293,7 @@ function PhoneMockup({ slide }: { slide: Slide }) {
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            background: "#52B788",
-            borderRadius: 10,
-            padding: "5px 16px",
-            fontSize: 9,
-            fontWeight: 700,
-            color: "#0a1a0a",
-          }}
-        >
+        <div style={{ background: "#52B788", borderRadius: 10, padding: "5px 16px", fontSize: 9, fontWeight: 700, color: "#0a1a0a" }}>
           Premium
         </div>
       </div>
@@ -344,30 +306,17 @@ function PhoneMockup({ slide }: { slide: Slide }) {
   );
 }
 
-// ─── Main PaywallModal ────────────────────────────────────────────────────────
-
-interface PaywallModalProps {
-  open: boolean;
-  onClose: () => void;
-  feature?: PaywallFeature;
-}
-
-export function PaywallModal({ open, onClose, feature = "general" }: PaywallModalProps) {
+function ScannerCarouselPaywall({ open, onClose, feature }: PaywallModalProps) {
   const navigate = useNavigate();
-  const slides = FEATURE_SLIDES[feature] ?? FEATURE_SLIDES.general;
+  const slides = SCANNER_SLIDES[feature!] ?? SCANNER_SLIDES.barcode;
   const [currentSlide, setCurrentSlide] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [_animating, _setAnimating] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
-  // Animate in / out
   useEffect(() => {
     if (open) {
       setCurrentSlide(0);
-      // Small delay so the CSS transition fires
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true));
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
     } else {
       setVisible(false);
     }
@@ -389,19 +338,11 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
     }
   };
 
-  const goPrev = () => {
-    if (currentSlide > 0) {
-      hapticLight();
-      setCurrentSlide((s) => s - 1);
-    }
-  };
-
   const handleBackdropClick = () => {
     setVisible(false);
     setTimeout(onClose, 350);
   };
 
-  // Touch swipe support
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
@@ -411,7 +352,7 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
     if (delta < -40 && !isLast) goNext();
-    if (delta > 40 && currentSlide > 0) goPrev();
+    if (delta > 40 && currentSlide > 0) { hapticLight(); setCurrentSlide((s) => s - 1); }
   };
 
   const modal = (
@@ -424,7 +365,6 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
       }}
       onClick={handleBackdropClick}
     >
-      {/* Bottom sheet */}
       <div
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
@@ -442,14 +382,10 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
           overflowY: "auto",
         }}
       >
-        {/* Handle + close row */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          {/* Drag handle */}
-          <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.12)", borderRadius: 2 }} className="mx-auto absolute left-1/2 -translate-x-1/2 top-3" />
-
-          {/* Close */}
+        {/* Handle + close */}
+        <div className="relative flex items-center justify-between px-5 pt-4 pb-2">
+          <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.12)", borderRadius: 2 }} className="absolute left-1/2 -translate-x-1/2 top-3" />
           <div style={{ width: 28 }} />
-          <div />
           <button
             onClick={() => { setVisible(false); setTimeout(onClose, 350); }}
             className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -486,10 +422,7 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
 
         {/* Copy */}
         <div className="px-6 pb-2">
-          <h2
-            className="text-[26px] font-bold text-white mb-2 leading-tight"
-            style={{ fontFamily: "'Georgia', serif" }}
-          >
+          <h2 className="text-[26px] font-bold text-white mb-2 leading-tight" style={{ fontFamily: "'Georgia', serif" }}>
             {slide.headline}
           </h2>
           <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
@@ -501,19 +434,13 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
         <div className="px-6 pb-2 pt-4">
           {isLast ? (
             <>
-              {/* Trial badge */}
               <div
                 className="flex items-center justify-center gap-2 py-2 rounded-full mb-4 text-xs font-semibold tracking-wide"
-                style={{
-                  background: "rgba(82,183,136,0.1)",
-                  border: "1px solid rgba(82,183,136,0.3)",
-                  color: "#52B788",
-                }}
+                style={{ background: "rgba(82,183,136,0.1)", border: "1px solid rgba(82,183,136,0.3)", color: "#52B788" }}
               >
                 <span>🎁</span>
                 <span>7 Days Free — No Charge Today</span>
               </div>
-
               <button
                 onClick={goNext}
                 className="w-full py-4 rounded-2xl text-base font-bold transition-opacity active:opacity-80"
@@ -536,7 +463,6 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
           )}
         </div>
 
-        {/* Bottom padding for safe area */}
         <div style={{ height: 8 }} />
       </div>
     </div>
@@ -545,7 +471,114 @@ export function PaywallModal({ open, onClose, feature = "general" }: PaywallModa
   return createPortal(modal, document.body);
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// FULL-SCREEN ANIMATED OVERLAY — all non-scanner features
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function FullScreenPaywall({ open, onClose, feature }: PaywallModalProps) {
+  const navigate = useNavigate();
+  const [visible, setVisible] = useState(false);
+  const copy = FULLSCREEN_COPY[feature!] ?? FULLSCREEN_COPY.general;
+
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+    } else {
+      setVisible(false);
+    }
+  }, [open]);
+
+  if (!open && !visible) return null;
+
+  const handleUpgrade = () => {
+    hapticMedium();
+    onClose();
+    navigate("/onboarding/upgrade");
+  };
+
+  const modal = (
+    <div
+      className="fixed inset-0 z-[9999] flex flex-col"
+      style={{
+        background: visible ? "rgba(0,0,0,0.88)" : "rgba(0,0,0,0)",
+        backdropFilter: visible ? "blur(8px)" : "none",
+        transition: "background 0.35s ease, backdrop-filter 0.35s ease",
+      }}
+    >
+      {/* Content card — slides up */}
+      <div
+        className="flex flex-col flex-1"
+        style={{
+          transform: visible ? "translateY(0)" : "translateY(40px)",
+          opacity: visible ? 1 : 0,
+          transition: "transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease",
+        }}
+      >
+        {/* Close */}
+        <div className="flex justify-end p-4" style={{ paddingTop: "env(safe-area-inset-top, 16px)" }}>
+          <button
+            onClick={() => { setVisible(false); setTimeout(onClose, 350); }}
+            className="w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.1)" }}
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center" style={{ paddingBottom: "env(safe-area-inset-bottom, 24px)" }}>
+          <img
+            src="/plate-logo.jpg"
+            alt="Plate"
+            className="mb-6 rounded-2xl object-contain"
+            style={{ width: 80, height: 80 }}
+          />
+          <h2 className="text-2xl font-serif text-white mb-2">{copy.headline}</h2>
+          <p className="text-sm mb-8" style={{ color: "rgba(255,255,255,0.5)" }}>{copy.sub}</p>
+
+          <ul className="text-sm text-left space-y-3 mb-10 w-full max-w-xs">
+            {copy.bullets.map((b, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span
+                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold"
+                  style={{ background: "var(--plate-green-deep)", color: "var(--plate-green-accent)" }}
+                >
+                  ✓
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.8)" }}>{b}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div
+            className="flex items-center gap-2 px-4 py-2 rounded-full mb-4 text-xs font-semibold tracking-wide uppercase"
+            style={{ background: "rgba(82,183,136,0.15)", border: "1px solid rgba(82,183,136,0.35)", color: "var(--plate-green-accent)" }}
+          >
+            <span>🎁</span>
+            <span>7 Days Free — No Charge Today</span>
+          </div>
+
+          <button
+            onClick={handleUpgrade}
+            className="w-full max-w-xs py-4 rounded-2xl text-base font-bold transition-opacity active:opacity-80"
+            style={{ background: "var(--plate-green-accent)", color: "#0a1a0a" }}
+          >
+            Start My Free Trial
+          </button>
+          <p className="text-xs mt-3" style={{ color: "rgba(255,255,255,0.35)" }}>
+            Then $14.99/mo · or $5.99/mo billed annually · Cancel anytime
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOOK
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /** Hook for inline paywall usage */
 export function usePaywall(feature: PaywallFeature = "general") {

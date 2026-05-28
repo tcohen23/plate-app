@@ -476,7 +476,7 @@ function MacrosBarCard({
 }
 
 /* ─── Premium Upsell Banner (replaces ad slot) ─── */
-function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
+function _PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
   return (
     <div
       className="rounded-xl px-4 py-3 mb-3 flex items-center justify-between"
@@ -652,16 +652,7 @@ export function DashboardPage() {
           <ChevronDown className="w-5 h-5 mt-1" style={{ color: "rgba(255,255,255,0.5)", transition: "transform 0.2s", transform: showDatePicker ? "rotate(180deg)" : "none" }} />
         </button>
         <div className="flex items-center gap-2">
-          {!isPremium && (
-            <button
-              onClick={() => { hapticLight(); trackGoPremiumTap("dashboard_header"); navigate("/onboarding/upgrade"); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95"
-              style={{ background: "#E5B454", color: "#000" }}
-            >
-              Go Premium
-            </button>
-          )}
-          {isPremium && isTrialing && (
+          {isTrialing && (
             <span className="text-xs px-3 py-1.5 rounded-full font-semibold" style={{ background: "rgba(82,183,136,0.15)", color: "#52B788" }}>
               🎉 Trial
             </span>
@@ -718,12 +709,7 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* ── Premium upsell (replaces ad slot) ── */}
-      {!isPremium && (
-        <div className="px-4">
-          <PremiumUpsellBanner navigate={navigate} />
-        </div>
-      )}
+
 
       {/* ── Diary section ── */}
       <div className="px-4 mb-3">
@@ -744,12 +730,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Second premium upsell after diary ── */}
-      {!isPremium && (
-        <div className="px-4 mb-3">
-          <PremiumUpsellBanner navigate={navigate} />
-        </div>
-      )}
+
 
       {/* ── PROTECTED: Hydration tracker ── */}
       <div className="px-4 mb-3">
