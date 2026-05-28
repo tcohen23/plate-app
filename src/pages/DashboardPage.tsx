@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { hapticLight } from "@/lib/haptics";
 import {
   Plus, Droplets, ChevronRight,
-  X, Crown, Zap, ChevronDown, ChevronLeft,
+  Crown, Zap, ChevronDown, ChevronLeft,
   MoreHorizontal, Dumbbell, Footprints,
   Weight, StickyNote, Coffee, Sandwich, Utensils, Cookie,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
+import { trackDashboardLoad, trackHydrationLogged, trackWeightLogged, trackGoPremiumTap } from "@/lib/posthog";
 
 /* ─── PWA detection ─── */
 
@@ -309,10 +310,18 @@ function DatePickerDropdown({ selectedDateStr, onSelect, onClose }: {
         style={{ background: "rgba(0,0,0,0.5)" }}
         onClick={onClose}
       />
-      {/* Dropdown panel */}
+      {/* Dropdown panel — fixed so it's never clipped by scroll containers */}
       <div
-        className="absolute left-4 right-4 z-50 rounded-2xl p-4 shadow-2xl"
-        style={{ top: "60px", background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.12)" }}
+        className="fixed z-50 rounded-2xl p-4 shadow-2xl"
+        style={{
+          top: "130px",
+          left: "16px",
+          right: "16px",
+          maxWidth: "440px",
+          margin: "0 auto",
+          background: "#1a1a1a",
+          border: "1px solid rgba(255,255,255,0.12)"
+        }}
       >
         {/* Month nav */}
         <div className="flex items-center justify-between mb-3">
@@ -472,7 +481,7 @@ function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
     >
       <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
         Get ad-free tracking in Premium —{" "}
-        <button onClick={() => navigate("/onboarding/upgrade")} className="font-semibold underline" style={{ color: "#E5B454" }}>
+        <button onClick={() => { trackGoPremiumTap("dashboard_upsell_banner"); navigate("/onboarding/upgrade"); }} className="font-semibold underline" style={{ color: "#E5B454" }}>
           upgrade now
         </button>
       </span>
@@ -576,6 +585,15 @@ export function DashboardPage() {
 
   useEffect(() => { checkAchievements(); }, []);
 
+  // Track dashboard load once per mount (after we know plan status)
+  const dashTracked = useRef(false);
+  useEffect(() => {
+    if (dashTracked.current || isPremium === undefined) return;
+    dashTracked.current = true;
+    const plan = isPremium ? (isTrialing ? "trialing" : "premium") : "free";
+    trackDashboardLoad(plan as "free" | "premium" | "trialing");
+  }, [isPremium, isTrialing]);
+
   if (!profile || !summary) return <DashboardSkeleton />;
 
   const targetCals = profile.targetCalories || 2000;
@@ -617,22 +635,23 @@ export function DashboardPage() {
       )}
 
       {/* ── MFP Header: Today ▼ | Go Premium | 0⚡ ── */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2" style={{ position: "relative" }}>
+      {showDatePicker && (
+        <DatePickerDropdown
+          selectedDateStr={selectedDate}
+          onSelect={setSelectedDate}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
+
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <button className="flex items-center gap-1" onClick={() => { hapticLight(); setShowDatePicker(v => !v); }}>
           <span className="text-3xl font-black tracking-tight">{headerLabel}</span>
           <ChevronDown className="w-5 h-5 mt-1" style={{ color: "rgba(255,255,255,0.5)", transition: "transform 0.2s", transform: showDatePicker ? "rotate(180deg)" : "none" }} />
         </button>
-        {showDatePicker && (
-          <DatePickerDropdown
-            selectedDateStr={selectedDate}
-            onSelect={setSelectedDate}
-            onClose={() => setShowDatePicker(false)}
-          />
-        )}
         <div className="flex items-center gap-2">
           {!isPremium && (
             <button
-              onClick={() => { hapticLight(); navigate("/onboarding/upgrade"); }}
+              onClick={() => { hapticLight(); trackGoPremiumTap("dashboard_header"); navigate("/onboarding/upgrade"); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95"
               style={{ background: "#E5B454", color: "#000" }}
             >
@@ -752,7 +771,7 @@ export function DashboardPage() {
           {/* + Add a glass button — matches MFP */}
           {isToday && (
             <button
-              onClick={() => { hapticLight(); logHydration({ glasses: Math.min(currentGlasses + 1, hydrationTarget) }); }}
+              onClick={() => { hapticLight(); const next = Math.min(currentGlasses + 1, hydrationTarget); logHydration({ glasses: next }); trackHydrationLogged(next); }}
               className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
               style={{ background: "rgba(74,158,255,0.1)", color: "#4A9EFF", border: "1px solid rgba(74,158,255,0.2)" }}
             >
