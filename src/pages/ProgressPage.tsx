@@ -15,10 +15,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, ChevronRight, Target, Plus, X } from "lucide-react";
+import { Download, ChevronRight, Crown, Target, Plus, X } from "lucide-react";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { hapticLight } from "@/lib/haptics";
-
+import { useAccessLevel } from "@/components/RequireSubscription";
 
 type ProgressTab = "Overview" | "Calories" | "Nutrients" | "Macros" | "Steps" | "Weight" | "Sleep";
 
@@ -52,7 +52,7 @@ export function ProgressPage() {
   const [newWeight, setNewWeight] = useState("");
   const [newBodyFat, setNewBodyFat] = useState("");
   const [notes, setNotes] = useState("");
-
+  const { isPremium } = useAccessLevel();
 
   const stats = useQuery(api.progress.getUserStats, {});
   const progressLogs = useQuery(api.progress.getProgressLogs);
@@ -60,14 +60,6 @@ export function ProgressPage() {
   const logWeight = useMutation(api.progress.logWeight);
   const localDate = useMemo(() => getLocalDateString(), []);
   const summary = useQuery(api.foodLogs.getDailySummary, { localDate });
-
-  // Real 7-day calorie data
-  const sevenDaysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }, []);
-  const weekRangeSummaries = useQuery(api.foodLogs.getDateRangeSummaries, { startDate: sevenDaysAgo, endDate: localDate });
 
   const handleLogWeight = async () => {
     if (!newWeight) { toast.error("Enter your weight"); return; }
@@ -100,17 +92,7 @@ export function ProgressPage() {
   const goalWeight = (profile as any).goalWeight ?? 0;
   const calGoal = profile.targetCalories || 2000;
   const todayCals = summary?.totals?.calories || 0;
-  // Build real 7-day calorie array (Mon–Sun or last 7 days)
-  const weekCals = useMemo(() => {
-    const result: number[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      result.push(weekRangeSummaries?.[dateStr]?.calories || 0);
-    }
-    return result;
-  }, [weekRangeSummaries]);
+  const weekCals = [0, 0, 0, 0, 0, 0, todayCals];
   const proteinGoal = profile.targetProtein || 150;
   const carbsGoal = profile.targetCarbs || 200;
   const fatGoal = profile.targetFat || 60;
@@ -301,7 +283,18 @@ export function ProgressPage() {
               </div>
             ))}
           </div>
-
+          {/* Premium: swap macros */}
+          {!isPremium && (
+            <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.25)" }}>
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4" style={{ color: "#E5B454" }} />
+                <span className="text-sm">Swap macro targets</span>
+              </div>
+              <button onClick={() => navigate("/onboarding/upgrade")} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#E5B454", color: "#000" }}>
+                Upgrade
+              </button>
+            </div>
+          )}
         </div>
       )}
 

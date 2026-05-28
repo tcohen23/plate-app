@@ -8,16 +8,16 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { ChevronLeft, Edit } from "lucide-react";
-
-
+import { ChevronLeft, Crown, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAccessLevel } from "@/components/RequireSubscription";
 import { useMemo } from "react";
 
 export function ProfilePage() {
   const navigate = useNavigate();
   const profile = useQuery(api.profiles.getProfile);
   const progressLogs = useQuery(api.progress.getProgressLogs);
-
+  const { isPremium } = useAccessLevel();
 
   const startWeight = (profile as any)?.weight ?? 0;
   const sortedLogs = useMemo(() => [...(progressLogs || [])].sort((a: any, b: any) => a.date.localeCompare(b.date)), [progressLogs]);
@@ -81,7 +81,16 @@ export function ProfilePage() {
           </div>
         </div>
 
-
+        {/* Go Premium button — only for free users */}
+        {!isPremium && (
+          <Button
+            onClick={() => navigate("/onboarding/upgrade")}
+            className="w-full max-w-xs h-12 rounded-full font-bold text-base mb-4"
+            style={{ background: "#E5B454", color: "#000" }}
+          >
+            <Crown className="w-4 h-4 mr-2" /> Go Premium
+          </Button>
+        )}
 
         {/* Edit Profile link */}
         <button

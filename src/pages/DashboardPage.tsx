@@ -5,17 +5,17 @@ import { Button } from "@/components/ui/button";
 import { hapticLight } from "@/lib/haptics";
 import {
   Plus, Droplets, ChevronRight,
-  X, Zap, ChevronDown, ChevronLeft,
+  X, Crown, Zap, ChevronDown, ChevronLeft,
   MoreHorizontal, Dumbbell, Footprints,
   Weight, StickyNote, Coffee, Sandwich, Utensils, Cookie,
 } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { getLocalDateString, dateToLocalStr } from "@/lib/dateUtils";
+import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
-import { trackDashboardLoad, trackHydrationLogged } from "@/lib/posthog";
+import { trackDashboardLoad, trackHydrationLogged, trackGoPremiumTap } from "@/lib/posthog";
 
 /* ─── PWA detection ─── */
 
@@ -193,18 +193,18 @@ function WeekStrip({ selectedDateStr, onDateChange }: { selectedDateStr: string;
   const weekDates = days.map((_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
-    return dateToLocalStr(d);
+    return d.toISOString().split("T")[0];
   });
 
   const goToPrevWeek = () => {
     const d = new Date(selectedDateStr + "T12:00:00");
     d.setDate(d.getDate() - 7);
-    onDateChange(dateToLocalStr(d));
+    onDateChange(d.toISOString().split("T")[0]);
   };
   const goToNextWeek = () => {
     const d = new Date(selectedDateStr + "T12:00:00");
     d.setDate(d.getDate() + 7);
-    const next = dateToLocalStr(d);
+    const next = d.toISOString().split("T")[0];
     if (next <= todayStr) onDateChange(next);
   };
 
@@ -475,6 +475,23 @@ function MacrosBarCard({
   );
 }
 
+/* ─── Premium Upsell Banner (replaces ad slot) ─── */
+function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
+  return (
+    <div
+      className="rounded-xl px-4 py-3 mb-3 flex items-center justify-between"
+      style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.2)" }}
+    >
+      <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
+        Get ad-free tracking in Premium —{" "}
+        <button onClick={() => { trackGoPremiumTap("dashboard_upsell_banner"); navigate("/onboarding/upgrade"); }} className="font-semibold underline" style={{ color: "#E5B454" }}>
+          upgrade now
+        </button>
+      </span>
+      <Crown className="w-4 h-4 flex-shrink-0 ml-2" style={{ color: "#E5B454" }} />
+    </div>
+  );
+}
 
 /* ─── Diary Meal Row ─── */
 const MEAL_ICONS: Record<string, React.ReactNode> = {
@@ -635,7 +652,16 @@ export function DashboardPage() {
           <ChevronDown className="w-5 h-5 mt-1" style={{ color: "rgba(255,255,255,0.5)", transition: "transform 0.2s", transform: showDatePicker ? "rotate(180deg)" : "none" }} />
         </button>
         <div className="flex items-center gap-2">
-          {isTrialing && (
+          {!isPremium && (
+            <button
+              onClick={() => { hapticLight(); trackGoPremiumTap("dashboard_header"); navigate("/onboarding/upgrade"); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95"
+              style={{ background: "#E5B454", color: "#000" }}
+            >
+              Go Premium
+            </button>
+          )}
+          {isPremium && isTrialing && (
             <span className="text-xs px-3 py-1.5 rounded-full font-semibold" style={{ background: "rgba(82,183,136,0.15)", color: "#52B788" }}>
               🎉 Trial
             </span>
@@ -692,7 +718,12 @@ export function DashboardPage() {
         />
       </div>
 
-
+      {/* ── Premium upsell (replaces ad slot) ── */}
+      {!isPremium && (
+        <div className="px-4">
+          <PremiumUpsellBanner navigate={navigate} />
+        </div>
+      )}
 
       {/* ── Diary section ── */}
       <div className="px-4 mb-3">
@@ -713,7 +744,12 @@ export function DashboardPage() {
         </div>
       </div>
 
-
+      {/* ── Second premium upsell after diary ── */}
+      {!isPremium && (
+        <div className="px-4 mb-3">
+          <PremiumUpsellBanner navigate={navigate} />
+        </div>
+      )}
 
       {/* ── PROTECTED: Hydration tracker ── */}
       <div className="px-4 mb-3">

@@ -13,11 +13,12 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { usePaywall } from "@/components/PaywallModal";
+import { ChevronLeft, ChevronRight, Crown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAccessLevel } from "@/components/RequireSubscription";
 
 function GoalRow({
-  label, value, onClick,
+  label, value, premium, onClick,
 }: { label: string; value?: string | number; premium?: boolean; onClick?: () => void }) {
   return (
     <button
@@ -27,6 +28,7 @@ function GoalRow({
       disabled={!onClick}
     >
       <div className="flex items-center gap-2">
+        {premium && <Crown className="w-3.5 h-3.5" style={{ color: "#E5B454" }} />}
         <span className="text-sm">{label}</span>
       </div>
       <div className="flex items-center gap-2">
@@ -55,7 +57,7 @@ export function GoalsPage() {
   const navigate = useNavigate();
   const profile = useQuery(api.profiles.getProfile);
   const progressLogs = useQuery(api.progress.getProgressLogs);
-  const { paywallNode, openPaywall } = usePaywall("general");
+  const { isPremium } = useAccessLevel();
 
   if (!profile) {
     return (
@@ -102,8 +104,8 @@ export function GoalsPage() {
           <GoalRow label="Carbs Goal" value={profile.targetCarbs ? `${profile.targetCarbs}g` : "--"} onClick={() => navigate("/settings")} />
           <GoalRow label="Protein Goal" value={profile.targetProtein ? `${profile.targetProtein}g` : "--"} onClick={() => navigate("/settings")} />
           <GoalRow label="Fat Goal" value={profile.targetFat ? `${profile.targetFat}g` : "--"} onClick={() => navigate("/settings")} />
-          <GoalRow label="Calorie Goals By Meal" onClick={openPaywall} />
-          <GoalRow label="Show Macros By Meal" onClick={openPaywall} />
+          <GoalRow label="Calorie Goals By Meal" premium onClick={() => navigate("/onboarding/upgrade")} />
+          <GoalRow label="Show Macros By Meal" premium onClick={() => navigate("/onboarding/upgrade")} />
           <GoalRow label="Additional Nutrient Goals" onClick={() => navigate("/more/nutrition")} />
         </div>
       </div>
@@ -114,11 +116,31 @@ export function GoalsPage() {
         <div className="rounded-2xl px-4" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
           <GoalRow label="Workouts / Week" value="0" onClick={() => navigate("/workout")} />
           <GoalRow label="Minutes / Workout" value="0" onClick={() => navigate("/workout")} />
-          <GoalRow label="Exercise Calories" onClick={openPaywall} />
+          <GoalRow label="Exercise Calories" premium onClick={() => navigate("/onboarding/upgrade")} />
         </div>
       </div>
 
-      {paywallNode}
+      {/* Go Premium CTA */}
+      {!isPremium && (
+        <div className="px-4 mb-4">
+          <div className="rounded-2xl p-5" style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.3)" }}>
+            <div className="flex items-center gap-3 mb-3">
+              <Crown className="w-6 h-6" style={{ color: "#E5B454" }} />
+              <div>
+                <div className="text-sm font-bold">Go Premium, Get Results</div>
+                <div className="text-xs text-muted-foreground">Unlock macro goals per meal, premium insights & more</div>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate("/onboarding/upgrade")}
+              className="w-full rounded-full font-bold"
+              style={{ background: "#E5B454", color: "#000" }}
+            >
+              Upgrade Now
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* How we make recommendations */}
       <div className="px-4 mb-4 text-center">
