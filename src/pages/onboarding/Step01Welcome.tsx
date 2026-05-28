@@ -12,7 +12,8 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { posthog, getFlag } from "@/lib/posthog";
 
 const SLIDES = [
@@ -684,14 +685,19 @@ function WelcomeCarousel({ onContinue, onLogin }: { onContinue: () => void; onLo
 export function Step01Welcome() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const profile = useQuery(api.profiles.getProfile);
   const [variant, setVariant] = useState<string>("control");
 
-  // If already logged in, skip straight to the app
+  // If already logged in AND profile exists, go straight to the app.
+  // If authenticated but profile === null, stay here — the user never finished
+  // onboarding. Sending them to /dashboard would create an infinite loop:
+  //   /dashboard (MobileLayout) → profile null → /onboarding → here →
+  //   isAuthenticated → /dashboard → loop.
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!isLoading && isAuthenticated && profile !== undefined && profile !== null) {
       navigate("/dashboard", { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, profile]);
 
   // Resolve PostHog feature flag
   useEffect(() => {
