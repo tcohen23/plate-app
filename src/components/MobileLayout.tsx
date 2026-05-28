@@ -9,7 +9,7 @@ import { useQuery, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import {
-  Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus, X,
+  Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus,
   ShoppingCart, UtensilsCrossed, Settings, Dumbbell, Lightbulb,
   HelpCircle, Crown, Droplets,
 } from "lucide-react";
