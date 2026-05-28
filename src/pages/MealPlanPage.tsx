@@ -206,6 +206,16 @@ export function MealPlanPage() {
     setSelectedDay(dayIdx);
   };
 
+  // Still loading from the server — show a spinner, not "No plan yet"
+  if (planData === undefined) {
+    return (
+      <div className="px-5 pt-20 max-w-lg mx-auto flex flex-col items-center gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Loading your plan…</p>
+      </div>
+    );
+  }
+
   if (!plan) {
     return (
       <div className="px-5 pt-12 max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto text-center space-y-5">
@@ -245,12 +255,12 @@ export function MealPlanPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-serif">7-day plan</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {/* Workout Plan button */}
           <Button
             size="sm"
             onClick={handleWorkoutClick}
-            className="h-9 rounded-full text-xs px-4 font-semibold"
+            className="h-9 rounded-full text-xs px-3 font-semibold"
             style={
               hasPremium
                 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--foreground)" }
@@ -264,7 +274,7 @@ export function MealPlanPage() {
             <Button
               size="sm"
               onClick={() => setPaywallFeature("meal_plan")}
-              className="h-9 rounded-full text-xs px-4"
+              className="h-9 rounded-full text-xs px-3 whitespace-nowrap"
               style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff", border: "none" }}
             >
               ✨ Upgrade for unlimited

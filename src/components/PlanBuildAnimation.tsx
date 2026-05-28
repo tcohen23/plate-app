@@ -12,7 +12,8 @@ interface PlanBuildAnimationProps {
   carbs: number;
   fat: number;
   goal: string;
-  onComplete: () => void;
+  isGenerating?: boolean;
+  onComplete: () => void | Promise<void>;
 }
 
 function buildSteps(dietLabel: string): { label: string; ms: number }[] {
@@ -34,6 +35,7 @@ export function PlanBuildAnimation({
   carbs,
   fat,
   goal,
+  isGenerating = false,
   onComplete,
 }: PlanBuildAnimationProps) {
   const steps = buildSteps(dietLabel);
@@ -222,9 +224,19 @@ export function PlanBuildAnimation({
             </div>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground">
-            Taking you to your dashboard...
-          </p>
+          {isGenerating ? (
+            <p className="text-center text-xs flex items-center justify-center gap-1.5" style={{ color: "#52B788" }}>
+              <span
+                className="inline-block w-3 h-3 rounded-full border-2 animate-spin"
+                style={{ borderColor: "#52B788 transparent transparent transparent" }}
+              />
+              Finalizing your plan…
+            </p>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              Taking you to your dashboard...
+            </p>
+          )}
         </div>
       )}
     </div>

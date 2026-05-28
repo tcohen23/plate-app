@@ -190,8 +190,8 @@ const FULLSCREEN_COPY: Record<
     bullets: [
       "Meal Photo Scan, Voice Logging, Barcode Scan",
       "Full 7-day meal plan with unlimited regenerations",
-      "Workout generator with RIR coaching",
-      "Advanced analytics, Grocery List, GLP-1 support",
+      "Personalized workout plans with RIR coaching",
+      "Advanced analytics, Grocery List & more",
     ],
   },
 };

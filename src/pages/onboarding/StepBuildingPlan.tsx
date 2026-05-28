@@ -7,7 +7,7 @@
  * to already exist. This screen is behind ProtectedRoute so auth is guaranteed —
  * no race condition unlike calling createMinimalProfile in StepVerifyEmail.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -48,6 +48,8 @@ export function StepBuildingPlan() {
   const { isAuthenticated } = useConvexAuth();
   const createMinimalProfile = useMutation(api.onboarding.createMinimalProfile);
   const completeOnboarding = useMutation(api.onboarding.completeOnboarding);
+  const generatePlan = useMutation(api.mealPlans.generatePlan);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const calories = calculateCalories();
   const protein = Math.round((calories * 0.30) / 4);
@@ -74,15 +76,12 @@ export function StepBuildingPlan() {
     trackExperimentAssigned("ob_paywall_copy", getPaywallCopyVariant());
   }, []);
 
-  // Ensure profile exists first (covers the OTP race condition where createMinimalProfile
-  // couldn't run in StepVerifyEmail because the auth session hadn't propagated yet).
-  // Then fire completeOnboarding. Both run behind ProtectedRoute so auth is guaranteed.
+  // Ensure profile exists first, then completeOnboarding, then kick off plan generation.
+  // generatePlan runs in background so the animation doesn't block — but we track whether
+  // it's still running so PlanBuildAnimation can show a "finalizing..." line.
   useEffect(() => {
     if (!isAuthenticated) return;
     const firstName = sessionStorage.getItem("ob_firstName") || "";
-    // createMinimalProfile is idempotent (updates if exists, creates if not).
-    // We chain completeOnboarding after it because completeOnboarding throws
-    // "Profile not found" if the profile doesn't exist yet.
     createMinimalProfile({ firstName })
       .then(() => completeOnboarding({
         firstName: sessionStorage.getItem("ob_firstName") || "",
@@ -110,10 +109,27 @@ export function StepBuildingPlan() {
         calorieTarget: calories,
         activityLevel: sessionStorage.getItem("ob_activity") || "moderate",
       }))
-      .catch(console.error);
+      .then(() => {
+        // Fire plan generation right after profile is saved so it's ready when animation ends.
+        setIsGenerating(true);
+        return generatePlan({});
+      })
+      .then(() => setIsGenerating(false))
+      .catch((e) => { console.error(e); setIsGenerating(false); });
   }, [isAuthenticated]);
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    // If plan is still generating, wait for it (up to 8s) before navigating
+    if (isGenerating) {
+      const start = Date.now();
+      await new Promise<void>((resolve) => {
+        const check = () => {
+          if (!isGenerating || Date.now() - start > 8000) resolve();
+          else setTimeout(check, 200);
+        };
+        check();
+      });
+    }
     trackEvent("onboarding_completed", { source: "building_plan" });
     navigate("/dashboard", { replace: true });
   };
@@ -126,6 +142,7 @@ export function StepBuildingPlan() {
       carbs={carbs}
       fat={fat}
       goal={goal}
+      isGenerating={isGenerating}
       onComplete={handleComplete}
     />
   );

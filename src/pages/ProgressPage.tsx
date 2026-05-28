@@ -97,10 +97,19 @@ export function ProgressPage() {
     }
   };
 
-  if (!stats || !profile) {
+  // undefined = still loading from Convex; null = loaded but no record yet (new user)
+  if (stats === undefined || profile === undefined) {
     return (
       <div className="pb-28 max-w-lg mx-auto px-4 pt-4">
         <div className="h-96 skeleton-shimmer rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="pb-28 max-w-lg mx-auto px-4 pt-4 flex items-center justify-center pt-20">
+        <p className="text-sm text-muted-foreground">Set up your profile to view progress.</p>
       </div>
     );
   }

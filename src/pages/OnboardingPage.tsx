@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -63,6 +63,7 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [building, setBuilding] = useState(false);
   const [planMacros, setPlanMacros] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null);
+  const planReadyRef = useRef<Promise<void>>(Promise.resolve());
 
   // Essential fields only
   const [name, setName] = useState("");
@@ -153,8 +154,8 @@ export function OnboardingPage() {
         allergens: allergens.length > 0 ? allergens : undefined,
         mealsPerDay: "3+1",
       });
-      // Generate plan in background — animation handles timing
-      generatePlan({ profileId }).catch(() => {});
+      // Generate plan — track the promise so animation can wait for it
+      planReadyRef.current = generatePlan({ profileId }).then(() => {}).catch(() => {});
       trackOnboardingCompleted({ dietPreference: primaryDiet, goal, calorieTarget: estimateCalories() });
       sendWelcome().catch(() => {});
     } catch (e: any) {
@@ -186,7 +187,11 @@ export function OnboardingPage() {
         carbs={planMacros.carbs}
         fat={planMacros.fat}
         goal={goal}
-        onComplete={() => navigate("/dashboard", { replace: true })}
+        onComplete={async () => {
+          // Wait for the plan to be fully generated before navigating
+          await planReadyRef.current;
+          navigate("/dashboard", { replace: true });
+        }}
       />
     );
   }

@@ -16,6 +16,7 @@ import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
 import { trackDashboardLoad, trackHydrationLogged, trackGoPremiumTap } from "@/lib/posthog";
+import { PaywallModal } from "@/components/PaywallModal";
 
 /* ─── PWA detection ─── */
 
@@ -535,10 +536,10 @@ function HabitRow({ icon, label, subtitle, onClick }: { icon: React.ReactNode; l
 }
 
 /* ─── Premium upsell banner ─── */
-function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
+function PremiumUpsellBanner({ onTap }: { onTap: () => void }) {
   return (
     <button
-      onClick={() => navigate("/settings?tab=premium")}
+      onClick={onTap}
       className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98]"
       style={{ background: "linear-gradient(135deg, rgba(82,183,136,0.15), rgba(27,67,50,0.3))", border: "1px solid rgba(82,183,136,0.25)" }}
     >
@@ -547,7 +548,7 @@ function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
       </div>
       <div className="flex-1 text-left">
         <div className="text-sm font-bold" style={{ color: "#52B788" }}>Upgrade to Premium</div>
-        <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Unlock macros, meal planning, GLP-1 tracker &amp; more</div>
+        <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Unlock macros, meal planning, workout plans &amp; more</div>
       </div>
       <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "#52B788", color: "#0d1f13" }}>Try free</span>
     </button>
@@ -585,6 +586,7 @@ export function DashboardPage() {
   const logHydration = useMutation(api.progress.logHydration);
   const { check: checkAchievements, popup: achievementPopup } = useAchievementPoller();
   const [showShareBadge, setShowShareBadge] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [floorBannerDismissed, setFloorBannerDismissed] = useState(() => {
     try { return localStorage.getItem("plate_floor_banner_dismissed") === "1"; } catch { return false; }
@@ -725,7 +727,7 @@ export function DashboardPage() {
       {/* ── Premium upsell (replaces ad slot) ── */}
       {!isPremium && (
         <div className="px-4">
-          <PremiumUpsellBanner navigate={navigate} />
+          <PremiumUpsellBanner onTap={() => { hapticLight(); trackGoPremiumTap("dashboard_banner_1"); setShowUpsellModal(true); }} />
         </div>
       )}
 
@@ -751,7 +753,7 @@ export function DashboardPage() {
       {/* ── Second premium upsell after diary ── */}
       {!isPremium && (
         <div className="px-4 mb-3">
-          <PremiumUpsellBanner navigate={navigate} />
+          <PremiumUpsellBanner onTap={() => { hapticLight(); trackGoPremiumTap("dashboard_banner_2"); setShowUpsellModal(true); }} />
         </div>
       )}
 
@@ -902,6 +904,13 @@ export function DashboardPage() {
           stats={{ level: stats.level || 1, xp: stats.xp || 0, currentStreak: stats.currentStreak || 0, totalMealsLogged: stats.totalMealsLogged || 0 }}
         />
       )}
+
+      {/* Animated upsell paywall — triggered by premium banners */}
+      <PaywallModal
+        open={showUpsellModal}
+        onClose={() => setShowUpsellModal(false)}
+        feature="general"
+      />
     </div>
   );
 }
