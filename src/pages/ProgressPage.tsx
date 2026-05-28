@@ -15,7 +15,7 @@ import { xpToReachLevel, xpNeededForNextLevel } from "@/lib/levelUtils";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Trophy, TrendingDown, TrendingUp, Flame, Target, Plus, X, Crown, Star, BarChart2 } from "lucide-react";
+import { Trophy, TrendingDown, TrendingUp, Flame, Target, Plus, X, Star, BarChart2 } from "lucide-react";
 import { ACHIEVEMENT_DEFS } from "@/lib/achievementDefs";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 

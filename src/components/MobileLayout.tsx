@@ -460,7 +460,7 @@ export function MobileLayout() {
   const navigate = useNavigate();
   const profile = useQuery(api.profiles.getProfile);
   const profilePictureUrl = useQuery(api.profiles.getProfilePictureUrl);
-  const workoutPlan = useQuery(api.workoutPlans.getWorkoutPlan);
+  const workoutPlan = useQuery(api.workouts.getCurrentWorkoutPlan);
   const { isPremium, isTrialing } = useAccessLevel();
   const [sheetMode, setSheetMode] = useState<"closed" | "actions" | "more">("closed");
   const prevPath = useRef(location.pathname);

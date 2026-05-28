@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   RefreshCw, ListChecks, Clock, Flame, SkipForward,
   CheckCircle2, Loader2, CheckCheck, ChevronRight, Dumbbell,
-  Lock, X, ChevronDown, ChevronUp, HelpCircle, AlertTriangle, Crown,
+  X, ChevronDown, ChevronUp, HelpCircle, AlertTriangle, Crown,
 } from "lucide-react";
 import { usePremiumAccess } from "@/components/PremiumGate";
 import { PaywallModal } from "@/components/PaywallModal";
