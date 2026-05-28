@@ -14,12 +14,12 @@ import { OnboardingLayout, OnboardingHeadline, OnboardingCTA } from "./Onboardin
 export function StepAllStats() {
   const navigate = useNavigate();
 
-  const [sex, setSex]               = useState(() => sessionStorage.getItem("ob_sex") || "");
-  const [age, setAge]               = useState(() => sessionStorage.getItem("ob_age") || "");
-  const [heightFt, setHeightFt]     = useState(() => sessionStorage.getItem("ob_heightFt") || "");
-  const [heightIn, setHeightIn]     = useState(() => sessionStorage.getItem("ob_heightIn") || "0");
-  const [currentWeight, setCurrentWeight] = useState(() => sessionStorage.getItem("ob_currentWeight") || "");
-  const [goalWeight, setGoalWeight] = useState(() => sessionStorage.getItem("ob_goalWeight") || "");
+  const [sex, setSex]               = useState(() => { try { return sessionStorage.getItem("ob_sex") || ""; } catch { return ""; } });
+  const [age, setAge]               = useState(() => { try { return sessionStorage.getItem("ob_age") || ""; } catch { return ""; } });
+  const [heightFt, setHeightFt]     = useState(() => { try { return sessionStorage.getItem("ob_heightFt") || ""; } catch { return ""; } });
+  const [heightIn, setHeightIn]     = useState(() => { try { return sessionStorage.getItem("ob_heightIn") || "0"; } catch { return "0"; } });
+  const [currentWeight, setCurrentWeight] = useState(() => { try { return sessionStorage.getItem("ob_currentWeight") || ""; } catch { return ""; } });
+  const [goalWeight, setGoalWeight] = useState(() => { try { return sessionStorage.getItem("ob_goalWeight") || ""; } catch { return ""; } });
   const [showSexInfo, setShowSexInfo] = useState(false);
 
   const isValid =
@@ -31,12 +31,12 @@ export function StepAllStats() {
 
   const handleContinue = () => {
     if (!isValid) return;
-    sessionStorage.setItem("ob_sex", sex);
-    sessionStorage.setItem("ob_age", age);
-    sessionStorage.setItem("ob_heightFt", heightFt);
-    sessionStorage.setItem("ob_heightIn", heightIn);
-    sessionStorage.setItem("ob_currentWeight", currentWeight);
-    sessionStorage.setItem("ob_goalWeight", goalWeight);
+    try { sessionStorage.setItem("ob_sex", sex); } catch { /* ignore */ }
+    try { sessionStorage.setItem("ob_age", age); } catch { /* ignore */ }
+    try { sessionStorage.setItem("ob_heightFt", heightFt); } catch { /* ignore */ }
+    try { sessionStorage.setItem("ob_heightIn", heightIn); } catch { /* ignore */ }
+    try { sessionStorage.setItem("ob_currentWeight", currentWeight); } catch { /* ignore */ }
+    try { sessionStorage.setItem("ob_goalWeight", goalWeight); } catch { /* ignore */ }
     navigate("/onboarding/create-account");
   };
 

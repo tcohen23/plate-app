@@ -30,15 +30,11 @@ const GOALS = [
 export function StepNameGoals() {
   const navigate = useNavigate();
 
-  const [name, setName] = useState(
-    () => sessionStorage.getItem("ob_firstName") || ""
-  );
+  const [name, setName] = useState(() => {
+    try { return sessionStorage.getItem("ob_firstName") || ""; } catch { return ""; }
+  });
   const [selected, setSelected] = useState<string[]>(() => {
-    try {
-      return JSON.parse(sessionStorage.getItem("ob_goals") || "[]");
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(sessionStorage.getItem("ob_goals") || "[]"); } catch { return []; }
   });
 
   const isValid = name.trim().length > 0 && selected.length > 0;
@@ -53,8 +49,8 @@ export function StepNameGoals() {
 
   const handleContinue = () => {
     if (!isValid) return;
-    sessionStorage.setItem("ob_firstName", name.trim());
-    sessionStorage.setItem("ob_goals", JSON.stringify(selected));
+    try { sessionStorage.setItem("ob_firstName", name.trim()); } catch { /* ignore */ }
+    try { sessionStorage.setItem("ob_goals", JSON.stringify(selected)); } catch { /* ignore */ }
     navigate("/onboarding/activity");
   };
 

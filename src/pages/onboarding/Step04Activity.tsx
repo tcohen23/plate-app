@@ -36,10 +36,10 @@ const ACTIVITY = [
 
 export function Step04Activity() {
   const navigate = useNavigate();
-  const [value, setValue] = useState(() => sessionStorage.getItem("ob_activity") || "");
+  const [value, setValue] = useState(() => { try { return sessionStorage.getItem("ob_activity") || ""; } catch { return ""; } });
 
   const handleContinue = () => {
-    sessionStorage.setItem("ob_activity", value);
+    try { sessionStorage.setItem("ob_activity", value); } catch { /* ignore */ }
     const variant = getScreenCountVariant();
     navigate(variant === "variant_b" ? "/onboarding/all-stats" : "/onboarding/about-you");
   };
