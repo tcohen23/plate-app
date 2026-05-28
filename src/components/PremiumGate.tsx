@@ -13,16 +13,15 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Lock, ShoppingCart, Dumbbell, Pill, Sparkles } from "lucide-react";
+import { Lock, ShoppingCart, Dumbbell, Sparkles } from "lucide-react";
 import { hapticMedium } from "@/lib/haptics";
 import { PaywallModal, type PaywallFeature } from "@/components/PaywallModal";
 
-export type PremiumFeature = "grocery" | "glp1" | "premium_avatar" | "workouts";
+export type PremiumFeature = "grocery" | "premium_avatar" | "workouts";
 
 // Map PremiumGate feature names → PaywallModal feature keys
 const PREMIUM_TO_PAYWALL_FEATURE: Record<PremiumFeature, PaywallFeature> = {
   grocery: "grocery",
-  glp1: "glp1",
   premium_avatar: "premium_avatar",
   workouts: "workout",
 };
@@ -44,16 +43,6 @@ const FEATURE_COPY: Record<PremiumFeature, { icon: React.ReactNode; headline: st
       "Deduplicated and sorted by store section",
       "Check off items as you shop",
       "Syncs every time your plan changes",
-    ],
-  },
-  glp1: {
-    icon: <Pill className="w-10 h-10" />,
-    headline: "Unlock GLP-1 Support",
-    bullets: [
-      "Macro targets adjusted for GLP-1 appetite changes",
-      "Higher protein priority to protect lean mass",
-      "Smaller portions, more frequent meals",
-      "Built on semaglutide/tirzepatide clinical data",
     ],
   },
   premium_avatar: {

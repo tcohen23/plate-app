@@ -24,7 +24,6 @@ export type PaywallFeature =
   | "meal_plan"
   | "analytics"
   | "grocery"
-  | "glp1"
   | "premium_avatar"
   | "general";
 
@@ -160,17 +159,6 @@ const FULLSCREEN_COPY: Record<
       "Check off items as you shop",
       "Syncs every time your plan changes",
       "Never forget an ingredient again",
-    ],
-  },
-  glp1: {
-    icon: "💊",
-    headline: "Unlock GLP-1 Support",
-    sub: "Nutrition tuned for semaglutide & tirzepatide",
-    bullets: [
-      "Macro targets adjusted for GLP-1 appetite changes",
-      "Higher protein to protect lean muscle mass",
-      "Smaller portions, more frequent meals",
-      "Built on clinical semaglutide/tirzepatide data",
     ],
   },
   premium_avatar: {
