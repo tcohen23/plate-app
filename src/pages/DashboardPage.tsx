@@ -597,7 +597,7 @@ export function DashboardPage() {
   const stats = useQuery(api.progress.getUserStats, { localDate: todayStr });
   const hydration = useQuery(api.progress.getTodaysHydration, { localDate: selectedDate });
   const progressLogs = useQuery(api.progress.getProgressLogs);
-  const exerciseSummary = useQuery(api.exerciseTracking.getExerciseSummaryForDate, { date: selectedDate });
+  const exerciseSummary = useQuery(api.exercises.getExerciseSummaryForDate, { date: selectedDate });
   const logHydration = useMutation(api.progress.logHydration);
   const { check: checkAchievements, popup: achievementPopup } = useAchievementPoller();
   const [showShareBadge, setShowShareBadge] = useState(false);

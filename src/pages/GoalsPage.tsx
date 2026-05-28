@@ -11,12 +11,13 @@
  *   "How we make recommendations" link
  */
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { ChevronLeft, ChevronRight, Crown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { usePaywall } from "@/components/PaywallModal";
+import { toast } from "sonner";
 
 function GoalRow({
   label, value, premium, onClick,
@@ -60,6 +61,7 @@ export function GoalsPage() {
   const progressLogs = useQuery(api.progress.getProgressLogs);
   const { isPremium } = useAccessLevel();
   const { paywallNode, openPaywall } = usePaywall("general");
+  const updateProfile = useMutation(api.profiles.updateProfile);
 
   if (!profile) {
     return (
@@ -106,8 +108,8 @@ export function GoalsPage() {
           <GoalRow label="Carbs Goal" value={profile.targetCarbs ? `${profile.targetCarbs}g` : "--"} onClick={() => navigate("/settings")} />
           <GoalRow label="Protein Goal" value={profile.targetProtein ? `${profile.targetProtein}g` : "--"} onClick={() => navigate("/settings")} />
           <GoalRow label="Fat Goal" value={profile.targetFat ? `${profile.targetFat}g` : "--"} onClick={() => navigate("/settings")} />
-          <GoalRow label="Calorie Goals By Meal" premium onClick={isPremium ? undefined : openPaywall} />
-          <GoalRow label="Show Macros By Meal" premium onClick={isPremium ? undefined : openPaywall} />
+          <GoalRow label="Calorie Goals By Meal" premium onClick={isPremium ? () => navigate("/track") : openPaywall} />
+          <GoalRow label="Show Macros By Meal" premium onClick={isPremium ? () => navigate("/more/nutrition") : openPaywall} />
           <GoalRow label="Additional Nutrient Goals" onClick={() => navigate("/more/nutrition")} />
         </div>
       </div>
@@ -116,9 +118,49 @@ export function GoalsPage() {
       <div className="px-4 mb-4">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-1 pt-4 pb-2">Fitness Goals</div>
         <div className="rounded-2xl px-4" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
-          <GoalRow label="Workouts / Week" value="0" onClick={() => navigate("/workout")} />
-          <GoalRow label="Minutes / Workout" value="0" onClick={() => navigate("/workout")} />
-          <GoalRow label="Exercise Calories" premium onClick={isPremium ? undefined : openPaywall} />
+          <GoalRow label="Workouts / Week" value={(profile as any).workoutFrequency || "0"} onClick={() => navigate("/workout")} />
+          <GoalRow label="Minutes / Workout" value={(profile as any).workoutDuration || "0"} onClick={() => navigate("/workout")} />
+          {/* Exercise Calories — premium feature that actually works */}
+          {isPremium ? (
+            <div className="py-4 border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Crown className="w-3.5 h-3.5" style={{ color: "#E5B454" }} />
+                <span className="text-sm">Exercise Calories</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: "info_only", label: "Show Info Only", desc: "See cals burned, doesn't adjust meal plan" },
+                  { value: "add_to_goal", label: "Add to Goal", desc: "Burned calories added back to your daily meal plan budget" },
+                ] as const).map(opt => {
+                  const current = (profile as any).exerciseCalorieMode ?? "info_only";
+                  const active = current === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        updateProfile({ exerciseCalorieMode: opt.value }).then(() =>
+                          toast.success(opt.value === "add_to_goal" ? "Exercise calories now added to your meal plan goal 🔥" : "Exercise calories shown as info only")
+                        )
+                      }
+                      className="rounded-xl p-3 text-left border transition-all"
+                      style={{
+                        background: active ? "rgba(82,183,136,0.12)" : "var(--surface-card)",
+                        borderColor: active ? "#52B788" : "var(--border)",
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {active && <Check className="w-3 h-3" style={{ color: "#52B788" }} />}
+                        <p className="text-xs font-bold" style={{ color: active ? "#52B788" : "var(--foreground)" }}>{opt.label}</p>
+                      </div>
+                      <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.45)" }}>{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <GoalRow label="Exercise Calories" premium onClick={openPaywall} />
+          )}
         </div>
       </div>
 

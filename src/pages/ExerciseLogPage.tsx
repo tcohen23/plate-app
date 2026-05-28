@@ -17,11 +17,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
   ChevronLeft, Search, X, Plus, Dumbbell, Heart,
-  Clock, Flame, Check,
+  Clock, Flame, Check, Crown,
 } from "lucide-react";
 import { hapticLight, hapticSuccess } from "@/lib/haptics";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { toast } from "sonner";
+import { usePremiumAccess } from "@/components/PremiumGate";
+import { PaywallModal } from "@/components/PaywallModal";
 
 // ─── Static Exercise Lists ────────────────────────────────────────────────────
 
@@ -435,8 +437,10 @@ export function ExerciseLogPage() {
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loggedToday, setLoggedToday] = useState<Set<string>>(new Set());
+  const [showExerciseUpsell, setShowExerciseUpsell] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const isPremium = usePremiumAccess();
 
   const cardioLogs = useQuery(api.exercises.getCardioLogs, { date: today });
   const exerciseLogs = useQuery(api.exercises.getExerciseLogs, { date: today });
@@ -578,12 +582,41 @@ export function ExerciseLogPage() {
       {/* Exercise List */}
       <div className="flex-1 overflow-y-auto px-4 pt-2 pb-24">
         {/* Today's logged summary (shown at top of All Exercises) */}
-        {tab === "All Exercises" && todayLoggedNames.size > 0 && !search && (
-          <div className="mb-3 rounded-xl px-4 py-3" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.2)" }}>
-            <div className="text-xs font-semibold mb-1" style={{ color: "#52B788" }}>Logged today</div>
-            <div className="text-xs text-muted-foreground">{[...todayLoggedNames].join(" · ")}</div>
-          </div>
-        )}
+        {tab === "All Exercises" && todayLoggedNames.size > 0 && !search && (() => {
+          const totalCalBurned = [
+            ...(cardioLogs || []).map((l: any) => l.caloriesBurned ?? 0),
+            ...(exerciseLogs || []).map((l: any) => l.caloriesBurned ?? 0),
+          ].reduce((a, b) => a + b, 0);
+          return (
+            <>
+              <div className="mb-3 rounded-xl px-4 py-3" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.2)" }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold mb-1" style={{ color: "#52B788" }}>Logged today</div>
+                    <div className="text-xs text-muted-foreground">
+                      {[...todayLoggedNames].join(" · ")}
+                      {totalCalBurned > 0 && <span className="ml-2 font-semibold" style={{ color: "#52B788" }}>🔥 {totalCalBurned} cal burned</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Contextual upsell: add burned cals to meal plan budget (free users only) */}
+              {!isPremium && totalCalBurned > 0 && (
+                <button
+                  onClick={() => { hapticLight(); setShowExerciseUpsell(true); }}
+                  className="w-full mb-3 rounded-xl px-4 py-3 text-left flex items-center gap-3 transition-all active:opacity-70"
+                  style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.25)" }}
+                >
+                  <Crown className="w-4 h-4 flex-shrink-0" style={{ color: "#E5B454" }} />
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: "#E5B454" }}>Add {totalCalBurned} burned calories to your meal plan</p>
+                    <p className="text-[10px] mt-0.5 text-muted-foreground">Premium: burned calories automatically increase your daily food budget. Tap to unlock.</p>
+                  </div>
+                </button>
+              )}
+            </>
+          );
+        })()}
 
         {filteredList.length === 0 ? (
           <div className="text-center py-16">
@@ -669,6 +702,7 @@ export function ExerciseLogPage() {
           onCreated={handleCustomCreated}
         />
       )}
+      <PaywallModal open={showExerciseUpsell} onClose={() => setShowExerciseUpsell(false)} feature="general" />
     </div>
   );
 }

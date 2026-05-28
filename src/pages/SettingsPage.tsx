@@ -3,6 +3,7 @@ import { api } from "../../convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useNavigate } from "react-router-dom";
 import { usePremiumAccess } from "@/components/PremiumGate";
+import { PaywallModal } from "@/components/PaywallModal";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,8 @@ import {
   ChevronLeft, ChevronRight, Shield, LogOut, Moon, Sun, Fingerprint, Save,
   Pencil, User, Phone, Ruler, Weight, Calendar, Activity,
   Target, UtensilsCrossed, Pill, Trash2, AlertTriangle, Info, ChevronDown, Heart,
-  Camera, DollarSign, Clock, ChefHat, Smile, CheckCircle2 as CheckCircle, X, Share2,
-  Crown, ExternalLink, Sparkles, Lock, Mail, Inbox,
+  Camera, DollarSign, Clock, ChefHat, CheckCircle2 as CheckCircle, Share2,
+  Crown, ExternalLink, Sparkles, Lock, Mail, Inbox, Copy,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { getFoodChipsForDiet } from "@/lib/foodChips";
@@ -180,12 +181,6 @@ export const EMOJI_AVATARS: Array<{ emoji: string; bg: string }> = [
   { emoji: "🥤", bg: "#AED6F1" },        // big gulp / hydration
 ];
 
-/** Returns a CSS-renderable avatar key: "emoji|bg" — no external URL needed */
-function getAvatarKey(idx: number): string {
-  const a = EMOJI_AVATARS[idx % EMOJI_AVATARS.length];
-  return `emoji:${a.emoji}|${a.bg}`;
-}
-
 /** Parse an avatarChoice value — handles both legacy DiceBear URLs and new emoji keys */
 export function parseAvatarChoice(choice: string | undefined): { type: "emoji"; emoji: string; bg: string } | { type: "url"; url: string } | null {
   if (!choice) return null;
@@ -205,7 +200,7 @@ export function SettingsPage() {
   const generateUploadUrl = useMutation(api.profiles.generateUploadUrl);
   const updateProfilePicture = useMutation(api.profiles.updateProfilePicture);
   const profilePictureUrl = useQuery(api.profiles.getProfilePictureUrl);
-  const setAvatarChoice = useMutation(api.profiles.setAvatarChoice);
+
   const { signOut } = useAuthActions();
   const { theme, preference, setPreference } = useTheme();
 
@@ -215,15 +210,9 @@ export function SettingsPage() {
   const [biometricOn, setBiometricOn] = useState(isBiometricEnabled());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showShareBadge, setShowShareBadge] = useState(false);
-  const [_showAvatarUpgrade, _setShowAvatarUpgrade] = useState(false);
+  const [showExerciseCalPaywall, setShowExerciseCalPaywall] = useState(false);
   const hasPremiumForAvatar = usePremiumAccess();
-
-  // Premium avatar indices — these correspond to special AI-generated images in the avatar picker
-  // Free users see them with lock overlay and get an upgrade prompt on tap
-  // Currently no emoji are gated — premium image avatars will use URL-based avatarChoice values
-  const PREMIUM_AVATAR_INDICES = new Set<number>([]);
   const stats = useQuery(api.progress.getUserStats, {});
   const emailHistory = useQuery(api.admin.getMyEmailHistory);
   const [showMailSection, setShowMailSection] = useState(false);
@@ -334,17 +323,6 @@ export function SettingsPage() {
     }
   };
 
-  const handleSelectAvatar = async (idx: number) => {
-    const key = getAvatarKey(idx);
-    try {
-      await setAvatarChoice({ avatarUrl: key });
-      toast.success("Avatar updated.");
-      setShowAvatarPicker(false);
-    } catch {
-      toast.error("Couldn't save avatar. Try again.");
-    }
-  };
-
   const saveField = async (field: string) => {
     setSaving(true);
     try {
@@ -428,100 +406,16 @@ export function SettingsPage() {
 
       <h1 className="text-2xl font-serif">Account</h1>
 
-      {/* Avatar picker modal */}
-      {showAvatarPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ background: "rgba(0,0,0,0.7)" }}
-          onClick={() => setShowAvatarPicker(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-t-2xl pb-8 flex flex-col"
-            style={{ background: "var(--background)", maxHeight: "82vh" }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Sticky header — always visible while scrolling */}
-            <div
-              className="flex items-center justify-between px-5 pt-5 pb-3 sticky top-0 z-10 rounded-t-2xl"
-              style={{ background: "var(--background)", borderBottom: "1px solid var(--border)" }}
-            >
-              <h3 className="text-lg font-serif">Choose an avatar</h3>
-              <button
-                onClick={() => setShowAvatarPicker(false)}
-                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="px-5 pt-4 overflow-y-auto flex-1">
-            <p className="text-sm text-muted-foreground mb-4">Tap any avatar to set it as your profile picture.</p>
-            {AVATAR_SECTIONS.map((section) => {
-              const sectionAvatars = EMOJI_AVATARS.slice(section.start, section.end);
-              if (sectionAvatars.length === 0) return null;
-              return (
-                <div key={section.label} className="mb-5">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{section.label}</p>
-                  <div className="grid grid-cols-5 gap-3">
-                    {sectionAvatars.map((av, relIdx) => {
-                      const idx = section.start + relIdx;
-                      const key = getAvatarKey(idx);
-                      const isSelected = (profile as any).avatarChoice === key;
-                      const isPremiumAvatar = PREMIUM_AVATAR_INDICES.has(idx);
-                      const canUse = !isPremiumAvatar || hasPremiumForAvatar;
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => canUse ? handleSelectAvatar(idx) : _setShowAvatarUpgrade(true)}
-                          className="relative w-full aspect-square rounded-2xl flex items-center justify-center border-2 transition-all active:scale-95"
-                          style={{
-                            borderColor: isSelected ? "#52B788" : "transparent",
-                            background: av.bg,
-                            fontSize: "1.75rem",
-                            opacity: isPremiumAvatar && !canUse ? 0.7 : 1,
-                          }}
-                        >
-                          {av.emoji}
-                          {isSelected && (
-                            <div className="absolute bottom-0.5 right-0.5">
-                              <CheckCircle className="w-3.5 h-3.5" style={{ color: "#52B788" }} />
-                            </div>
-                          )}
-                          {isPremiumAvatar && !canUse && (
-                            <div className="absolute inset-0 rounded-2xl flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>
-                              <Lock className="w-4 h-4 text-white" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            <div className="pb-4" />
-            </div>{/* end scrollable inner */}
-          </div>
-        </div>
-      )}
-
       {/* Profile Card */}
       <Card className="p-5 rounded-2xl">
         <div className="flex items-center gap-4">
           {/* Profile photo / avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center overflow-hidden">
-              {(() => {
-                if (profilePictureUrl) return <img src={profilePictureUrl} alt="Profile" className="w-full h-full object-cover" />;
-                const parsed = parseAvatarChoice((profile as any).avatarChoice);
-                if (parsed?.type === "emoji") return (
-                  <div className="w-full h-full rounded-full flex items-center justify-center text-3xl" style={{ background: parsed.bg }}>
-                    {parsed.emoji}
-                  </div>
-                );
-                if (parsed?.type === "url") return <img src={parsed.url} alt="Avatar" className="w-full h-full p-1" />;
-                return <span className="text-2xl font-serif text-primary-foreground">{(profile.name || "U")[0].toUpperCase()}</span>;
-              })()}
+              {profilePictureUrl
+                ? <img src={profilePictureUrl} alt="Profile" className="w-full h-full object-cover" />
+                : <span className="text-2xl font-bold text-primary-foreground">{(profile.name || "U")[0].toUpperCase()}</span>
+              }
             </div>
             {/* Camera button for real photo */}
             <button
@@ -545,15 +439,6 @@ export function SettingsPage() {
               {profile.height ? `${heightFt}'${heightIn}" · ` : ""}{profile.weight} lbs · {profile.age}y
             </div>
             {uploadingPhoto && <div className="text-xs text-muted-foreground mt-1">Uploading photo…</div>}
-            {/* Avatar picker trigger */}
-            <button
-              onClick={() => setShowAvatarPicker(true)}
-              className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-              style={{ color: "#52B788" }}
-            >
-              <Smile className="w-3.5 h-3.5" />
-              {(profile as any).avatarChoice ? "Change avatar" : "Choose an avatar"}
-            </button>
           </div>
         </div>
       </Card>
@@ -1066,36 +951,58 @@ export function SettingsPage() {
         </div>
       </Card>
 
-      {/* Exercise calorie mode */}
-      <Card className="p-4 rounded-xl">
-        <div className="mb-3">
-          <span className="text-sm font-medium">Exercise Calories</span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Choose how burned calories affect your daily goal.</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {([
-            { value: "info_only", label: "Show Info Only", desc: "Calories shown but don't adjust your goal" },
-            { value: "add_to_goal", label: "Add to Goal", desc: "Burned calories added back to your daily budget" },
-          ] as const).map(opt => {
-            const current = (profile as any).exerciseCalorieMode ?? "info_only";
-            const active = current === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => updateProfile({ exerciseCalorieMode: opt.value }).then(() => toast.success("Preference saved"))}
-                className="rounded-xl p-3 text-left border transition-all"
-                style={{
-                  background: active ? "rgba(82,183,136,0.12)" : "var(--surface-card)",
-                  borderColor: active ? "#52B788" : "var(--border)",
-                }}
-              >
-                <p className="text-xs font-bold" style={{ color: active ? "#52B788" : "var(--foreground)" }}>{opt.label}</p>
-                <p className="text-[10px] mt-0.5 text-muted-foreground">{opt.desc}</p>
-              </button>
-            );
-          })}
-        </div>
-      </Card>
+      {/* Exercise calorie mode — premium feature */}
+      {hasPremiumForAvatar ? (
+        <Card className="p-4 rounded-xl">
+          <div className="mb-3">
+            <div className="flex items-center gap-1.5">
+              <Crown className="w-3.5 h-3.5" style={{ color: "#E5B454" }} />
+              <span className="text-sm font-medium">Exercise Calories</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Choose how burned calories affect your daily meal plan goal.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { value: "info_only", label: "Show Info Only", desc: "Calories shown but don't adjust your goal" },
+              { value: "add_to_goal", label: "Add to Goal", desc: "Burned calories added back to your daily budget" },
+            ] as const).map(opt => {
+              const current = (profile as any).exerciseCalorieMode ?? "info_only";
+              const active = current === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => updateProfile({ exerciseCalorieMode: opt.value }).then(() =>
+                    toast.success(opt.value === "add_to_goal" ? "Exercise calories now added to your meal plan goal 🔥" : "Exercise calories set to info only")
+                  )}
+                  className="rounded-xl p-3 text-left border transition-all"
+                  style={{
+                    background: active ? "rgba(82,183,136,0.12)" : "var(--surface-card)",
+                    borderColor: active ? "#52B788" : "var(--border)",
+                  }}
+                >
+                  <p className="text-xs font-bold" style={{ color: active ? "#52B788" : "var(--foreground)" }}>{opt.label}</p>
+                  <p className="text-[10px] mt-0.5 text-muted-foreground">{opt.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      ) : (
+        <Card
+          className="p-4 rounded-xl flex items-center justify-between cursor-pointer active:opacity-70"
+          onClick={() => setShowExerciseCalPaywall(true)}
+        >
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Crown className="w-3.5 h-3.5" style={{ color: "#E5B454" }} />
+              <span className="text-sm font-medium">Exercise Calories</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Add burned calories back to your meal plan budget — Premium</p>
+          </div>
+          <Lock className="w-4 h-4 text-muted-foreground" />
+        </Card>
+      )}
+      <PaywallModal open={showExerciseCalPaywall} onClose={() => setShowExerciseCalPaywall(false)} feature="general" />
 
       {/* Toast notifications toggle */}
       <Card className="p-4 rounded-xl flex items-center justify-between">
@@ -1200,14 +1107,8 @@ export function SettingsPage() {
         Privacy Policy
       </button>
 
-      {/* Share Plate */}
-      <Button
-        variant="outline"
-        className="w-full h-12 rounded-xl"
-        onClick={() => setShowShareBadge(true)}
-      >
-        <Share2 className="w-4 h-4 mr-2" /> Invite Friends
-      </Button>
+      {/* ── Refer & Share ── */}
+      <ReferAndShareSection onOpenShareBadge={() => setShowShareBadge(true)} />
 
       {/* Share badge modal */}
       {showShareBadge && profile && stats && (
@@ -1333,6 +1234,227 @@ export function SettingsPage() {
 
 function SectionLabel({ label }: { label: string }) {
   return <div className="label-uppercase text-muted-foreground pt-2">{label}</div>;
+}
+
+// ─── Refer & Share Section ────────────────────────────────────────────────────
+const PLATE_SHARE_URL = "https://plate-app.pages.dev";
+const PLATE_SHARE_TEXT = "I've been using Plate to track my nutrition and it's a game-changer 🍽️ Try it free:";
+
+function ReferAndShareSection({ onOpenShareBadge }: { onOpenShareBadge: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const referralLink = PLATE_SHARE_URL;
+
+  async function handleCopyLink() {
+    await navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+    toast.success("Link copied!");
+  }
+
+  async function handleNativeShare() {
+    const text = `${PLATE_SHARE_TEXT} ${referralLink}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Plate — Nutrition, Perfected.", text, url: referralLink });
+      } catch { /* user cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+      toast.success("Link copied — paste it anywhere!");
+    }
+  }
+
+  const socialPlatforms = [
+    {
+      name: "Instagram",
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+        </svg>
+      ),
+      color: "#E1306C",
+      bg: "rgba(225,48,108,0.12)",
+      action: () => {
+        window.open(`https://www.instagram.com/`, "_blank");
+        navigator.clipboard.writeText(`${PLATE_SHARE_TEXT} ${referralLink}`);
+        toast.success("Caption copied — paste it in your Instagram story or post!");
+      },
+    },
+    {
+      name: "TikTok",
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+          <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.75a4.85 4.85 0 01-1.01-.06z"/>
+        </svg>
+      ),
+      color: "#ffffff",
+      bg: "rgba(255,255,255,0.1)",
+      action: () => {
+        navigator.clipboard.writeText(`${PLATE_SHARE_TEXT} ${referralLink}`);
+        toast.success("Caption copied — paste it in your TikTok video description!");
+      },
+    },
+    {
+      name: "X",
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.261 5.638 5.903-5.638zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+      ),
+      color: "#ffffff",
+      bg: "rgba(255,255,255,0.1)",
+      action: () => {
+        const text = encodeURIComponent(`${PLATE_SHARE_TEXT} ${referralLink}`);
+        window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
+      },
+    },
+    {
+      name: "Facebook",
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+      ),
+      color: "#1877F2",
+      bg: "rgba(24,119,242,0.15)",
+      action: () => {
+        const url = encodeURIComponent(referralLink);
+        const quote = encodeURIComponent(PLATE_SHARE_TEXT);
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${quote}`, "_blank");
+      },
+    },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <SectionLabel label="Refer a Friend" />
+
+      {/* Main refer card */}
+      <div
+        className="rounded-2xl overflow-hidden relative"
+        style={{
+          background: "linear-gradient(135deg, #0a1a12 0%, #0f2318 60%, #091510 100%)",
+          border: "1px solid rgba(82,183,136,0.3)",
+          boxShadow: "0 4px 32px rgba(82,183,136,0.1)",
+        }}
+      >
+        {/* Glow orbs */}
+        <div
+          className="absolute top-0 right-0 w-40 h-40 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(82,183,136,0.2) 0%, transparent 70%)",
+            transform: "translate(30%, -30%)",
+          }}
+        />
+        <div
+          className="absolute bottom-0 left-0 w-32 h-32 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(82,183,136,0.08) 0%, transparent 70%)",
+            transform: "translate(-20%, 20%)",
+          }}
+        />
+
+        <div className="relative p-5 space-y-4">
+          {/* Header */}
+          <div className="flex items-start gap-3">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl"
+              style={{ background: "rgba(82,183,136,0.2)" }}
+            >
+              🎁
+            </div>
+            <div>
+              <div className="font-bold text-white text-base leading-tight">Invite Friends to Plate</div>
+              <div className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>
+                Share the app that's actually changing how people eat
+              </div>
+            </div>
+          </div>
+
+          {/* Referral link pill */}
+          <div
+            className="flex items-center justify-between rounded-xl px-4 py-3 gap-3"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(82,183,136,0.2)" }}
+          >
+            <span className="text-sm font-mono truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
+              plate-app.pages.dev
+            </span>
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0 transition-all active:scale-95"
+              style={{
+                background: copied ? "rgba(82,183,136,0.3)" : "rgba(82,183,136,0.2)",
+                color: "#52B788",
+                border: "1px solid rgba(82,183,136,0.35)",
+              }}
+            >
+              {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+
+          {/* Primary share button */}
+          <button
+            onClick={handleNativeShare}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
+            style={{ background: "#52B788", color: "#0a1a0a" }}
+          >
+            <Share2 className="w-4 h-4" />
+            Share Plate
+          </button>
+
+          {/* Share your stats card */}
+          <button
+            onClick={onOpenShareBadge}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all active:scale-[0.98]"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-lg">🏅</div>
+              <div className="text-left">
+                <div className="text-sm font-semibold text-white">Share Your Stats Card</div>
+                <div className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  Show off your level, streak & progress
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4" style={{ color: "rgba(255,255,255,0.3)" }} />
+          </button>
+        </div>
+      </div>
+
+      {/* Share on socials */}
+      <div
+        className="rounded-2xl p-4 space-y-3"
+        style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">Share on Socials</span>
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(82,183,136,0.15)", color: "#52B788" }}>
+            Spread the word
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {socialPlatforms.map((platform) => (
+            <button
+              key={platform.name}
+              onClick={platform.action}
+              className="flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-95"
+              style={{ background: platform.bg, color: platform.color }}
+            >
+              {platform.icon}
+              <span className="text-[10px] font-semibold opacity-80">{platform.name}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-center" style={{ color: "var(--muted-foreground)" }}>
+          Tap a platform to share · Caption auto-copied for Instagram & TikTok
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function EditableRow({

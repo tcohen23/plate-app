@@ -169,6 +169,29 @@ export const deleteExerciseLog = mutation({
   },
 });
 
+/** Combined exercise summary for a date (used by Dashboard exercise row) */
+export const getExerciseSummaryForDate = query({
+  args: { date: v.string() },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return { totalCalories: 0, totalMinutes: 0, entryCount: 0 };
+
+    const [cardio, strength] = await Promise.all([
+      ctx.db.query("cardioLogs").withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", args.date)).collect(),
+      ctx.db.query("exerciseLogs").withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", args.date)).collect(),
+    ]);
+
+    const totalCalories =
+      cardio.reduce((s: number, l: any) => s + l.caloriesBurned, 0) +
+      strength.reduce((s: number, l: any) => s + (l.caloriesBurned ?? 0), 0);
+    const totalMinutes = cardio.reduce((s: number, l: any) => s + l.minutes, 0);
+    const entryCount = cardio.length + strength.length;
+
+    return { totalCalories, totalMinutes, entryCount };
+  },
+});
+
 /** Create a custom exercise */
 export const createCustomExercise = mutation({
   args: {

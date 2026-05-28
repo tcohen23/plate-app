@@ -14,7 +14,7 @@ import {
   HelpCircle, Crown,
 } from "lucide-react";
 
-import { parseAvatarChoice } from "@/pages/SettingsPage";
+
 import { identifyUser, setUserProperties, setConvexClientForAnalytics } from "../lib/posthog";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { RefreshCw } from "lucide-react";
@@ -46,14 +46,9 @@ const SIDEBAR_NAV = [
 
 
 /* ─── Avatar display helper ─── */
-function AvatarDisplay({ profilePictureUrl, profile, initial }: { profilePictureUrl: string | null | undefined; profile: any; initial: string }) {
+function AvatarDisplay({ profilePictureUrl, initial }: { profilePictureUrl: string | null | undefined; profile?: any; initial: string }) {
   if (profilePictureUrl) return <img src={profilePictureUrl} alt="Profile" className="w-full h-full object-cover" />;
-  const parsed = parseAvatarChoice((profile as any)?.avatarChoice);
-  if (parsed?.type === "emoji") return (
-    <div className="w-full h-full rounded-full flex items-center justify-center text-base" style={{ background: parsed.bg }}>{parsed.emoji}</div>
-  );
-  if (parsed?.type === "url") return <img src={parsed.url} alt="Avatar" className="w-full h-full p-0.5" />;
-  return <span className="text-xs font-serif font-medium" style={{ color: "var(--plate-green-accent)" }}>{initial}</span>;
+  return <span className="text-xs font-bold" style={{ color: "var(--plate-green-accent)" }}>{initial}</span>;
 }
 
 /* ─── Desktop sidebar ─── */

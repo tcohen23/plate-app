@@ -4,7 +4,7 @@ import { parseAvatarChoice } from "@/pages/SettingsPage";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const PLATE_URL = "https://plate-71e84f88.viktor.space";
+const PLATE_URL = "https://plate-app.pages.dev";
 
 interface ShareBadgeProps {
   onClose: () => void;
