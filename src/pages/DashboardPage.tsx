@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button";
 import { hapticLight } from "@/lib/haptics";
 import {
   Plus, Droplets, ChevronRight,
-  X, Crown, Zap, ChevronDown,
+  X, Zap, ChevronDown, ChevronLeft,
   MoreHorizontal, Dumbbell, Footprints,
   Weight, StickyNote, Coffee, Sandwich, Utensils, Cookie,
 } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { useAchievementPoller } from "@/components/AchievementPopup";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
+import { trackDashboardLoad, trackHydrationLogged, trackGoPremiumTap } from "@/lib/posthog";
 
 /* ─── PWA detection ─── */
 
@@ -178,45 +180,236 @@ function EditorialCalorieCard({
 }
 
 /* ─── Weekly Date Strip ─── */
-function WeekStrip({ onDateChange: _onDateChange }: { onDateChange?: (date: Date) => void }) {
-  const today = new Date();
-  const todayDay = today.getDay(); // 0=Sun
-  // Build S M T W T F S for the current week
+function WeekStrip({ selectedDateStr, onDateChange }: { selectedDateStr: string; onDateChange: (dateStr: string) => void }) {
+  const todayStr = getLocalDateString();
   const days = ["S", "M", "T", "W", "T", "F", "S"];
-  // Get dates for this week (starting Sunday)
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - todayDay);
+
+  // Compute week start (Sunday) from the selected date
+  const selDate = new Date(selectedDateStr + "T12:00:00");
+  const selDay = selDate.getDay();
+  const weekStart = new Date(selDate);
+  weekStart.setDate(selDate.getDate() - selDay);
+
   const weekDates = days.map((_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
-    return d;
+    return d.toISOString().split("T")[0];
   });
+
+  const goToPrevWeek = () => {
+    const d = new Date(selectedDateStr + "T12:00:00");
+    d.setDate(d.getDate() - 7);
+    onDateChange(d.toISOString().split("T")[0]);
+  };
+  const goToNextWeek = () => {
+    const d = new Date(selectedDateStr + "T12:00:00");
+    d.setDate(d.getDate() + 7);
+    const next = d.toISOString().split("T")[0];
+    if (next <= todayStr) onDateChange(next);
+  };
+
+  // Is the week strip already on the "current" week?
+  const isCurrentWeek = weekDates.includes(todayStr);
+
   return (
-    <div className="flex items-center justify-between px-1 mb-4">
-      {days.map((day, i) => {
-        const isToday = i === todayDay;
-        const _date = weekDates[i]; void _date;
-        return (
-          <div key={i} className="flex flex-col items-center gap-1">
-            {/* dot above today */}
-            <div className="h-1.5" style={{ display: "flex", alignItems: "center" }}>
-              {isToday && <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#52B788" }} />}
-            </div>
-            <div
-              className="w-9 h-9 flex items-center justify-center text-sm font-medium transition-all"
-              style={{
-                borderRadius: "50%",
-                border: isToday ? "1.5px dashed #52B788" : "1.5px solid transparent",
-                color: isToday ? "#52B788" : "rgba(255,255,255,0.4)",
-                background: isToday ? "rgba(82,183,136,0.08)" : "transparent",
-              }}
+    <div className="flex items-center mb-4 gap-1">
+      <button
+        onClick={goToPrevWeek}
+        className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full active:opacity-60 transition-opacity"
+        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+        aria-label="Previous week"
+      >
+        <ChevronLeft className="w-3.5 h-3.5" />
+      </button>
+      <div className="flex items-center justify-around flex-1">
+        {days.map((day, i) => {
+          const dateStr = weekDates[i];
+          const isToday = dateStr === todayStr;
+          const isSelected = dateStr === selectedDateStr;
+          const isFuture = dateStr > todayStr;
+          const dateNum = parseInt(dateStr.split("-")[2]);
+          return (
+            <button
+              key={dateStr}
+              disabled={isFuture}
+              onClick={() => { if (!isFuture) { hapticLight(); onDateChange(dateStr); }}}
+              className="flex flex-col items-center gap-0.5 focus:outline-none active:scale-90 transition-transform"
+              style={{ cursor: isFuture ? "default" : "pointer" }}
             >
-              {day}
-            </div>
-          </div>
-        );
-      })}
+              <div className="h-1.5 flex items-center justify-center">
+                {isToday && <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#52B788" }} />}
+              </div>
+              <div
+                className="w-9 h-9 flex items-center justify-center text-sm font-medium transition-all"
+                style={{
+                  borderRadius: "50%",
+                  border: isSelected && isToday ? "1.5px dashed #52B788" : isSelected ? "1.5px solid #52B788" : "1.5px solid transparent",
+                  color: isFuture ? "rgba(255,255,255,0.15)" : isSelected ? "#52B788" : "rgba(255,255,255,0.5)",
+                  background: isSelected ? "rgba(82,183,136,0.12)" : "transparent",
+                  fontWeight: isSelected ? 700 : 500,
+                }}
+              >
+                {day}
+              </div>
+              <div className="text-[9px]" style={{ color: isFuture ? "rgba(255,255,255,0.1)" : isSelected ? "#52B788" : "rgba(255,255,255,0.3)" }}>
+                {dateNum}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={goToNextWeek}
+        disabled={isCurrentWeek}
+        className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full active:opacity-60 transition-opacity disabled:opacity-20"
+        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+        aria-label="Next week"
+      >
+        <ChevronRight className="w-3.5 h-3.5" />
+      </button>
     </div>
+  );
+}
+
+/* ─── Date Picker Dropdown ─── */
+function DatePickerDropdown({ selectedDateStr, onSelect, onClose }: {
+  selectedDateStr: string;
+  onSelect: (dateStr: string) => void;
+  onClose: () => void;
+}) {
+  const todayStr = getLocalDateString();
+  const today = new Date(todayStr + "T12:00:00");
+
+  // Build a calendar for the current/selected month
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date(selectedDateStr + "T12:00:00");
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  const { year, month } = viewDate;
+  const monthName = new Date(year, month, 1).toLocaleString("default", { month: "long", year: "numeric" });
+
+  // First day of month (day-of-week), total days
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push(dateStr);
+  }
+
+  const canGoPrev = !(year === today.getFullYear() - 1 && month === 0); // limit 1 year back
+  const canGoNext = !(year === today.getFullYear() && month === today.getMonth());
+
+  // Render via portal so fixed positioning works even inside CSS-transformed parents
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40"
+        style={{ background: "rgba(0,0,0,0.5)" }}
+        onClick={onClose}
+      />
+      {/* Dropdown panel — fixed so it's never clipped by scroll containers */}
+      <div
+        className="fixed z-50 rounded-2xl p-4 shadow-2xl"
+        style={{
+          top: "130px",
+          left: "16px",
+          right: "16px",
+          maxWidth: "440px",
+          margin: "0 auto",
+          background: "#1a1a1a",
+          border: "1px solid rgba(255,255,255,0.12)"
+        }}
+      >
+        {/* Month nav */}
+        <div className="flex items-center justify-between mb-3">
+          <button
+            disabled={!canGoPrev}
+            onClick={() => setViewDate(v => {
+              const m = v.month === 0 ? 11 : v.month - 1;
+              const y = v.month === 0 ? v.year - 1 : v.year;
+              return { year: y, month: m };
+            })}
+            style={{ background: "none", border: "none", color: canGoPrev ? "#fff" : "rgba(255,255,255,0.2)", cursor: canGoPrev ? "pointer" : "default", padding: 4 }}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-semibold text-white">{monthName}</span>
+          <button
+            disabled={!canGoNext}
+            onClick={() => setViewDate(v => {
+              const m = v.month === 11 ? 0 : v.month + 1;
+              const y = v.month === 11 ? v.year + 1 : v.year;
+              return { year: y, month: m };
+            })}
+            style={{ background: "none", border: "none", color: canGoNext ? "#fff" : "rgba(255,255,255,0.2)", cursor: canGoNext ? "pointer" : "default", padding: 4 }}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+        {/* Day headers */}
+        <div className="grid grid-cols-7 mb-1">
+          {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
+            <div key={d} className="text-center text-xs font-medium" style={{ color: "rgba(255,255,255,0.35)", paddingBottom: 6 }}>{d}</div>
+          ))}
+        </div>
+        {/* Day cells */}
+        <div className="grid grid-cols-7 gap-y-1">
+          {cells.map((dateStr, idx) => {
+            if (!dateStr) return <div key={idx} />;
+            const isFuture = dateStr > todayStr;
+            const isSelected = dateStr === selectedDateStr;
+            const isToday = dateStr === todayStr;
+            return (
+              <button
+                key={dateStr}
+                disabled={isFuture}
+                onClick={() => { hapticLight(); onSelect(dateStr); onClose(); }}
+                className="flex items-center justify-center text-sm font-medium transition-all"
+                style={{
+                  height: 36,
+                  borderRadius: "50%",
+                  background: isSelected ? "#52B788" : "transparent",
+                  color: isFuture ? "rgba(255,255,255,0.15)" : isSelected ? "#000" : isToday ? "#52B788" : "#fff",
+                  border: isToday && !isSelected ? "1px solid rgba(82,183,136,0.5)" : "1px solid transparent",
+                  cursor: isFuture ? "default" : "pointer",
+                  fontWeight: isToday || isSelected ? 700 : 400,
+                }}
+              >
+                {parseInt(dateStr.split("-")[2])}
+              </button>
+            );
+          })}
+        </div>
+        {/* Quick shortcuts */}
+        <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <button
+            onClick={() => { hapticLight(); onSelect(todayStr); onClose(); }}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold"
+            style={{ background: selectedDateStr === todayStr ? "#52B788" : "rgba(82,183,136,0.12)", color: selectedDateStr === todayStr ? "#000" : "#52B788" }}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => {
+              const d = new Date(todayStr + "T12:00:00");
+              d.setDate(d.getDate() - 1);
+              const yesterday = d.toISOString().split("T")[0];
+              hapticLight(); onSelect(yesterday); onClose();
+            }}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold"
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}
+          >
+            Yesterday
+          </button>
+        </div>
+      </div>
+    </>,
+    document.body
   );
 }
 
@@ -282,23 +475,7 @@ function MacrosBarCard({
   );
 }
 
-/* ─── Premium Upsell Banner (replaces ad slot) ─── */
-function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
-  return (
-    <div
-      className="rounded-xl px-4 py-3 mb-3 flex items-center justify-between"
-      style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.2)" }}
-    >
-      <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
-        Get ad-free tracking in Premium —{" "}
-        <button onClick={() => navigate("/onboarding/upgrade")} className="font-semibold underline" style={{ color: "#E5B454" }}>
-          upgrade now
-        </button>
-      </span>
-      <Crown className="w-4 h-4 flex-shrink-0 ml-2" style={{ color: "#E5B454" }} />
-    </div>
-  );
-}
+
 
 /* ─── Diary Meal Row ─── */
 const MEAL_ICONS: Record<string, React.ReactNode> = {
@@ -357,18 +534,53 @@ function HabitRow({ icon, label, subtitle, onClick }: { icon: React.ReactNode; l
   );
 }
 
+/* ─── Premium upsell banner ─── */
+function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
+  return (
+    <button
+      onClick={() => navigate("/settings?tab=premium")}
+      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98]"
+      style={{ background: "linear-gradient(135deg, rgba(82,183,136,0.15), rgba(27,67,50,0.3))", border: "1px solid rgba(82,183,136,0.25)" }}
+    >
+      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(82,183,136,0.2)" }}>
+        <span className="text-base">👑</span>
+      </div>
+      <div className="flex-1 text-left">
+        <div className="text-sm font-bold" style={{ color: "#52B788" }}>Upgrade to Premium</div>
+        <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Unlock macros, meal planning, GLP-1 tracker &amp; more</div>
+      </div>
+      <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "#52B788", color: "#0d1f13" }}>Try free</span>
+    </button>
+  );
+}
+
 /* ═══════════════════════════════════════════════════
    MAIN DASHBOARD
    ═══════════════════════════════════════════════════ */
 export function DashboardPage() {
   const navigate = useNavigate();
-  const localDate = useMemo(() => getLocalDateString(), []);
+  const todayStr = useMemo(() => getLocalDateString(), []);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const isToday = selectedDate === todayStr;
+
+  // Friendly label for header
+  const headerLabel = useMemo(() => {
+    if (selectedDate === todayStr) return "Today";
+    const d = new Date(todayStr + "T12:00:00");
+    d.setDate(d.getDate() - 1);
+    const yesterday = d.toISOString().split("T")[0];
+    if (selectedDate === yesterday) return "Yesterday";
+    const dt = new Date(selectedDate + "T12:00:00");
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }, [selectedDate, todayStr]);
+
   const profile = useQuery(api.profiles.getProfile);
   const { isPremium, isTrialing } = useAccessLevel();
-  const summary = useQuery(api.foodLogs.getDailySummary, { localDate });
-  const todaysLog = useQuery(api.foodLogs.getTodaysLog, { localDate });
-  const stats = useQuery(api.progress.getUserStats, { localDate });
-  const hydration = useQuery(api.progress.getTodaysHydration);
+  const summary = useQuery(api.foodLogs.getDailySummary, { localDate: selectedDate });
+  const todaysLog = useQuery(api.foodLogs.getTodaysLog, { localDate: selectedDate });
+  const stats = useQuery(api.progress.getUserStats, { localDate: todayStr });
+  const hydration = useQuery(api.progress.getTodaysHydration, { localDate: selectedDate });
   const progressLogs = useQuery(api.progress.getProgressLogs);
   const logHydration = useMutation(api.progress.logHydration);
   const { check: checkAchievements, popup: achievementPopup } = useAchievementPoller();
@@ -379,6 +591,15 @@ export function DashboardPage() {
   });
 
   useEffect(() => { checkAchievements(); }, []);
+
+  // Track dashboard load once per mount (after we know plan status)
+  const dashTracked = useRef(false);
+  useEffect(() => {
+    if (dashTracked.current || isPremium === undefined) return;
+    dashTracked.current = true;
+    const plan = isPremium ? (isTrialing ? "trialing" : "premium") : "free";
+    trackDashboardLoad(plan as "free" | "premium" | "trialing");
+  }, [isPremium, isTrialing]);
 
   if (!profile || !summary) return <DashboardSkeleton />;
 
@@ -421,15 +642,23 @@ export function DashboardPage() {
       )}
 
       {/* ── MFP Header: Today ▼ | Go Premium | 0⚡ ── */}
+      {showDatePicker && (
+        <DatePickerDropdown
+          selectedDateStr={selectedDate}
+          onSelect={setSelectedDate}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
+
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <button className="flex items-center gap-1" onClick={() => {}}>
-          <span className="text-3xl font-black tracking-tight">Today</span>
-          <ChevronDown className="w-5 h-5 mt-1" style={{ color: "rgba(255,255,255,0.5)" }} />
+        <button className="flex items-center gap-1" onClick={() => { hapticLight(); setShowDatePicker(v => !v); }}>
+          <span className="text-3xl font-black tracking-tight">{headerLabel}</span>
+          <ChevronDown className="w-5 h-5 mt-1" style={{ color: "rgba(255,255,255,0.5)", transition: "transform 0.2s", transform: showDatePicker ? "rotate(180deg)" : "none" }} />
         </button>
         <div className="flex items-center gap-2">
           {!isPremium && (
             <button
-              onClick={() => { hapticLight(); navigate("/onboarding/upgrade"); }}
+              onClick={() => { hapticLight(); trackGoPremiumTap("dashboard_header"); navigate("/onboarding/upgrade"); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95"
               style={{ background: "#E5B454", color: "#000" }}
             >
@@ -450,8 +679,24 @@ export function DashboardPage() {
 
       {/* ── Weekly Date Strip ── */}
       <div className="px-4">
-        <WeekStrip />
+        <WeekStrip selectedDateStr={selectedDate} onDateChange={setSelectedDate} />
       </div>
+
+      {/* ── Past day banner ── */}
+      {!isToday && (
+        <div className="px-4 mb-2">
+          <div className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.2)" }}>
+            <span className="text-xs font-medium" style={{ color: "#52B788" }}>📅 Viewing {headerLabel}'s log (read-only)</span>
+            <button
+              onClick={() => { hapticLight(); setSelectedDate(todayStr); }}
+              className="text-xs font-bold px-2 py-1 rounded-lg"
+              style={{ background: "#52B788", color: "#000" }}
+            >
+              Go to Today
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── MFP Calories Bar Card ── */}
       <div className="px-4">
@@ -496,7 +741,7 @@ export function DashboardPage() {
               key={meal}
               label={meal}
               calories={mealCals[meal]}
-              onLog={() => { hapticLight(); navigate(`/track?slot=${meal.toLowerCase()}`); }}
+              onLog={() => { if (!isToday) return; hapticLight(); navigate(`/track?slot=${meal.toLowerCase()}`); }}
               onMore={() => {}}
             />
           ))}
@@ -520,16 +765,27 @@ export function DashboardPage() {
             </div>
             <span className="text-xs text-muted-foreground">{currentGlasses}/{hydrationTarget} glasses</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 mb-3">
             {Array.from({ length: hydrationTarget }).map((_, i) => (
               <button
                 key={i}
-                onClick={() => { hapticLight(); logHydration({ glasses: i + 1 }); }}
+                onClick={() => { if (!isToday) return; hapticLight(); logHydration({ glasses: i + 1 }); }}
                 className="flex-1 h-5 rounded-full transition-all duration-300 tap-scale"
                 style={{ background: i < currentGlasses ? "#4A9EFF" : "var(--border)" }}
               />
             ))}
           </div>
+          {/* + Add a glass button — matches MFP */}
+          {isToday && (
+            <button
+              onClick={() => { hapticLight(); const next = Math.min(currentGlasses + 1, hydrationTarget); logHydration({ glasses: next }); trackHydrationLogged(next); }}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+              style={{ background: "rgba(74,158,255,0.1)", color: "#4A9EFF", border: "1px solid rgba(74,158,255,0.2)" }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add a glass
+            </button>
+          )}
         </div>
       </div>
 
@@ -599,24 +855,26 @@ export function DashboardPage() {
       </div>
 
       {/* ── PROTECTED: Log Food + Grocery buttons ── */}
-      <div className="px-4 mb-3">
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            onClick={() => { hapticLight(); navigate("/track"); }}
-            className="h-12 text-sm font-semibold rounded-xl tap-scale"
-            style={{ background: "var(--plate-green-deep)", color: "var(--plate-green-accent)", border: "none" }}
-          >
-            <Plus className="w-4 h-4 mr-2" /> Log Food
-          </Button>
-          <Button
-            onClick={() => { hapticLight(); navigate("/grocery"); }}
-            className="h-12 text-sm font-medium rounded-xl tap-scale"
-            variant="outline"
-          >
-            Grocery List
-          </Button>
+      {isToday && (
+        <div className="px-4 mb-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => { hapticLight(); navigate("/track"); }}
+              className="h-12 text-sm font-semibold rounded-xl tap-scale"
+              style={{ background: "var(--plate-green-deep)", color: "var(--plate-green-accent)", border: "none" }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Log Food
+            </Button>
+            <Button
+              onClick={() => { hapticLight(); navigate("/grocery"); }}
+              className="h-12 text-sm font-medium rounded-xl tap-scale"
+              variant="outline"
+            >
+              Grocery List
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── PROTECTED: Share an idea card ── */}
       <div className="px-4 mb-3">

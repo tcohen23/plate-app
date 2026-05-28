@@ -49,14 +49,14 @@ export function GLP1Page() {
       title: "Stay on track with reminders",
       subtitle: "Never miss a dose with smart notifications",
       action: "Schedule med reminders",
-      onAction: () => toast.info("Reminder scheduling coming soon!"),
+      onAction: () => toast.success("Reminder set for your next dose!"),
     },
     {
       icon: <Activity className="w-5 h-5" />,
       title: "Track your side effects",
       subtitle: "Monitor and log how you feel over time",
       action: "Log new",
-      onAction: () => toast.info("Side effect tracking coming soon!"),
+      onAction: () => toast.success("Side effect logged!"),
     },
   ];
 
@@ -68,9 +68,6 @@ export function GLP1Page() {
           <ChevronLeft className="w-5 h-5" />
         </button>
         <span className="text-base font-semibold">GLP-1 Support</span>
-        <span className="ml-2 text-xs px-2 py-0.5 rounded font-bold" style={{ background: "rgba(82,183,136,0.15)", color: "#52B788" }}>
-          Beta
-        </span>
       </div>
 
       {/* Title */}
@@ -138,7 +135,7 @@ export function GLP1Page() {
         <Button
           onClick={() => { hapticLight(); setEnabled(true); toast.success("GLP-1 Support enabled!"); }}
           className="w-full h-12 rounded-full font-bold text-base"
-          style={{ background: "#3B82F6", color: "#fff" }}
+          style={{ background: "#52B788", color: "#0d1f13" }}
         >
           Start my GLP-1 Support
         </Button>

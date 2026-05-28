@@ -5,23 +5,21 @@
  * Desktop (≥ 1024px): fixed sidebar nav + full-width content area
  */
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useConvex } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import {
-  Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus, X,
+  Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus,
   ShoppingCart, UtensilsCrossed, Settings, Dumbbell, Lightbulb,
-  HelpCircle, Crown, Droplets, Minus,
+  HelpCircle, Crown,
 } from "lucide-react";
 
 import { parseAvatarChoice } from "@/pages/SettingsPage";
-import { identifyUser, setUserProperties } from "../lib/posthog";
+import { identifyUser, setUserProperties, setConvexClientForAnalytics } from "../lib/posthog";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { RefreshCw } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
-import { PaywallModal } from "@/components/PaywallModal";
-import type { PaywallFeature } from "@/components/PaywallModal";
-import { toast } from "sonner";
+import { QuickActionsSheet } from "@/components/QuickActionsSheet";
 
 /* ─── Nav definitions ─── */
 const BOTTOM_TABS = [
@@ -44,183 +42,8 @@ const SIDEBAR_NAV = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
-const QUICK_ACTIONS = [
-  { icon: "🎙️", label: "Voice Log", action: "voice", premium: true },
-  { icon: "📸", label: "Meal Scan", action: "photo", premium: true },
-  { icon: "📦", label: "Barcode Scan", action: "barcode", premium: true },
-  { icon: "🍽️", label: "Log Food", action: "log", route: "/track" },
-  { icon: "💧", label: "Log Water", action: "water" },
-  { icon: "⚖️", label: "Log Weight", action: "weight", route: "/progress?logWeight=1" },
-];
 
 
-
-/* ─── Quick action sheet ─── */
-const ACTION_FEATURE_MAP: Record<string, PaywallFeature> = {
-  barcode: "barcode",
-  voice: "voice_log",
-  photo: "meal_scan",
-};
-
-function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => void; navigate: (path: string) => void; isPremium: boolean }) {
-  const [paywallFeature, setPaywallFeature] = useState<PaywallFeature | null>(null);
-  const [showWater, setShowWater] = useState(false);
-  const [glasses, setGlasses] = useState(1);
-  const [waterLogging, setWaterLogging] = useState(false);
-  const logHydration = useMutation(api.progress.logHydration);
-  const todaysHydration = useQuery(api.progress.getTodaysHydration);
-  const handleAction = (action: (typeof QUICK_ACTIONS)[0]) => {
-    hapticLight();
-    if (action.action === "water") {
-      setShowWater(true);
-      return;
-    }
-    if ((action as any).premium && !isPremium) {
-      setPaywallFeature(ACTION_FEATURE_MAP[action.action] ?? "general");
-      return;
-    }
-    // For meal scan: navigate to scanner page in food mode
-    if (action.action === "photo") {
-      onClose();
-      navigate("/scanner?mode=food");
-      return;
-    }
-    onClose();
-    if (action.action === "voice") { navigate("/track?voice=1"); return; }
-    if (action.action === "barcode") { onClose(); navigate("/scanner?mode=barcode"); return; }
-    if ((action as any).route) navigate((action as any).route);
-  };
-
-  const handleLogWater = async () => {
-    setWaterLogging(true);
-    try {
-      const current = todaysHydration?.glasses ?? 0;
-      await logHydration({ glasses: current + glasses });
-      hapticMedium();
-      toast.success(`+${glasses} glass${glasses > 1 ? "es" : ""} logged 💧`);
-      onClose();
-    } catch {
-      toast.error("Failed to log water");
-    } finally {
-      setWaterLogging(false);
-    }
-  };
-
-  if (showWater) {
-    return (
-      <div className="px-5 pb-6 pt-4">
-        <div className="flex items-center gap-3 mb-5">
-          <button onClick={() => setShowWater(false)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-            <X className="w-4 h-4 text-white" />
-          </button>
-          <h3 className="font-semibold text-white text-base">Log Water</h3>
-        </div>
-        <div className="flex items-center justify-center gap-6 mb-6">
-          <button
-            onClick={() => setGlasses(Math.max(1, glasses - 1))}
-            className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
-            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-          >
-            <Minus className="w-5 h-5 text-white" />
-          </button>
-          <div className="flex flex-col items-center">
-            <Droplets className="w-8 h-8 mb-1" style={{ color: "#52B788" }} />
-            <span className="text-4xl font-bold text-white">{glasses}</span>
-            <span className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-              glass{glasses > 1 ? "es" : ""} · {glasses * 8}oz
-            </span>
-          </div>
-          <button
-            onClick={() => setGlasses(Math.min(16, glasses + 1))}
-            className="w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90"
-            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-          >
-            <Plus className="w-5 h-5 text-white" />
-          </button>
-        </div>
-        {todaysHydration && (
-          <p className="text-center text-xs mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Today so far: {todaysHydration.glasses} / {todaysHydration.target ?? 8} glasses
-          </p>
-        )}
-        <button
-          onClick={handleLogWater}
-          disabled={waterLogging}
-          className="w-full py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50"
-          style={{ background: "#52B788", color: "#0d1f13" }}
-        >
-          {waterLogging ? "Logging..." : "Log Water"}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="px-5 pb-6 pt-4">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-white text-base">Quick Actions</h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-            <X className="w-4 h-4 text-white" />
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {QUICK_ACTIONS.map((action) => {
-            const isPremiumGated = (action as any).premium && !isPremium;
-            return (
-              <button
-                key={action.action}
-                onClick={() => handleAction(action)}
-                className="flex flex-col items-center gap-2 py-4 px-3 rounded-2xl transition-all active:scale-[0.96] relative"
-                style={{
-                  background: isPremiumGated ? "rgba(229,180,84,0.08)" : "rgba(255,255,255,0.06)",
-                  border: isPremiumGated ? "1px solid rgba(229,180,84,0.2)" : "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                {isPremiumGated && (
-                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(229,180,84,0.2)", color: "#E5B454" }}>PRO</span>
-                )}
-                <span className="text-xl">{action.icon}</span>
-                <span className="text-xs font-medium text-center leading-tight" style={{ color: isPremiumGated ? "rgba(229,180,84,0.8)" : "rgba(255,255,255,0.8)" }}>
-                  {action.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <PaywallModal
-        open={paywallFeature !== null}
-        onClose={() => setPaywallFeature(null)}
-        feature={paywallFeature ?? "general"}
-      />
-    </>
-  );
-}
-
-
-
-/* ─── Bottom sheet ─── */
-function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
-  if (!open) return null;
-  return (
-    <>
-      <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl lg:hidden" style={{ background: "#111", maxWidth: 480, margin: "0 auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.6)" }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
-        </div>
-        {children}
-      </div>
-      {/* Desktop modal for quick actions */}
-      <div className="hidden lg:flex fixed inset-0 z-50 items-center justify-center" onClick={onClose}>
-        <div className="rounded-3xl w-full max-w-sm" style={{ background: "#111", boxShadow: "0 24px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
-          {children}
-        </div>
-      </div>
-    </>
-  );
-}
 
 /* ─── Avatar display helper ─── */
 function AvatarDisplay({ profilePictureUrl, profile, initial }: { profilePictureUrl: string | null | undefined; profile: any; initial: string }) {
@@ -356,11 +179,17 @@ function DesktopSidebar({ profile, profilePictureUrl, isPremium, isTrialing, has
 export function MobileLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const convex = useConvex();
   const profile = useQuery(api.profiles.getProfile);
   const profilePictureUrl = useQuery(api.profiles.getProfilePictureUrl);
   const { isPremium, isTrialing, hasWorkout } = useAccessLevel();
 
+  // Wire Convex client into analytics so posthog.ts can fire server-side events
+  useEffect(() => { setConvexClientForAnalytics(convex); }, [convex]);
+
   const [showQuickActions, setShowQuickActions] = useState(false);
+
+
 
   // Identify user in PostHog
   const identified = useRef(false);
@@ -476,7 +305,7 @@ export function MobileLayout() {
               );
             })}
 
-            {/* Center "+" */}
+            {/* Center "+" — opens Quick Actions menu */}
             <button
               onClick={() => { hapticMedium(); setShowQuickActions(true); }}
               className="flex items-center justify-center rounded-full transition-all active:scale-[0.94] shadow-lg"
@@ -500,11 +329,8 @@ export function MobileLayout() {
         </nav>
       </div>
 
-      {/* ── Sheets ── */}
-      <BottomSheet open={showQuickActions} onClose={() => setShowQuickActions(false)}>
-        <QuickActionSheet onClose={() => setShowQuickActions(false)} navigate={navigate} isPremium={!!isPremium} />
-      </BottomSheet>
-
+      {/* Quick Actions Sheet — opened by center "+" button */}
+      <QuickActionsSheet open={showQuickActions} onClose={() => setShowQuickActions(false)} />
 
     </div>
   );

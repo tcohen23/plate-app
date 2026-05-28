@@ -44,6 +44,7 @@ import { LearnPage } from "./pages/LearnPage";
 import { FastingPage } from "./pages/FastingPage";
 import { RemindersPage } from "./pages/RemindersPage";
 import { AppsDevicesPage } from "./pages/AppsDevicesPage";
+import { WaterPage } from "./pages/WaterPage";
 
 
 // ── Onboarding v3 ──────────────────────────────────────────────────────────
@@ -239,6 +240,7 @@ function App() {
               <Route path="/more/fasting" element={<FastingPage />} />
               <Route path="/more/reminders" element={<RemindersPage />} />
               <Route path="/more/apps-devices" element={<AppsDevicesPage />} />
+              <Route path="/more/water" element={<WaterPage />} />
             </Route>
 
             {/* Workout onboarding screens */}

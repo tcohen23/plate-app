@@ -1,100 +1,153 @@
 /**
- * PostHog Analytics — Plate
+ * PostHog Analytics — Plate (Server-Side Proxy Edition)
  *
- * ⚠️ POSTHOG INIT IS PERMANENTLY DISABLED (2026-05-27, fourth crash)
+ * ⚠️ posthog.init() is PERMANENTLY disabled — it patches window.history
+ * synchronously on iOS Safari / FB in-app browser and crashes React Router.
  *
- * PostHog patches window.history.replaceState and pushState SYNCHRONOUSLY
- * during posthog.init() — regardless of disable_session_recording, autocapture:false,
- * capture_pageview:false, or any other config. The patched version throws on
- * iOS Safari and Facebook in-app browser, which crashes React Router and
- * triggers the "An unexpected error occurred" error screen.
+ * All events are sent via Convex mutations (convex/analytics.ts) which POST
+ * to the PostHog /capture/ REST endpoint server-side. Zero client-side SDK.
  *
- * Three prior fixes failed:
- *   1. disable_session_recording: true  → still patches history during init
- *   2. autocapture: false               → still patches history during init
- *   3. Save/restore history in loaded() → loaded() fires ASYNC, crash happens
- *      synchronously during init before loaded() can restore anything
+ * Usage:
+ *   trackEvent("food_logged", { method: "barcode" })
+ *   trackGateTap("voice_log")
+ *   etc.
  *
- * Fix: never call posthog.init(). All exported functions are no-ops so the
- * rest of the codebase compiles and runs without changes.
- *
- * TODO: wire up PostHog via server-side proxy (Convex action) to avoid
- * any client-side history patching while preserving analytics.
+ * All functions are fire-and-forget and never throw.
  */
 
-// ── No-op posthog object — exported so `import { posthog }` calls don't throw ──
+import { useConvex } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
+// ── Global Convex client reference (set once MobileLayout mounts) ───────────
+let _convexClient: ReturnType<typeof useConvex> | null = null;
+
+export function setConvexClientForAnalytics(client: ReturnType<typeof useConvex>) {
+  _convexClient = client;
+}
+
+function track(event: string, properties?: Record<string, unknown>) {
+  if (!_convexClient) return;
+  // Fire-and-forget — never await in analytics
+  _convexClient.mutation(api.analytics.trackEvent, { event, properties }).catch(() => {});
+}
+
+// ── Legacy no-op posthog object (kept for any remaining import references) ──
 export const posthog = {
   capture: (..._args: any[]) => {},
   identify: (..._args: any[]) => {},
   reset: (..._args: any[]) => {},
   getFeatureFlag: (_key: string) => undefined as any,
-  people: {
-    set: (..._args: any[]) => {},
-  },
+  people: { set: (..._args: any[]) => {} },
 };
 
-export function initPostHog() {
-  // Intentionally never calls posthog.init() — see file header.
+export function initPostHog() {}
+
+// ── User identity ─────────────────────────────────────────────────────────
+export function identifyUser(_userId: string, properties?: Record<string, any>) {
+  if (!_convexClient) return;
+  _convexClient.mutation(api.analytics.identifyUser, { properties }).catch(() => {});
 }
 
-/** Identify a user (call after login/signup) */
-export function identifyUser(_userId: string, _properties?: Record<string, any>) {}
-
-/** Reset identity (call on logout) */
 export function resetUser() {}
+export function setUserProperties(properties: Record<string, any>) {
+  if (!_convexClient) return;
+  _convexClient.mutation(api.analytics.identifyUser, { properties }).catch(() => {});
+}
 
-/** Track a custom event */
-export function trackEvent(_event: string, _properties?: Record<string, any>) {}
+// ── Generic event ─────────────────────────────────────────────────────────
+export function trackEvent(event: string, properties?: Record<string, any>) {
+  track(event, properties);
+}
 
-/** Set user properties */
-export function setUserProperties(_properties: Record<string, any>) {}
+export function trackPageViewed(page: string) {
+  track("page_viewed", { page });
+}
 
-// ── Pre-defined event helpers ──────────────────────────────
+// ── Dashboard ──────────────────────────────────────────────────────────────
+export function trackDashboardLoad(plan: "free" | "premium" | "trialing") {
+  track("dashboard_loaded", { plan });
+}
 
+// ── Food logging ───────────────────────────────────────────────────────────
+export function trackFoodLogged(method: "barcode" | "search" | "quick_add" | "custom" | "meal_scan" | "voice") {
+  track("food_logged", { method });
+}
+
+export function trackBarcodeScanned(success: boolean, barcode?: string) {
+  track("barcode_scanned", { success, barcode });
+}
+
+// ── Feature gates ──────────────────────────────────────────────────────────
+/** Call when a free user hits a premium gate */
+export function trackGateHit(feature: string) {
+  track("premium_gate_hit", { feature });
+}
+
+/** Call when user taps "Go Premium" CTA */
+export function trackGoPremiumTap(location: string) {
+  track("go_premium_tapped", { location });
+}
+
+// ── Hydration & weight ─────────────────────────────────────────────────────
+export function trackHydrationLogged(glasses: number) {
+  track("hydration_logged", { glasses });
+}
+
+export function trackWeightLogged(weight: number) {
+  track("weight_logged", { weight });
+}
+
+// ── Navigation & content ──────────────────────────────────────────────────
+export function trackGoalsViewed() {
+  track("goals_viewed");
+}
+
+export function trackWeeklyDigestViewed() {
+  track("weekly_digest_viewed");
+}
+
+export function trackSettingsViewed(section?: string) {
+  track("settings_viewed", section ? { section } : undefined);
+}
+
+// ── Meal plan ─────────────────────────────────────────────────────────────
+export function trackMealPlanGenerated(diet: string, days: number) {
+  track("meal_plan_generated", { diet, days });
+}
+
+export function trackMealSwapped(mealCategory: string) {
+  track("meal_swapped", { meal_category: mealCategory });
+}
+
+export function trackMealSkipped(mealCategory: string) {
+  track("meal_skipped", { meal_category: mealCategory });
+}
+
+// ── Onboarding (kept as stubs — do not instrument onboarding) ───────────
 export function trackOnboardingStarted() {}
 export function trackOnboardingStep(_step: number, _stepName: string) {}
 export function trackOnboardingCompleted(_profile: Record<string, any>) {}
-export function trackMealPlanGenerated(_diet: string, _days: number) {}
-export function trackMealSwapped(_mealCategory: string) {}
-export function trackMealSkipped(_mealCategory: string) {}
-export function trackFoodLogged(_method: "barcode" | "search" | "quick_add" | "custom" | "meal_scan") {}
-export function trackBarcodeScanned(_success: boolean, _barcode?: string) {}
+
+// ── Misc (kept for backward compat) ──────────────────────────────────────
 export function trackFavoriteUpdated(_action: "added" | "removed", _food: string, _list: "favorites" | "dislikes") {}
 export function trackSettingsChanged(_setting: string) {}
 export function trackThemeChanged(_theme: string) {}
-export function trackPageViewed(_page: string) {}
-export function trackGroceryListViewed() {}
+export function trackGroceryListViewed() { track("grocery_list_viewed"); }
 export function trackSignup(_method: string) {}
 export function trackLogin(_method: string) {}
 export function trackAppInstallBannerSeen() {}
 
-// ── Feature flag helpers ──────────────────────────────────────
-/**
- * Always returns undefined — PostHog is not initialized.
- */
-export function getFlag(_flagKey: string): string | boolean | undefined {
-  return undefined;
-}
+// ── Feature flags (no-ops — PostHog not initialized client-side) ──────────
+export function getFlag(_flagKey: string): string | boolean | undefined { return undefined; }
 
-// ── Safe storage helper ───────────────────────────────────────────────────────
-/**
- * sessionStorage throws QuotaExceededError in iOS Safari Private Browsing
- * and some in-app browsers. Always wrap access in try/catch.
- */
+// ── A/B test variant assignment (unchanged) ───────────────────────────────
 function safeSessionGet(key: string): string | null {
   try { return sessionStorage.getItem(key); } catch { return null; }
 }
 function safeSessionSet(key: string, value: string): void {
-  try { sessionStorage.setItem(key, value); } catch { /* ignore */ }
+  try { sessionStorage.setItem(key, value); } catch {}
 }
 
-// ── A/B test variant assignment (client-side, sessionStorage-based) ──────────
-/**
- * ob_screen_count — Test 6
- * Returns "control" (12-screen flow) or "variant_b" (8-screen slim flow).
- * Assigned once per session via Math.random(), persisted in sessionStorage.
- * 50/50 split. Falls back to "control" if storage unavailable.
- */
 export function getScreenCountVariant(): "control" | "variant_b" {
   const stored = safeSessionGet("ob_screen_count");
   if (stored === "control" || stored === "variant_b") return stored;

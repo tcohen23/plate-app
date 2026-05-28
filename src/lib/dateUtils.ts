@@ -22,3 +22,14 @@ export function getLocalDateString(now?: Date): string {
   const day = String(effectiveDate.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Format a Date object to YYYY-MM-DD using LOCAL timezone (not UTC).
+ * Safe to use instead of d.toISOString().split('T')[0] which uses UTC.
+ */
+export function dateToLocalStr(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

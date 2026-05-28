@@ -2,7 +2,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useNavigate } from "react-router-dom";
-import { PremiumGate, usePremiumAccess } from "@/components/PremiumGate";
+import { usePremiumAccess } from "@/components/PremiumGate";
 import { ShareBadgeModal } from "@/components/ShareBadgeModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1361,7 +1361,7 @@ function EditableRow({
   );
 }
 
-/** GLP-1 row — premium gated. Free users see a lock overlay that opens upgrade modal. */
+/** GLP-1 row — free for all users. */
 function Glp1Row({ profile, editing, startEdit, saveField, setEditing, saving, editGlp1, setEditGlp1 }: {
   profile: any;
   editing: string | null;
@@ -1372,15 +1372,13 @@ function Glp1Row({ profile, editing, startEdit, saveField, setEditing, saving, e
   editGlp1: boolean;
   setEditGlp1: (v: boolean) => void;
 }) {
-  const hasPremium = usePremiumAccess();
   return (
-    <PremiumGate feature="glp1" featureLabel="GLP-1 Support" overlayMode>
-      <EditableRow
+    <EditableRow
         icon={<Pill className="w-4 h-4" />}
         label="GLP-1 Medication"
         value={profile.usesGlp1 ? "Active" : "Off"}
         isEditing={editing === "glp1"}
-        onEdit={() => hasPremium ? startEdit("glp1") : undefined}
+        onEdit={() => startEdit("glp1")}
         onSave={() => saveField("glp1")}
         onCancel={() => setEditing(null)}
         saving={saving}
@@ -1407,7 +1405,6 @@ function Glp1Row({ profile, editing, startEdit, saveField, setEditing, saving, e
           <p className="text-xs text-muted-foreground">Raises your protein floor to preserve muscle during medication-assisted weight loss.</p>
         </div>
       </EditableRow>
-    </PremiumGate>
   );
 }
 

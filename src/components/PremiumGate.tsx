@@ -7,16 +7,25 @@
  *   </PremiumGate>
  *
  * If user has premium access, children render normally.
- * If not, children render with a lock overlay that opens the upgrade modal on tap.
+ * If not, children render with a lock overlay that opens the animated PaywallModal on tap.
  */
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { Lock, ShoppingCart, Dumbbell, Pill, Sparkles } from "lucide-react";
 import { hapticMedium } from "@/lib/haptics";
+import { PaywallModal, type PaywallFeature } from "@/components/PaywallModal";
 
 export type PremiumFeature = "grocery" | "glp1" | "premium_avatar" | "workouts";
+
+// Map PremiumGate feature names → PaywallModal feature keys
+const PREMIUM_TO_PAYWALL_FEATURE: Record<PremiumFeature, PaywallFeature> = {
+  grocery: "grocery",
+  glp1: "glp1",
+  premium_avatar: "premium_avatar",
+  workouts: "workout",
+};
 
 interface PremiumGateProps {
   feature: PremiumFeature;
@@ -86,68 +95,92 @@ export function usePremiumAccess(): boolean | undefined {
 
 export function PremiumGate({ feature, featureLabel, children, overlayMode = false }: PremiumGateProps) {
   const hasPremium = usePremiumAccess();
-  const navigate = useNavigate();
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   // Still loading profile
   if (hasPremium === undefined) return <>{children}</>;
   if (hasPremium) return <>{children}</>;
 
   const copy = FEATURE_COPY[feature];
+  const paywallFeature = PREMIUM_TO_PAYWALL_FEATURE[feature];
 
   const handleUpgradeTap = () => {
     hapticMedium();
-    navigate("/upgrade");
+    setPaywallOpen(true);
   };
+
+  const paywallModal = (
+    <PaywallModal
+      open={paywallOpen}
+      onClose={() => setPaywallOpen(false)}
+      feature={paywallFeature}
+    />
+  );
 
   if (overlayMode) {
     return (
-      <div className="relative">
-        <div className="pointer-events-none select-none" style={{ filter: "blur(2px)", opacity: 0.4 }}>
-          {children}
+      <>
+        <div className="relative">
+          <div className="pointer-events-none select-none" style={{ filter: "blur(2px)", opacity: 0.4 }}>
+            {children}
+          </div>
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer rounded-xl"
+            style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }}
+            onClick={handleUpgradeTap}
+          >
+            <Lock className="w-8 h-8 mb-2" style={{ color: "var(--plate-green-accent)" }} />
+            <span className="text-sm font-semibold text-white">{featureLabel || copy.headline}</span>
+            <span className="text-xs text-white/70 mt-1">Tap to unlock — Start free trial</span>
+          </div>
         </div>
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer rounded-xl"
-          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }}
-          onClick={handleUpgradeTap}
-        >
-          <Lock className="w-8 h-8 mb-2" style={{ color: "var(--plate-green-accent)" }} />
-          <span className="text-sm font-semibold text-white">{featureLabel || copy.headline}</span>
-          <span className="text-xs text-white/70 mt-1">Tap to unlock — Start free trial</span>
-        </div>
-      </div>
+        {paywallModal}
+      </>
     );
   }
 
-  return <PaywallScreen feature={feature} onUpgrade={handleUpgradeTap} />;
+  // Full-screen gate: show blurred children behind + animated paywall that auto-opens
+  return <FullScreenGate feature={feature} featureLabel={featureLabel} onTap={handleUpgradeTap} paywallModal={paywallModal} />;
 }
 
-function PaywallScreen({ feature, onUpgrade }: { feature: PremiumFeature; onUpgrade: () => void }) {
+function FullScreenGate({
+  feature,
+  featureLabel,
+  onTap,
+  paywallModal,
+}: {
+  feature: PremiumFeature;
+  featureLabel?: string;
+  onTap: () => void;
+  paywallModal: React.ReactNode;
+}) {
   const copy = FEATURE_COPY[feature];
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-12 text-center">
-      <img
-        src="/plate-logo.jpg"
-        alt="Plate"
-        className="w-24 h-24 rounded-2xl object-contain mb-6"
-        style={{ background: "#0a0a0a" }}
-      />
-      <h2 className="text-2xl font-serif mb-3">{copy.headline}</h2>
-      <ul className="text-sm text-muted-foreground space-y-2 mb-8 text-left max-w-xs">
+      <div
+        className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: "rgba(82,183,136,0.1)", border: "1px solid rgba(82,183,136,0.25)", color: "#52B788" }}
+      >
+        {copy.icon}
+      </div>
+      <h2 className="text-2xl font-serif mb-3 text-white">{featureLabel || copy.headline}</h2>
+      <ul className="text-sm space-y-2 mb-8 text-left max-w-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
         {copy.bullets.map((b, i) => (
           <li key={i} className="flex items-start gap-2">
-            <span style={{ color: "var(--plate-green-accent)" }}>✓</span>
+            <span style={{ color: "#52B788" }}>✓</span>
             <span>{b}</span>
           </li>
         ))}
       </ul>
       <button
-        onClick={onUpgrade}
+        onClick={onTap}
         className="w-full max-w-xs py-4 rounded-2xl text-base font-bold transition-opacity active:opacity-80"
-        style={{ background: "var(--plate-green-accent)", color: "#0a1a0a" }}
+        style={{ background: "#52B788", color: "#0a1a0a" }}
       >
         Start 7-Day Free Trial
       </button>
-      <p className="text-xs text-muted-foreground mt-3">$14.99/mo · or $5.99/mo billed annually · Cancel anytime</p>
+      <p className="text-xs mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>$14.99/mo · or $5.99/mo billed annually · Cancel anytime</p>
+      {paywallModal}
     </div>
   );
 }

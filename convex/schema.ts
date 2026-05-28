@@ -472,6 +472,16 @@ const schema = defineSchema({
     .index("by_userId_productType", ["userId", "productType"])
     .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
 
+  // Step count logs — daily step tracking
+  stepLogs: defineTable({
+    userId: v.id("users"),
+    date: v.string(), // ISO date YYYY-MM-DD
+    steps: v.number(),
+    source: v.optional(v.string()), // "manual" | "healthkit"
+  })
+    .index("by_userId_date", ["userId", "date"])
+    .index("by_userId", ["userId"]),
+
   // Page view tracking — lightweight anonymous page visit counter
   pageViews: defineTable({
     path: v.string(),          // e.g. "/dashboard", "/plan", "/"

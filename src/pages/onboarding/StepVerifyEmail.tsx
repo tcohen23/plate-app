@@ -25,6 +25,7 @@ export function StepVerifyEmail() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resent, setResent] = useState(false);
+  const [autoResending, setAutoResending] = useState(false);
 
   // 6 individual boxes
   const chars = otp.padEnd(6, " ").split("");
@@ -43,20 +44,47 @@ export function StepVerifyEmail() {
       formData.set("flow", "email-verification");
       formData.set("email", email);
       formData.set("code", otp);
-      await signIn("password", formData);
+      const result = await signIn("password", formData);
+      // If verification failed silently (signingIn:false), auto-resend a fresh code
+      if (!result || !result.signingIn) {
+        setOtp("");
+        setAutoResending(true);
+        try {
+          await resendOtpAction({ email });
+          setError("That code didn't work — a fresh code was just sent to your email.");
+          setResent(true);
+          setTimeout(() => setResent(false), 5000);
+        } catch {
+          setError("Incorrect or expired code. Tap \"Resend code\" to get a fresh code.");
+        } finally {
+          setAutoResending(false);
+        }
+        setLoading(false);
+        return;
+      }
       await createProfile({ firstName });
       trackSignup("email");
       navigate("/onboarding/building-plan");
     } catch (err: any) {
       const msg = (err?.message || "").toLowerCase();
-      if (msg.includes("expired")) {
-        setError("Code expired. Tap \"Resend code\" to get a new one.");
-      } else if (msg.includes("invalid") || msg.includes("not found") || msg.includes("could not verify")) {
-        setError("Incorrect or expired code. Tap \"Resend code\" to get a new one.");
-      } else if (msg.includes("rate") || msg.includes("too many")) {
+      if (msg.includes("rate") || msg.includes("too many")) {
         setError("Too many attempts. Please wait a few minutes and try again.");
-      } else {
-        setError("Verification failed. Tap \"Resend code\" to get a fresh code.");
+        setLoading(false);
+        return;
+      }
+      // For all other failures (expired, invalid, server error, etc.)
+      // auto-resend a fresh code so the user can just enter the new one
+      setOtp("");
+      setAutoResending(true);
+      try {
+        await resendOtpAction({ email });
+        setError("That code didn't work — a fresh code was just sent to your email.");
+        setResent(true);
+        setTimeout(() => setResent(false), 5000);
+      } catch {
+        setError("Incorrect or expired code. Tap \"Resend code\" to get a fresh code.");
+      } finally {
+        setAutoResending(false);
       }
     } finally {
       setLoading(false);
@@ -172,7 +200,7 @@ export function StepVerifyEmail() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
-                Verifying...
+                {autoResending ? "Sending fresh code…" : "Verifying…"}
               </span>
             ) : "Verify & Continue"}
           </button>

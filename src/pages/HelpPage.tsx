@@ -6,14 +6,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { hapticLight } from "@/lib/haptics";
 
 const HELP_ITEMS = [
-  { label: "About Us", url: "https://www.myfitnesspal.com/about" },
-  { label: "Frequently Asked Questions", url: "https://support.myfitnesspal.com" },
+  { label: "About Plate", url: "https://plate-app.pages.dev" },
+  { label: "Frequently Asked Questions", url: "mailto:support@plate-app.com" },
   { label: "Contact Support", url: "mailto:support@plate-app.com" },
   { label: "Terms of Service", url: "/privacy" },
-  { label: "Troubleshooting", url: null },
-  { label: "Join Our Beta Program", url: "/more/help/beta" },
+  { label: "Privacy Policy", url: "/privacy" },
   { label: "Delete Account", url: "/settings" },
-  { label: "Service Status", url: null },
+  { label: "Send Feedback", url: "/feedback" },
 ];
 
 export function HelpPage() {

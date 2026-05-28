@@ -17,7 +17,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { ChevronLeft, Calendar, Crown, ThumbsUp, ThumbsDown, Flame, Dumbbell, Footprints, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Crown, ThumbsUp, ThumbsDown, Flame, Dumbbell, Footprints, Target } from "lucide-react";
 import { useState } from "react";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { hapticLight } from "@/lib/haptics";
@@ -80,14 +80,27 @@ export function WeeklyDigestPage() {
   const profile = useQuery(api.profiles.getProfile);
   const stats = useQuery(api.progress.getUserStats, {});
   const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
+  // weekOffset: 0 = this week, -1 = last week, etc.
+  const [weekOffset, setWeekOffset] = useState(-1);
 
-  // Build date range for last week
+  // Build date range based on weekOffset
   const today = new Date();
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() - today.getDay() + 6 - 7); // last week Sunday
-  const weekStart = new Date(weekEnd);
-  weekStart.setDate(weekEnd.getDate() - 6);
+  // Start from the most recent Monday
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay(); // 1=Mon … 7=Sun
+  const thisWeekMonday = new Date(today);
+  thisWeekMonday.setDate(today.getDate() - dayOfWeek + 1);
+  thisWeekMonday.setHours(0, 0, 0, 0);
+
+  const weekStart = new Date(thisWeekMonday);
+  weekStart.setDate(thisWeekMonday.getDate() + weekOffset * 7);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const isCurrentWeek = weekOffset === 0;
   const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  const handlePrevWeek = () => { hapticLight(); setWeekOffset(o => o - 1); };
+  const handleNextWeek = () => { if (!isCurrentWeek) { hapticLight(); setWeekOffset(o => o + 1); } };
 
   const calGoal = profile?.targetCalories || 2000;
   const weekCalData = [0, 0, 0, 0, 0, 0, 0]; // would be real data
@@ -99,14 +112,42 @@ export function WeeklyDigestPage() {
     <div className="pb-28 max-w-lg mx-auto animate-page-enter">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <button onClick={() => navigate(-1)}><ChevronLeft className="w-5 h-5" /></button>
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
         <h1 className="text-base font-semibold">Weekly Report</h1>
-        <Calendar className="w-5 h-5 text-muted-foreground" />
+        <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <Calendar className="w-4 h-4 text-muted-foreground" />
+        </div>
       </div>
 
-      {/* Date range */}
-      <div className="px-4 mb-4">
-        <div className="text-sm text-muted-foreground">{fmtDate(weekStart)} — {fmtDate(weekEnd)}</div>
+      {/* Week navigator */}
+      <div className="flex items-center justify-between px-4 mb-4">
+        <button
+          onClick={handlePrevWeek}
+          className="w-9 h-9 rounded-full flex items-center justify-center active:opacity-60"
+          style={{ background: "rgba(255,255,255,0.08)" }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div className="text-center">
+          <div className="text-sm font-semibold">
+            {isCurrentWeek ? "This Week" : weekOffset === -1 ? "Last Week" : `${Math.abs(weekOffset)} Weeks Ago`}
+          </div>
+          <div className="text-xs text-muted-foreground">{fmtDate(weekStart)} — {fmtDate(weekEnd)}</div>
+        </div>
+        <button
+          onClick={handleNextWeek}
+          disabled={isCurrentWeek}
+          className="w-9 h-9 rounded-full flex items-center justify-center active:opacity-60 disabled:opacity-25"
+          style={{ background: "rgba(255,255,255,0.08)" }}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Food Insights BETA */}

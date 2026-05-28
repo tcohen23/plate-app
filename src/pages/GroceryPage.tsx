@@ -6,22 +6,17 @@ import { toast } from "sonner";
 import { trackGroceryListViewed } from "@/lib/posthog";
 import { useState, useEffect, useRef } from "react";
 import { ShoppingCart, RefreshCw, Check, ChevronDown, MapPin, Search, Loader2, CheckCircle2 } from "lucide-react";
-import { PremiumGate, usePremiumAccess } from "@/components/PremiumGate";
+import { usePaywall } from "@/components/PaywallModal";
 
 export function GroceryPage() {
-  const hasPremium = usePremiumAccess();
-  if (hasPremium === false) {
-    return <PremiumGate feature="grocery" featureLabel="Grocery List">{null}</PremiumGate>;
-  }
+  const { paywallNode, openPaywall } = usePaywall("general");
   const groceryList = useQuery(api.grocery.getCurrentGroceryList);
   const syncStatus = useQuery(api.grocery.getGrocerySyncStatus);
   const storeData = useQuery(api.stores.getStoresForUser);
-  const generateList = useMutation(api.grocery.generateGroceryList);
-  const regenerateList = useMutation(api.grocery.regenerateGroceryList);
   const switchStore = useMutation(api.grocery.switchStore);
   const toggleItem = useMutation(api.grocery.toggleGroceryItem);
-  const [generating, setGenerating] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
+  const generating = false;
+  const regenerating = false;
   const [switching, setSwitching] = useState(false);
   const [showAllStores, setShowAllStores] = useState(false);
   const [storeSearch, setStoreSearch] = useState("");
@@ -45,27 +40,12 @@ export function GroceryPage() {
   }, [syncStatus, groceryList]);
 
   const handleGenerate = async (storeKey?: string) => {
-    setGenerating(true);
-    try {
-      await generateList({ storeKey });
-      toast.success("Grocery list ready");
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setGenerating(false);
-    }
+    openPaywall();
+    void storeKey;
   };
 
   const handleRegenerate = async () => {
-    setRegenerating(true);
-    try {
-      await regenerateList();
-      toast.success("Grocery list regenerated");
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setRegenerating(false);
-    }
+    openPaywall();
   };
 
   const handleSwitchStore = async (storeKey: string, storeName: string) => {
@@ -281,6 +261,7 @@ export function GroceryPage() {
         </div>
       ))}
       </div>
+      {paywallNode}
     </div>
   );
 }
