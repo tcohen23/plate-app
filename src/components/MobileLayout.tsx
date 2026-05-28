@@ -215,7 +215,7 @@ export function MobileLayout() {
   // it's a side-effect and crashes React 19 (causes replaceState in render phase).
   useEffect(() => {
     if (profile === null) {
-      navigate("/onboarding", { replace: true });
+      navigate("/onboarding/building-plan", { replace: true });
     }
   }, [profile, navigate]);
 

@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation, useAction } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { OnboardingLayout } from "./OnboardingLayout";
 import { trackSignup } from "@/lib/posthog";
@@ -15,11 +15,10 @@ import { trackSignup } from "@/lib/posthog";
 export function StepVerifyEmail() {
   const navigate = useNavigate();
   const { signIn } = useAuthActions();
-  const createProfile = useMutation(api.onboarding.createMinimalProfile);
   const resendOtpAction = useAction(api.authHelpers.resendOtp);
 
   const email = sessionStorage.getItem("ob_email") || "";
-  const firstName = sessionStorage.getItem("ob_firstName") || "there";
+
 
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
@@ -62,7 +61,10 @@ export function StepVerifyEmail() {
         setLoading(false);
         return;
       }
-      await createProfile({ firstName });
+      // NOTE: Do NOT call createProfile here — the Convex auth session hasn't
+      // propagated to the React context yet, so the mutation fires unauthenticated.
+      // createMinimalProfile is called in StepBuildingPlan (behind ProtectedRoute),
+      // where auth is guaranteed to be established.
       trackSignup("email");
       navigate("/onboarding/building-plan");
     } catch (err: any) {

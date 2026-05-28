@@ -14,7 +14,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { posthog, getFlag } from "@/lib/posthog";
+import { posthog, getWelcomeHookVariant } from "@/lib/posthog";
 
 const SLIDES = [
   {
@@ -690,19 +690,21 @@ export function Step01Welcome() {
 
   // If already logged in AND profile exists, go straight to the app.
   // If authenticated but profile === null, stay here — the user never finished
-  // onboarding. Sending them to /dashboard would create an infinite loop:
-  //   /dashboard (MobileLayout) → profile null → /onboarding → here →
-  //   isAuthenticated → /dashboard → loop.
+  // If authenticated + profile loaded → go to dashboard.
+  // If authenticated + profile is null (onboarding incomplete) → go to building-plan
+  // so completeOnboarding can run and finish their setup instead of looping here.
   useEffect(() => {
-    if (!isLoading && isAuthenticated && profile !== undefined && profile !== null) {
+    if (isLoading) return;
+    if (isAuthenticated && profile !== undefined && profile !== null) {
       navigate("/dashboard", { replace: true });
+    } else if (isAuthenticated && profile === null) {
+      navigate("/onboarding/building-plan", { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, profile]);
 
-  // Resolve PostHog feature flag
+  // Assign / read welcome hook variant (local sessionStorage randomization)
   useEffect(() => {
-    const flag = getFlag("ob_welcome_hook");
-    const resolved = typeof flag === "string" ? flag : "control";
+    const resolved = getWelcomeHookVariant();
     setVariant(resolved);
     posthog.capture("welcome_variant_seen", { variant: resolved });
   }, []);

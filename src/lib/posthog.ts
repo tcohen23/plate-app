@@ -140,7 +140,13 @@ export function trackAppInstallBannerSeen() {}
 // ── Feature flags (no-ops — PostHog not initialized client-side) ──────────
 export function getFlag(_flagKey: string): string | boolean | undefined { return undefined; }
 
-// ── A/B test variant assignment (unchanged) ───────────────────────────────
+// ── A/B test variant assignment ───────────────────────────────────────────
+// All tests use local sessionStorage randomization (PostHog SDK is disabled
+// client-side to prevent iOS Safari / FB in-app browser crashes).
+// Variants are reported to PostHog server-side at signup completion via
+// trackExperimentAssigned(), called from StepBuildingPlan when the user is
+// authenticated and the Convex client is available.
+
 function safeSessionGet(key: string): string | null {
   try { return sessionStorage.getItem(key); } catch { return null; }
 }
@@ -148,10 +154,48 @@ function safeSessionSet(key: string, value: string): void {
   try { sessionStorage.setItem(key, value); } catch {}
 }
 
+// Test 6 — ob_screen_count: full 12-screen flow vs 8-screen slim flow
 export function getScreenCountVariant(): "control" | "variant_b" {
   const stored = safeSessionGet("ob_screen_count");
   if (stored === "control" || stored === "variant_b") return stored;
   const assigned = Math.random() < 0.5 ? "control" : "variant_b";
   safeSessionSet("ob_screen_count", assigned);
   return assigned;
+}
+
+// Test 7 — ob_welcome_hook: carousel (control) vs bold statement (variant_b)
+// vs stat-led hook (variant_c). Equal 3-way split.
+export function getWelcomeHookVariant(): "control" | "variant_b" | "variant_c" {
+  const stored = safeSessionGet("ob_welcome_hook");
+  if (stored === "control" || stored === "variant_b" || stored === "variant_c") {
+    return stored as "control" | "variant_b" | "variant_c";
+  }
+  const r = Math.random();
+  const assigned = r < 0.333 ? "control" : r < 0.667 ? "variant_b" : "variant_c";
+  safeSessionSet("ob_welcome_hook", assigned);
+  return assigned;
+}
+
+// Test 8 — ob_paywall_copy: default copy (control) vs urgency-focused (variant_b)
+export function getPaywallCopyVariant(): "control" | "variant_b" {
+  const stored = safeSessionGet("ob_paywall_copy");
+  if (stored === "control" || stored === "variant_b") return stored;
+  const assigned = Math.random() < 0.5 ? "control" : "variant_b";
+  safeSessionSet("ob_paywall_copy", assigned);
+  return assigned;
+}
+
+// ── Experiment reporting (call once at signup, when Convex client is ready) ─
+// Sends all active A/B assignments to PostHog via server-side event so results
+// are visible in PostHog experiments dashboard.
+export function trackExperimentAssigned(
+  experiment: string,
+  variant: string,
+) {
+  track("$feature_flag_called", {
+    $feature_flag: experiment,
+    $feature_flag_response: variant,
+    experiment,
+    variant,
+  });
 }

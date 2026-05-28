@@ -16,10 +16,10 @@ export function StepCreateAccount() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
 
-  // If user already authenticated (e.g. via Google/Apple OAuth), skip straight to username
+  // If user already authenticated (e.g. via Google/Apple OAuth), skip straight to building-plan
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/onboarding/username", { replace: true });
+      navigate("/onboarding/building-plan", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

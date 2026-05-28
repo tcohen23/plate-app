@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { trackEvent } from "@/lib/posthog";
+import { trackEvent, trackExperimentAssigned, getScreenCountVariant, getWelcomeHookVariant, getPaywallCopyVariant } from "@/lib/posthog";
 import { PlanBuildAnimation } from "@/components/PlanBuildAnimation";
 
 function calculateCalories(): number {
@@ -61,6 +61,14 @@ export function StepBuildingPlan() {
   sessionStorage.setItem("ob_protein", String(protein));
   sessionStorage.setItem("ob_carbs", String(carbs));
   sessionStorage.setItem("ob_fat", String(fat));
+
+  // Report A/B experiment assignments to PostHog now that the user is
+  // authenticated and the Convex client is available.
+  useEffect(() => {
+    trackExperimentAssigned("ob_screen_count", getScreenCountVariant());
+    trackExperimentAssigned("ob_welcome_hook", getWelcomeHookVariant());
+    trackExperimentAssigned("ob_paywall_copy", getPaywallCopyVariant());
+  }, []);
 
   // Fire completeOnboarding in background immediately on mount
   useEffect(() => {

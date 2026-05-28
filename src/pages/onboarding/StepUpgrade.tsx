@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Camera, Mic, BarChart3, UtensilsCrossed, Ban, X, Dumbbell } from "lucide-react";
-import { posthog, getFlag } from "@/lib/posthog";
+import { posthog, getPaywallCopyVariant } from "@/lib/posthog";
 
 type Plan = "annual" | "monthly";
 
@@ -168,10 +168,9 @@ export function StepUpgrade() {
   const firstName = sessionStorage.getItem("ob_firstName") || "";
   const calories = parseInt(sessionStorage.getItem("ob_calories") || "0");
 
-  // Resolve PostHog feature flag
+  // Assign / read paywall copy variant (local sessionStorage randomization)
   useEffect(() => {
-    const flag = getFlag("ob_paywall_copy");
-    const resolved = typeof flag === "string" ? flag : "control";
+    const resolved = getPaywallCopyVariant();
     setVariant(resolved);
     posthog.capture("paywall_variant_seen", { variant: resolved });
   }, []);
