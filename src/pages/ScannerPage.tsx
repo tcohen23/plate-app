@@ -1,5 +1,5 @@
 /**
- * ScannerPage — Fullscreen calai-style scanner
+ * ScannerPage — Fullscreen scanner with paywall gating
  *
  * Modes:
  *  food     — Fullscreen camera → tap capture → AI meal analysis

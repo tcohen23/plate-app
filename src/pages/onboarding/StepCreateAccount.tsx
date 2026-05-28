@@ -73,8 +73,14 @@ export function StepCreateAccount() {
       fd.set("email", email);
       fd.set("password", password);
       fd.set("name", firstName);
-      await signIn("password", fd);
-      // signUp sent the OTP — go to verification (user is NOT authenticated yet)
+      const result = await signIn("password", fd);
+      // If signIn returned tokens immediately, the account was already verified —
+      // skip the OTP step and go straight to the next onboarding step.
+      if (result && result.signingIn) {
+        navigate("/onboarding/building-plan");
+        return;
+      }
+      // OTP sent — go to verification screen
       navigate("/onboarding/verify-email");
     } catch (err: any) {
       const msg = (err?.message || "").toLowerCase();
