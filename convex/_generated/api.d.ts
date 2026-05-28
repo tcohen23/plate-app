@@ -24,6 +24,7 @@ import type * as levelUtils from "../levelUtils.js";
 import type * as mealPlans from "../mealPlans.js";
 import type * as meals from "../meals.js";
 import type * as mealsDatabase from "../mealsDatabase.js";
+import type * as medicationLogs from "../medicationLogs.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pageViews from "../pageViews.js";
 import type * as profiles from "../profiles.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   mealPlans: typeof mealPlans;
   meals: typeof meals;
   mealsDatabase: typeof mealsDatabase;
+  medicationLogs: typeof medicationLogs;
   onboarding: typeof onboarding;
   pageViews: typeof pageViews;
   profiles: typeof profiles;

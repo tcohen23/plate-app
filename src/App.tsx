@@ -27,6 +27,23 @@ import { WhyPage } from "./pages/WhyPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { WorkoutPage } from "./pages/WorkoutPage";
+import { MorePage } from "./pages/MorePage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { GLP1Page } from "./pages/GLP1Page";
+import { SleepPage } from "./pages/SleepPage";
+import { MeasurementsPage } from "./pages/MeasurementsPage";
+import { WeeklyDigestPage } from "./pages/WeeklyDigestPage";
+import { NutritionPage } from "./pages/NutritionPage";
+import { ExportPage } from "./pages/ExportPage";
+import { GoalsPage } from "./pages/GoalsPage";
+import { MessagesPage } from "./pages/MessagesPage";
+import { FriendsPage } from "./pages/FriendsPage";
+import { HelpPage } from "./pages/HelpPage";
+import { CommunityPage } from "./pages/CommunityPage";
+import { LearnPage } from "./pages/LearnPage";
+import { FastingPage } from "./pages/FastingPage";
+import { RemindersPage } from "./pages/RemindersPage";
+import { AppsDevicesPage } from "./pages/AppsDevicesPage";
 
 
 // ── Onboarding v3 ──────────────────────────────────────────────────────────
@@ -204,6 +221,24 @@ function App() {
               <Route path="/feedback" element={<FeedbackPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/meal/:mealId" element={<MealDetailPage />} />
+              {/* MFP More menu and sub-pages */}
+              <Route path="/more" element={<MorePage />} />
+              <Route path="/more/profile" element={<ProfilePage />} />
+              <Route path="/more/glp1" element={<GLP1Page />} />
+              <Route path="/more/sleep" element={<SleepPage />} />
+              <Route path="/more/measurements" element={<MeasurementsPage />} />
+              <Route path="/more/weekly-digest" element={<WeeklyDigestPage />} />
+              <Route path="/more/nutrition" element={<NutritionPage />} />
+              <Route path="/more/export" element={<ExportPage />} />
+              <Route path="/more/goals" element={<GoalsPage />} />
+              <Route path="/more/messages" element={<MessagesPage />} />
+              <Route path="/more/friends" element={<FriendsPage />} />
+              <Route path="/more/help" element={<HelpPage />} />
+              <Route path="/more/community" element={<CommunityPage />} />
+              <Route path="/more/learn" element={<LearnPage />} />
+              <Route path="/more/fasting" element={<FastingPage />} />
+              <Route path="/more/reminders" element={<RemindersPage />} />
+              <Route path="/more/apps-devices" element={<AppsDevicesPage />} />
             </Route>
 
             {/* Workout onboarding screens */}

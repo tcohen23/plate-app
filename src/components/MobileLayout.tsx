@@ -13,6 +13,7 @@ import {
   ShoppingCart, UtensilsCrossed, Settings, Dumbbell, Lightbulb,
   HelpCircle, Crown, Droplets, Minus,
 } from "lucide-react";
+
 import { parseAvatarChoice } from "@/pages/SettingsPage";
 import { identifyUser, setUserProperties } from "../lib/posthog";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
@@ -28,7 +29,7 @@ const BOTTOM_TABS = [
   { path: "/plan", label: "Plan", icon: CalendarDays },
   // center "+" placeholder
   { path: "/progress", label: "Progress", icon: TrendingUp },
-  { path: "/more", label: "More", icon: MoreHorizontal },
+  { path: "/more", label: "More", icon: MoreHorizontal, matchPrefix: "/more" },
 ];
 
 const SIDEBAR_NAV = [
@@ -52,14 +53,7 @@ const QUICK_ACTIONS = [
   { icon: "⚖️", label: "Log Weight", action: "weight", route: "/progress?logWeight=1" },
 ];
 
-const MORE_ITEMS = [
-  { label: "Track Food", path: "/track", icon: "🍽️" },
-  { label: "Grocery List", path: "/grocery", icon: "🛒" },
-  { label: "Share an Idea 💡", path: "/feedback", icon: "✨" },
-  { label: "Why Page", path: "/why", icon: "❓" },
-  { label: "Workout", path: "/workout", icon: "🏋️", requiresWorkout: true },
-  { label: "Settings", path: "/settings", icon: "⚙️" },
-];
+
 
 /* ─── Quick action sheet ─── */
 const ACTION_FEATURE_MAP: Record<string, PaywallFeature> = {
@@ -204,33 +198,7 @@ function QuickActionSheet({ onClose, navigate, isPremium }: { onClose: () => voi
   );
 }
 
-/* ─── More page ─── */
-function MorePage({ onClose, navigate, hasWorkout }: { onClose: () => void; navigate: (path: string) => void; hasWorkout: boolean }) {
-  const items = MORE_ITEMS.filter((item) => !item.requiresWorkout || hasWorkout);
-  return (
-    <div className="px-5 pb-8 pt-4">
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="font-semibold text-white text-base">More</h3>
-        <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-          <X className="w-4 h-4 text-white" />
-        </button>
-      </div>
-      <div className="flex flex-col gap-2">
-        {items.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => { onClose(); navigate(item.path); hapticLight(); }}
-            className="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[0.98]"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
-            <span className="text-lg">{item.icon}</span>
-            <span className="text-sm font-medium text-white">{item.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+
 
 /* ─── Bottom sheet ─── */
 function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -393,7 +361,6 @@ export function MobileLayout() {
   const { isPremium, isTrialing, hasWorkout } = useAccessLevel();
 
   const [showQuickActions, setShowQuickActions] = useState(false);
-  const [showMore, setShowMore] = useState(false);
 
   // Identify user in PostHog
   const identified = useRef(false);
@@ -435,12 +402,11 @@ export function MobileLayout() {
 
   const handleTabPress = (tab: (typeof BOTTOM_TABS)[number]) => {
     hapticLight();
-    if (tab.label === "More") { setShowMore(true); return; }
     navigate(tab.path);
   };
 
   const isTabActive = (tab: (typeof BOTTOM_TABS)[number]) => {
-    if (tab.label === "More") return showMore;
+    if ((tab as any).matchPrefix) return location.pathname.startsWith((tab as any).matchPrefix);
     return location.pathname === tab.path;
   };
 
@@ -539,9 +505,7 @@ export function MobileLayout() {
         <QuickActionSheet onClose={() => setShowQuickActions(false)} navigate={navigate} isPremium={!!isPremium} />
       </BottomSheet>
 
-      <BottomSheet open={showMore} onClose={() => setShowMore(false)}>
-        <MorePage onClose={() => setShowMore(false)} navigate={navigate} hasWorkout={!!hasWorkout} />
-      </BottomSheet>
+
     </div>
   );
 }

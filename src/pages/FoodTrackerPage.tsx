@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -14,11 +14,15 @@ import { useAccessLevel } from "@/components/RequireSubscription";
 import { calculateHealthScore } from "@/lib/healthScore";
 import { searchFoodDatabase } from "@/lib/foodDatabase";
 import type { FoodItem } from "@/lib/foodDatabase";
+import { hapticLight } from "@/lib/haptics";
 
 type ViewMode = "log" | "search" | "quick" | "custom" | "scanner" | "barcode_result" | "meal_detail" | "food_detail";
+type TrackTab = "History" | "My Meals" | "My Recipes" | "My Foods";
+//   // eslint-disable-line
 
 
 export function FoodTrackerPage() {
+  const navigate = useNavigate();
   const localDate = useMemo(() => getLocalDateString(), []);
   const todaysLog = useQuery(api.foodLogs.getTodaysLog, { localDate });
   const summary = useQuery(api.foodLogs.getDailySummary, { localDate });
@@ -114,6 +118,13 @@ export function FoodTrackerPage() {
   const [view, setView] = useState<ViewMode>("log");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("breakfast");
+  const [trackTab, setTrackTab] = useState<TrackTab>("History");
+  const [showCameraDropdown, setShowCameraDropdown] = useState(false);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [showWaterModal, setShowWaterModal] = useState(false);
+  const [waterOz, setWaterOz] = useState("8");
+  const logHydration = useMutation(api.progress.logHydration);
+  // unused:   const profile = useQuery(api.profiles.getProfile);
   const [selectedMeal, setSelectedMeal] = useState<any>(null);
   const [selectedFoodItem, setSelectedFoodItem] = useState<FoodItem | null>(null);
   const [servingUnit, setServingUnit] = useState<"serving" | "g" | "oz">("serving");
@@ -289,8 +300,8 @@ export function FoodTrackerPage() {
     }
   }, [logFood, localDate]);
 
-  const consumed = summary?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  const entries = todaysLog?.length || 0;
+  const _consumed = summary?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }; void _consumed;
+  const _entries = todaysLog?.length || 0; void _entries;
 
   // Filter meals by search
   const filteredMeals = allMeals?.filter((m: any) =>
@@ -464,67 +475,118 @@ export function FoodTrackerPage() {
   }, []);
 
   return (
-    <div className="px-5 pt-5 pb-6 max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-serif">Food log</h1>
-        <span className="text-sm text-muted-foreground">{entries} entries</span>
-      </div>
-
-      {/* Macro summary */}
-      <Card className="p-4 rounded-xl">
-        <div className="grid grid-cols-4 gap-3 text-center">
-          <div>
-            <div className="label-uppercase text-muted-foreground">KCAL</div>
-            <div className="text-xl font-serif mt-1">{Math.round(consumed.calories)}</div>
-          </div>
-          <div>
-            <div className="label-uppercase text-muted-foreground">P</div>
-            <div className="text-xl font-serif mt-1 text-blue-600 dark:text-blue-400">{Math.round(consumed.protein * 10) / 10}<span className="text-xs font-sans">g</span></div>
-          </div>
-          <div>
-            <div className="label-uppercase text-muted-foreground">C</div>
-            <div className="text-xl font-serif mt-1 text-amber-600 dark:text-amber-400">{Math.round(consumed.carbs * 10) / 10}<span className="text-xs font-sans">g</span></div>
-          </div>
-          <div>
-            <div className="label-uppercase text-muted-foreground">F</div>
-            <div className="text-xl font-serif mt-1 text-red-500 dark:text-red-400">{Math.round(consumed.fat * 10) / 10}<span className="text-xs font-sans">g</span></div>
-          </div>
+    <div className="pb-28 max-w-lg mx-auto animate-page-enter">
+      {/* ── MFP Header: Select a Meal ▼ ── */}
+      <div className="sticky top-0 z-20 px-4 pt-3 pb-0" style={{ background: "var(--background)" }}>
+        {/* Meal selector */}
+        <div className="flex items-center justify-between mb-2">
+          <select
+            value={selectedSlot}
+            onChange={e => { hapticLight(); setSelectedSlot(e.target.value); }}
+            className="text-xl font-bold bg-transparent border-none outline-none appearance-none pr-6 cursor-pointer"
+            style={{ color: "var(--foreground)" }}
+          >
+            {["breakfast", "lunch", "dinner", "snack"].map(s => (
+              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            ))}
+          </select>
         </div>
-      </Card>
 
-      {/* Primary actions — scan & search */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => {
-            if (!isPremium) { openBarcodePaywall(); return; }
-            setView("scanner"); startScanner();
-          }}
-          className="relative flex flex-col items-center justify-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 dark:from-emerald-700 dark:to-emerald-800 text-white shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 active:scale-[0.98] transition-all"
-        >
-          {!isPremium && (
-            <span className="absolute top-1.5 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(229,180,84,0.2)", color: "#E5B454" }}>PRO</span>
-          )}
-          <Camera className="w-6 h-6" />
-          <span className="text-sm font-semibold">Scan Barcode</span>
-          <span className="text-[10px] opacity-70">Point camera at label</span>
-        </button>
-        <button
-          onClick={() => { setView("search"); setSearchQuery(""); }}
-          className="relative flex flex-col items-center justify-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 text-white shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 active:scale-[0.98] transition-all"
-        >
-          <Search className="w-6 h-6" />
-          <span className="text-sm font-semibold">Search Foods</span>
-          <span className="text-[10px] opacity-70">Find from meal database</span>
-        </button>
+        {/* MFP-style search bar */}
+        <div className="flex items-center gap-2 mb-3">
+          <div
+            className="flex-1 flex items-center gap-2 px-3 h-11 rounded-xl"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+          >
+            <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <input
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setView("search"); else setView("log"); }}
+              onFocus={() => { if (view !== "search") setView("search"); }}
+              placeholder="Search for a food"
+              className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          {/* Mic */}
+          <button
+            onClick={() => { hapticLight(); if (!isPremium) { openVoicePaywall(); return; } setShowVoiceResults(true); }}
+            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+          >
+            <Mic className="w-4 h-4" style={{ color: voiceActive ? "#52B788" : "rgba(255,255,255,0.5)" }} />
+          </button>
+          {/* Camera */}
+          <button
+            onClick={() => { hapticLight(); setShowCameraDropdown(d => !d); }}
+            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+          >
+            <Camera className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} />
+          </button>
+        </div>
+
+        {/* Camera dropdown */}
+        {showCameraDropdown && (
+          <div className="absolute right-4 top-16 z-30 rounded-xl overflow-hidden shadow-xl" style={{ background: "var(--background)", border: "1px solid var(--border)", minWidth: 200 }}>
+            <button
+              className="w-full flex items-center px-4 py-3.5 text-sm text-left border-b transition-opacity active:opacity-60"
+              style={{ borderColor: "var(--border)" }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
+            >
+              <span className="mr-3">📦</span> Barcode Scan
+            </button>
+            <button
+              className="w-full flex items-center px-4 py-3.5 text-sm text-left transition-opacity active:opacity-60"
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
+            >
+              <span className="mr-3">🍽️</span> Meal Scan
+            </button>
+          </div>
+        )}
+
+        {/* History / My Meals / My Recipes / My Foods tabs */}
+        <div className="flex items-center border-b overflow-x-auto hide-scrollbar" style={{ borderColor: "var(--border)" }}>
+          {(["History", "My Meals", "My Recipes", "My Foods"] as TrackTab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => { hapticLight(); setTrackTab(t); if (view === "search") setView("log"); }}
+              className="px-4 py-2.5 text-sm font-medium flex-shrink-0 border-b-2 transition-all"
+              style={{
+                borderBottomColor: trackTab === t ? "#52B788" : "transparent",
+                color: trackTab === t ? "#52B788" : "rgba(255,255,255,0.5)",
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Secondary actions */}
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={() => setView("quick")}>
-          <Plus className="w-4 h-4 mr-2" /> Quick add cals
+      {/* ── Main content area ── */}
+      <div className="px-4 pt-3">
+
+      {/* ─ Camera input for meal scan ─ */}
+      <input
+        ref={mealScanInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleMealScanFile}
+        className="hidden"
+      />
+
+      {/* Paywall nodes */}
+      {barcodePaywall}
+      {mealScanPaywall}
+      {voicePaywall}
+
+      {/* Quick add / custom food toggle buttons */}
+      <div className="flex gap-2 mb-3">
+        <Button variant="outline" size="sm" className="rounded-full h-8 text-xs px-3" onClick={() => setView("quick")}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Quick add
         </Button>
-        <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={() => setView("custom")}>
-          <Edit3 className="w-4 h-4 mr-2" /> Custom food
+        <Button variant="outline" size="sm" className="rounded-full h-8 text-xs px-3" onClick={() => setView("custom")}>
+          <Edit3 className="w-3.5 h-3.5 mr-1" /> Custom food
         </Button>
       </div>
 
@@ -534,7 +596,7 @@ export function FoodTrackerPage() {
         const hasQuery = searchQuery.trim().length > 0;
         return (
           <div className="space-y-3 animate-fade-up">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" style={{ display: "none" }}>
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -1149,58 +1211,185 @@ export function FoodTrackerPage() {
         </Card>
       )}
 
-      {/* Daily logs */}
+      {/* Daily logs — MFP diary style */}
       {view === "log" && (
-        <div className="space-y-4">
-          {todaysLog && todaysLog.length > 0 ? (
-            slotOrder.map(slot => {
-              const items = logsBySlot[slot];
-              if (!items || items.length === 0) return null;
-              return (
-                <div key={slot}>
-                  <div className="label-uppercase text-muted-foreground mb-2">{slot}</div>
-                  <div className="space-y-1.5">
-                    {items.map((log: any) => (
-                      <Card key={log._id} className="p-3 rounded-xl flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium truncate">{log.name}</div>
-                          <div className="text-xs text-muted-foreground">{Math.round(log.calories)} kcal · {Math.round(log.protein * 10) / 10}p · {Math.round(log.carbs * 10) / 10}c · {Math.round(log.fat * 10) / 10}f</div>
-                        </div>
+        <div className="space-y-2">
+          {/* Suggestions when no search — tab content */}
+          {trackTab === "History" && (
+            <>
+              {slotOrder.map(slot => {
+                const items = logsBySlot[slot];
+                const slotCals = items?.reduce((s: number, l: any) => s + (l.calories || 0), 0) || 0;
+                return (
+                  <div key={slot} className="rounded-2xl overflow-hidden mb-2" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
+                    {/* Slot header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold capitalize">{slot === "snack" ? "Snacks" : slot}</span>
+                        {slotCals > 0 && <span className="text-xs text-muted-foreground">{slotCals} kcal</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => deleteLog({ logId: log._id }).then(() => toast.success("Removed"))}
-                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={() => { hapticLight(); setSelectedSlot(slot); setView("search"); setSearchQuery(""); }}
+                          className="text-xs font-semibold px-3 py-1 rounded-full"
+                          style={{ background: "rgba(82,183,136,0.12)", color: "#52B788", border: "1px solid rgba(82,183,136,0.3)" }}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          Log
                         </button>
-                      </Card>
-                    ))}
+                      </div>
+                    </div>
+                    {/* Log entries */}
+                    {items && items.length > 0 ? (
+                      <div>
+                        {items.map((log: any) => (
+                          <div key={log._id} className="flex items-center justify-between px-4 py-3 border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium truncate">{log.name}</div>
+                              <div className="text-xs text-muted-foreground">{Math.round(log.calories)} kcal · {Math.round(log.protein)}g P · {Math.round(log.carbs)}g C · {Math.round(log.fat)}g F</div>
+                            </div>
+                            <button
+                              onClick={() => deleteLog({ logId: log._id }).then(() => toast.success("Removed"))}
+                              className="p-1.5 text-muted-foreground ml-2"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-muted-foreground italic">No food logged</div>
+                    )}
                   </div>
-                </div>
-              );
-            })
-          ) : (
-            <Card className="p-8 text-center rounded-xl">
-              <p className="text-sm text-muted-foreground">No food logged yet today.</p>
-              <p className="text-xs text-muted-foreground mt-1">Tap a meal in your plan or use search above.</p>
-            </Card>
+                );
+              })}
+
+              {/* Bottom mini-nav: Water | Weight | Exercise | Quick add */}
+              <div className="grid grid-cols-4 gap-2 pt-2 pb-2">
+                {[
+                  { icon: "💧", label: "Water", action: () => setShowWaterModal(true) },
+                  { icon: "⚖️", label: "Weight", action: () => navigate("/more/measurements?tab=weight") },
+                  { icon: "🏋️", label: "Exercise", action: () => setShowExerciseModal(true) },
+                  { icon: "⚡", label: "Quick add", action: () => setView("quick") },
+                ].map(btn => (
+                  <button
+                    key={btn.label}
+                    onClick={() => { hapticLight(); btn.action(); }}
+                    className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
+                    style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+                  >
+                    <span className="text-xl">{btn.icon}</span>
+                    <span className="text-xs text-muted-foreground">{btn.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* My Meals empty state */}
+          {trackTab === "My Meals" && (
+            <div className="flex flex-col items-center py-16 px-4 text-center">
+              <span className="text-5xl mb-4">🍽️</span>
+              <div className="text-base font-semibold mb-2">No saved meals yet</div>
+              <div className="text-sm text-muted-foreground mb-4">Save a meal from your food log to see it here</div>
+            </div>
+          )}
+
+          {/* My Recipes empty state */}
+          {trackTab === "My Recipes" && (
+            <div className="flex flex-col items-center py-16 px-4 text-center">
+              <span className="text-5xl mb-4">📖</span>
+              <div className="text-base font-semibold mb-2">No recipes yet</div>
+              <div className="text-sm text-muted-foreground mb-4">Create custom recipes and log them easily</div>
+            </div>
+          )}
+
+          {/* My Foods empty state */}
+          {trackTab === "My Foods" && (
+            <div className="flex flex-col items-center py-16 px-4 text-center">
+              <span className="text-5xl mb-4">🥑</span>
+              <div className="text-base font-semibold mb-2">No custom foods yet</div>
+              <div className="text-sm text-muted-foreground mb-4">Add a custom food to see it here</div>
+            </div>
           )}
         </div>
       )}
+      </div>{/* end main content div */}
 
-      {/* Hidden file input for meal scan */}
-      <input
-        ref={mealScanInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleMealScanFile}
-      />
+      {/* Exercise Modal */}
+      {showExerciseModal && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-lg mx-auto rounded-t-3xl p-6 pb-10" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between mb-6">
+              <button onClick={() => setShowExerciseModal(false)}>✕</button>
+              <h2 className="text-base font-semibold">Add Exercise</h2>
+              <div className="w-6" />
+            </div>
+            <div className="space-y-3">
+              {[
+                { icon: "🏃", label: "Cardio", sub: "Running, cycling, swimming...", path: "/workout?type=cardio" },
+                { icon: "💪", label: "Strength", sub: "Weights, resistance bands...", path: "/workout?type=strength" },
+                { icon: "📋", label: "Workout Routines", sub: "Follow a structured workout", path: "/workout" },
+              ].map(ex => (
+                <button key={ex.label} onClick={() => { setShowExerciseModal(false); navigate(ex.path); }}
+                  className="w-full flex items-center px-4 py-4 rounded-2xl text-left transition-opacity active:opacity-70"
+                  style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
+                  <span className="text-2xl mr-4">{ex.icon}</span>
+                  <div>
+                    <div className="text-sm font-semibold">{ex.label}</div>
+                    <div className="text-xs text-muted-foreground">{ex.sub}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Paywall nodes */}
-      {barcodePaywall}
-      {mealScanPaywall}
-      {voicePaywall}
+      {/* Water Log Modal */}
+      {showWaterModal && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-lg mx-auto rounded-t-3xl p-6 pb-10" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between mb-6">
+              <button onClick={() => setShowWaterModal(false)}>✕</button>
+              <h2 className="text-base font-semibold">Add Water</h2>
+              <div className="w-6" />
+            </div>
+            <div className="text-center mb-6">
+              <input
+                type="number"
+                value={waterOz}
+                onChange={e => setWaterOz(e.target.value)}
+                className="text-5xl font-bold w-32 text-center bg-transparent border-none outline-none"
+                style={{ color: "#52B788" }}
+              />
+              <div className="text-sm text-muted-foreground mt-1">oz</div>
+            </div>
+            <div className="flex gap-2 mb-6 justify-center">
+              {["8", "17", "24"].map(oz => (
+                <button key={oz} onClick={() => setWaterOz(oz)}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ background: waterOz === oz ? "#52B788" : "var(--surface-card)", color: waterOz === oz ? "#000" : "inherit", border: "1px solid var(--border)" }}>
+                  +{oz}oz
+                </button>
+              ))}
+            </div>
+            <Button
+              onClick={async () => {
+                try {
+                  const glasses = parseFloat(waterOz) / 8;
+                  await logHydration({ glasses });
+                  toast.success(`${waterOz}oz water logged ✓`);
+                  setShowWaterModal(false);
+                } catch (e: any) { toast.error(e.message); }
+              }}
+              className="w-full h-12 rounded-full font-bold"
+              style={{ background: "#52B788", color: "#000" }}
+            >
+              Add Water
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Meal Scan Results Modal */}
       {showMealScanResults && (
