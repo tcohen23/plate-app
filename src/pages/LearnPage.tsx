@@ -3,7 +3,7 @@
  * Full articles with expandable detail, dietitian tips, topic browsing
  */
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ChevronLeft, ChevronRight, X, Clock, BookOpen } from "lucide-react";
 import { hapticLight } from "@/lib/haptics";
 
@@ -363,6 +363,7 @@ export function LearnPage() {
   const [filter, setFilter] = useState<FilterChip>("All");
   const [page, setPage] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
+  const tipDragStart = useRef<number | null>(null);
   const [openArticle, setOpenArticle] = useState<Article | null>(null);
 
   const filtered = filter === "All" ? ARTICLES : ARTICLES.filter(a => a.category === filter);
@@ -557,7 +558,20 @@ export function LearnPage() {
       {/* Dietitians' corner */}
       <div className="px-4 mb-5">
         <h2 className="text-base font-bold mb-3">Dietitians' Corner</h2>
-        <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.2)" }}>
+        <div
+          className="rounded-2xl p-4 flex items-start gap-3 select-none"
+          style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.2)", touchAction: "pan-y" }}
+          onTouchStart={(e) => { tipDragStart.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (tipDragStart.current === null) return;
+            const dx = e.changedTouches[0].clientX - tipDragStart.current;
+            tipDragStart.current = null;
+            if (Math.abs(dx) < 40) return;
+            hapticLight();
+            if (dx < 0) setTipIndex(i => Math.min(DIETITIAN_TIPS.length - 1, i + 1));
+            else setTipIndex(i => Math.max(0, i - 1));
+          }}
+        >
           <div className="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ background: "rgba(82,183,136,0.15)" }}>
             👩‍⚕️
           </div>
@@ -576,7 +590,7 @@ export function LearnPage() {
               key={i}
               onClick={() => { hapticLight(); setTipIndex(i); }}
               className="w-2 h-2 rounded-full transition-all"
-              style={{ background: i === tipIndex ? "#52B788" : "rgba(255,255,255,0.2)" }}
+              style={{ background: i === tipIndex ? "#52B788" : "rgba(255,255,255,0.2)", width: i === tipIndex ? "20px" : "8px" }}
             />
           ))}
         </div>

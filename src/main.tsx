@@ -7,6 +7,13 @@ import App from "./App";
 import { BiometricLock } from "./components/BiometricLock";
 import "./index.css";
 
+// Redirect old Viktor Space URLs → Cloudflare Pages (the real app)
+if (typeof window !== "undefined" && window.location.hostname.endsWith(".viktor.space")) {
+  window.location.replace(
+    "https://plate-app.pages.dev" + window.location.pathname + window.location.search + window.location.hash
+  );
+}
+
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 createRoot(document.getElementById("root")!).render(

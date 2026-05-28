@@ -6,10 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Download, Crown, FileSpreadsheet, Database, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAccessLevel } from "@/components/RequireSubscription";
+import { usePaywall } from "@/components/PaywallModal";
 
 export function ExportPage() {
   const navigate = useNavigate();
   const { isPremium } = useAccessLevel();
+  const { paywallNode, openPaywall } = usePaywall("general");
 
   return (
     <div className="pb-28 max-w-lg mx-auto animate-page-enter">
@@ -55,24 +57,25 @@ export function ExportPage() {
         </div>
       ) : (
         <div className="px-4">
-          <div className="rounded-2xl p-5 mb-4" style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.3)" }}>
+          <div className="rounded-2xl p-5 mb-4" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.25)" }}>
             <div className="flex items-center gap-3 mb-3">
-              <Crown className="w-6 h-6" style={{ color: "#E5B454" }} />
+              <Crown className="w-6 h-6" style={{ color: "#52B788" }} />
               <div>
                 <div className="text-sm font-bold">Premium Feature</div>
                 <div className="text-xs text-muted-foreground">Export your data with a Premium subscription</div>
               </div>
             </div>
             <Button
-              onClick={() => navigate("/onboarding/upgrade")}
+              onClick={openPaywall}
               className="w-full rounded-full font-bold h-12"
-              style={{ background: "#E5B454", color: "#000" }}
+              style={{ background: "#52B788", color: "#0a1a0a" }}
             >
-              Export My Information
+              Start 7-Day Free Trial
             </Button>
           </div>
         </div>
       )}
+      {paywallNode}
     </div>
   );
 }

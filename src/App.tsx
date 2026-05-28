@@ -27,6 +27,7 @@ import { WhyPage } from "./pages/WhyPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { WorkoutPage } from "./pages/WorkoutPage";
+
 import { MorePage } from "./pages/MorePage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { GLP1Page } from "./pages/GLP1Page";
@@ -45,6 +46,7 @@ import { FastingPage } from "./pages/FastingPage";
 import { RemindersPage } from "./pages/RemindersPage";
 import { AppsDevicesPage } from "./pages/AppsDevicesPage";
 import { WaterPage } from "./pages/WaterPage";
+import { ExerciseLogPage } from "./pages/ExerciseLogPage";
 
 
 // ── Onboarding v3 ──────────────────────────────────────────────────────────
@@ -241,6 +243,7 @@ function App() {
               <Route path="/more/reminders" element={<RemindersPage />} />
               <Route path="/more/apps-devices" element={<AppsDevicesPage />} />
               <Route path="/more/water" element={<WaterPage />} />
+              <Route path="/more/exercise" element={<ExerciseLogPage />} />
             </Route>
 
             {/* Workout onboarding screens */}

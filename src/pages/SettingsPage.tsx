@@ -1066,6 +1066,37 @@ export function SettingsPage() {
         </div>
       </Card>
 
+      {/* Exercise calorie mode */}
+      <Card className="p-4 rounded-xl">
+        <div className="mb-3">
+          <span className="text-sm font-medium">Exercise Calories</span>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Choose how burned calories affect your daily goal.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: "info_only", label: "Show Info Only", desc: "Calories shown but don't adjust your goal" },
+            { value: "add_to_goal", label: "Add to Goal", desc: "Burned calories added back to your daily budget" },
+          ] as const).map(opt => {
+            const current = (profile as any).exerciseCalorieMode ?? "info_only";
+            const active = current === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => updateProfile({ exerciseCalorieMode: opt.value }).then(() => toast.success("Preference saved"))}
+                className="rounded-xl p-3 text-left border transition-all"
+                style={{
+                  background: active ? "rgba(82,183,136,0.12)" : "var(--surface-card)",
+                  borderColor: active ? "#52B788" : "var(--border)",
+                }}
+              >
+                <p className="text-xs font-bold" style={{ color: active ? "#52B788" : "var(--foreground)" }}>{opt.label}</p>
+                <p className="text-[10px] mt-0.5 text-muted-foreground">{opt.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
       {/* Toast notifications toggle */}
       <Card className="p-4 rounded-xl flex items-center justify-between">
         <div>

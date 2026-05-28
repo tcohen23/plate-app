@@ -20,6 +20,7 @@ import { api } from "../../convex/_generated/api";
 import { ChevronLeft, ChevronRight, Calendar, Crown, ThumbsUp, ThumbsDown, Flame, Dumbbell, Footprints, Target } from "lucide-react";
 import { useState } from "react";
 import { useAccessLevel } from "@/components/RequireSubscription";
+import { usePaywall } from "@/components/PaywallModal";
 import { hapticLight } from "@/lib/haptics";
 import { Button } from "@/components/ui/button";
 
@@ -77,6 +78,7 @@ function MacroStackedBar({ carbsPct, fatPct, protPct }: { carbsPct: number; fatP
 export function WeeklyDigestPage() {
   const navigate = useNavigate();
   const { isPremium } = useAccessLevel();
+  const { paywallNode, openPaywall } = usePaywall("general");
   const profile = useQuery(api.profiles.getProfile);
   const stats = useQuery(api.progress.getUserStats, {});
   const [feedbackGiven, setFeedbackGiven] = useState<"up" | "down" | null>(null);
@@ -219,16 +221,16 @@ export function WeeklyDigestPage() {
 
       {/* Premium upsell */}
       {!isPremium && (
-        <div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #1a1a2e, #16213e)", border: "1px solid rgba(229,180,84,0.3)" }}>
+        <div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(82,183,136,0.1), rgba(27,67,50,0.3))", border: "1px solid rgba(82,183,136,0.25)" }}>
           <div className="px-4 py-5 flex items-center justify-between">
             <div>
               <div className="text-xs text-muted-foreground mb-1">65% of Premium features unlocked</div>
               <div className="text-base font-bold mb-3">GO PREMIUM</div>
-              <Button onClick={() => navigate("/onboarding/upgrade")} className="rounded-full px-4 py-1.5 h-auto text-sm font-bold" style={{ background: "#E5B454", color: "#000" }}>
-                Upgrade Now
+              <Button onClick={openPaywall} className="rounded-full px-4 py-1.5 h-auto text-sm font-bold" style={{ background: "#52B788", color: "#0a1a0a" }}>
+                Start 7-Day Free Trial
               </Button>
             </div>
-            <Crown className="w-12 h-12 opacity-30" style={{ color: "#E5B454" }} />
+            <Crown className="w-12 h-12 opacity-30" style={{ color: "#52B788" }} />
           </div>
         </div>
       )}
@@ -304,6 +306,7 @@ export function WeeklyDigestPage() {
           </span>
         </p>
       </div>
+      {paywallNode}
     </div>
   );
 }

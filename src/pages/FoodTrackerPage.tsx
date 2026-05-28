@@ -502,10 +502,10 @@ export function FoodTrackerPage() {
             onClick={() => { hapticLight(); setShowMealPicker(p => !p); }}
             className="flex-1 flex items-center justify-center gap-1.5 active:opacity-70 transition-opacity"
           >
-            <span className="text-base font-semibold" style={{ color: "#60a5fa" }}>
+            <span className="text-base font-semibold" style={{ color: "#52B788" }}>
               {{ breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snacks" }[selectedSlot] ?? "Select a Meal"}
             </span>
-            <ChevronDown className="w-4 h-4" style={{ color: "#60a5fa" }} />
+            <ChevronDown className="w-4 h-4" style={{ color: "#52B788" }} />
           </button>
 
           {/* Spacer to balance back button */}
@@ -633,8 +633,8 @@ export function FoodTrackerPage() {
           className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
           style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
         >
-          <ScanLine className="w-5 h-5" style={{ color: "#60a5fa" }} />
-          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Barcode scan</span>
+          <ScanLine className="w-5 h-5" style={{ color: "#52B788" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#52B788" }}>Barcode scan</span>
         </button>
         {/* Voice log — premium gated */}
         <button
@@ -642,8 +642,8 @@ export function FoodTrackerPage() {
           className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
           style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
         >
-          <Mic className="w-5 h-5" style={{ color: "#60a5fa" }} />
-          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Voice log</span>
+          <Mic className="w-5 h-5" style={{ color: "#52B788" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#52B788" }}>Voice log</span>
         </button>
         {/* Meal scan — premium gated */}
         <button
@@ -651,8 +651,8 @@ export function FoodTrackerPage() {
           className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
           style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
         >
-          <Camera className="w-5 h-5" style={{ color: "#60a5fa" }} />
-          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Meal scan</span>
+          <Camera className="w-5 h-5" style={{ color: "#52B788" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#52B788" }}>Meal scan</span>
         </button>
         {/* Quick add — free */}
         <button
@@ -660,8 +660,8 @@ export function FoodTrackerPage() {
           className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
           style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
         >
-          <Zap className="w-5 h-5" style={{ color: "#60a5fa" }} />
-          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#60a5fa" }}>Quick add</span>
+          <Zap className="w-5 h-5" style={{ color: "#52B788" }} />
+          <span className="text-[10px] font-medium leading-tight text-center" style={{ color: "#52B788" }}>Quick add</span>
         </button>
       </div>
 
@@ -1847,7 +1847,7 @@ export function FoodTrackerPage() {
                 {/* Macro grid */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "Protein", value: voiceMacroItem.protein, unit: "g", color: "#60a5fa" },
+                    { label: "Protein", value: voiceMacroItem.protein, unit: "g", color: "#52B788" },
                     { label: "Carbs", value: voiceMacroItem.carbs, unit: "g", color: "#fbbf24" },
                     { label: "Fat", value: voiceMacroItem.fat, unit: "g", color: "#f87171" },
                   ].map(({ label, value, unit, color }) => (

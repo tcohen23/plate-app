@@ -415,9 +415,13 @@ function DatePickerDropdown({ selectedDateStr, onSelect, onClose }: {
 }
 
 /* ─── MFP-style Calories Bar Card ─── */
-function CaloriesBarCard({ calories, goal }: { calories: number; goal: number }) {
+function CaloriesBarCard({ calories, goal, exerciseBurned, exerciseMode }: {
+  calories: number; goal: number;
+  exerciseBurned?: number; exerciseMode?: string;
+}) {
   const pct = goal > 0 ? Math.min(calories / goal, 1) : 0;
   const left = Math.max(0, goal - calories);
+  const showBurnLine = (exerciseBurned ?? 0) > 0 && exerciseMode === "info_only";
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
       <div className="text-sm font-medium mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Calories</div>
@@ -433,6 +437,16 @@ function CaloriesBarCard({ calories, goal }: { calories: number; goal: number })
           style={{ width: `${pct * 100}%`, background: pct >= 1 ? "#ef4444" : "#52B788" }}
         />
       </div>
+      {showBurnLine && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-xs" style={{ color: "#52B788" }}>🔥 {exerciseBurned} cal burned from exercise</span>
+        </div>
+      )}
+      {(exerciseBurned ?? 0) > 0 && exerciseMode === "add_to_goal" && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-xs" style={{ color: "#52B788" }}>🔥 +{exerciseBurned} cal added to goal from exercise</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -525,7 +539,7 @@ function DiaryMealRow({
 function HabitRow({ icon, label, subtitle, onClick }: { icon: React.ReactNode; label: string; subtitle: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className="w-full flex items-center py-3.5 px-0 border-b last:border-b-0 text-left transition-opacity active:opacity-70" style={{ borderColor: "var(--border)" }}>
-      <div className="w-8 flex-shrink-0 flex items-center justify-center" style={{ color: "rgba(255,255,255,0.5)" }}>{icon}</div>
+      <div className="w-8 flex-shrink-0 flex items-center justify-center">{icon}</div>
       <div className="flex-1 ml-2">
         <div className="text-sm font-medium">{label}</div>
         <div className="text-xs text-muted-foreground">{subtitle}</div>
@@ -583,6 +597,7 @@ export function DashboardPage() {
   const stats = useQuery(api.progress.getUserStats, { localDate: todayStr });
   const hydration = useQuery(api.progress.getTodaysHydration, { localDate: selectedDate });
   const progressLogs = useQuery(api.progress.getProgressLogs);
+  const exerciseSummary = useQuery(api.exerciseTracking.getExerciseSummaryForDate, { date: selectedDate });
   const logHydration = useMutation(api.progress.logHydration);
   const { check: checkAchievements, popup: achievementPopup } = useAchievementPoller();
   const [showShareBadge, setShowShareBadge] = useState(false);
@@ -605,7 +620,13 @@ export function DashboardPage() {
 
   if (!profile || !summary) return <DashboardSkeleton />;
 
-  const targetCals = profile.targetCalories || 2000;
+  const baseTargetCals = profile.targetCalories || 2000;
+  const exerciseCalsBurned = exerciseSummary?.totalCalories ?? 0;
+  const exerciseCalorieMode = (profile as any).exerciseCalorieMode ?? "info_only";
+  // If user opted in, add burned calories back to their daily budget
+  const targetCals = exerciseCalorieMode === "add_to_goal"
+    ? baseTargetCals + exerciseCalsBurned
+    : baseTargetCals;
   const targetProtein = profile.targetProtein || 150;
   const targetCarbs = profile.targetCarbs || 200;
   const targetFat = profile.targetFat || 60;
@@ -702,7 +723,12 @@ export function DashboardPage() {
 
       {/* ── MFP Calories Bar Card ── */}
       <div className="px-4">
-        <CaloriesBarCard calories={Math.round(consumed.calories)} goal={targetCals} />
+        <CaloriesBarCard
+          calories={Math.round(consumed.calories)}
+          goal={targetCals}
+          exerciseBurned={exerciseCalsBurned}
+          exerciseMode={exerciseCalorieMode}
+        />
       </div>
 
       {/* ── MFP Macros Bar Card ── */}
@@ -796,19 +822,23 @@ export function DashboardPage() {
         <h2 className="text-lg font-bold mb-2">Healthy habits</h2>
         <div className="rounded-2xl px-4" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
           <HabitRow
-            icon={<Droplets className="w-4 h-4" />}
+            icon={<Droplets className="w-4 h-4" style={{ color: "#60a5fa" }} />}
             label="Water"
             subtitle={currentGlasses > 0 ? `${(currentGlasses * 8).toFixed(1)} oz today` : "0.0 oz (You must be thirsty!)"}
             onClick={() => navigate("/more/water")}
           />
           <HabitRow
-            icon={<Dumbbell className="w-4 h-4" />}
+            icon={<Dumbbell className="w-4 h-4" style={{ color: "#52B788" }} />}
             label="Exercise"
-            subtitle="Track exercise to see calorie burn"
-            onClick={() => navigate("/workout")}
+            subtitle={
+              exerciseSummary && exerciseSummary.entryCount > 0
+                ? `${exerciseSummary.entryCount} exercise${exerciseSummary.entryCount !== 1 ? "s" : ""} · ${exerciseSummary.totalCalories} cal burned${exerciseCalorieMode === "add_to_goal" && exerciseCalsBurned > 0 ? " · added to goal" : ""}`
+                : "Track exercise to see calorie burn"
+            }
+            onClick={() => navigate("/more/exercise")}
           />
           <HabitRow
-            icon={<Footprints className="w-4 h-4" />}
+            icon={<Footprints className="w-4 h-4" style={{ color: "#52B788" }} />}
             label="Steps"
             subtitle="0 steps today"
             onClick={() => navigate("/more/measurements")}

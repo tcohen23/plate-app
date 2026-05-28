@@ -19,6 +19,7 @@ import { Download, ChevronRight, Crown, Target, Plus, X } from "lucide-react";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { hapticLight } from "@/lib/haptics";
 import { useAccessLevel } from "@/components/RequireSubscription";
+import { usePaywall } from "@/components/PaywallModal";
 
 type ProgressTab = "Overview" | "Calories" | "Nutrients" | "Macros" | "Steps" | "Weight" | "Sleep";
 
@@ -53,6 +54,7 @@ export function ProgressPage() {
   const [newBodyFat, setNewBodyFat] = useState("");
   const [notes, setNotes] = useState("");
   const { isPremium } = useAccessLevel();
+  const { paywallNode, openPaywall } = usePaywall("general");
 
   const stats = useQuery(api.progress.getUserStats, {});
   const progressLogs = useQuery(api.progress.getProgressLogs);
@@ -313,13 +315,13 @@ export function ProgressPage() {
           </div>
           {/* Premium: swap macros */}
           {!isPremium && (
-            <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: "rgba(229,180,84,0.08)", border: "1px solid rgba(229,180,84,0.25)" }}>
+            <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.2)" }}>
               <div className="flex items-center gap-2">
-                <Crown className="w-4 h-4" style={{ color: "#E5B454" }} />
+                <Crown className="w-4 h-4" style={{ color: "#52B788" }} />
                 <span className="text-sm">Swap macro targets</span>
               </div>
-              <button onClick={() => navigate("/onboarding/upgrade")} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#E5B454", color: "#000" }}>
-                Upgrade
+              <button onClick={openPaywall} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#52B788", color: "#0a1a0a" }}>
+                Unlock
               </button>
             </div>
           )}
@@ -427,6 +429,7 @@ export function ProgressPage() {
           </button>
         </div>
       )}
+      {paywallNode}
     </div>
   );
 }

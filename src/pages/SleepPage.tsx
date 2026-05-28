@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, Crown } from "lucide-react";
 import { hapticLight } from "@/lib/haptics";
 import { Button } from "@/components/ui/button";
 import { useAccessLevel } from "@/components/RequireSubscription";
+import { usePaywall } from "@/components/PaywallModal";
 
 function SleepDonut({ hours, mins }: { hours: number; mins: number }) {
   const size = 200; const cx = 100; const cy = 100; const r = 80; const stroke = 14;
@@ -51,6 +52,7 @@ function SleepStageRow({ label, color, value }: StageRow) {
 export function SleepPage() {
   const navigate = useNavigate();
   const { isPremium } = useAccessLevel();
+  const { paywallNode, openPaywall } = usePaywall("general");
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const formatDate = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -98,7 +100,7 @@ export function SleepPage() {
 
       {/* Premium upsell: "Psst...you awake?" */}
       {!isPremium && (
-        <div className="mx-4 mb-4 rounded-2xl p-5" style={{ background: "linear-gradient(135deg, #1a1a4e, #2d2066)", border: "1px solid rgba(107,123,212,0.3)" }}>
+        <div className="mx-4 mb-4 rounded-2xl p-5" style={{ background: "rgba(82,183,136,0.08)", border: "1px solid rgba(82,183,136,0.25)" }}>
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-base font-bold mb-1">Psst...you awake? 👀</div>
@@ -106,17 +108,18 @@ export function SleepPage() {
                 Unlock sleep stage tracking, insights, and sleep quality scores with Plate Premium.
               </div>
             </div>
-            <Crown className="w-5 h-5 ml-3 flex-shrink-0" style={{ color: "#E5B454" }} />
+            <Crown className="w-5 h-5 ml-3 flex-shrink-0" style={{ color: "#52B788" }} />
           </div>
           <Button
-            onClick={() => navigate("/onboarding/upgrade")}
+            onClick={openPaywall}
             className="w-full rounded-full font-bold"
-            style={{ background: "#E5B454", color: "#000" }}
+            style={{ background: "#52B788", color: "#0a1a0a" }}
           >
-            Unlock Sleep Tracking
+            Start 7-Day Free Trial
           </Button>
         </div>
       )}
+      {paywallNode}
 
       {/* Log meals insight */}
       <div className="mx-4 rounded-2xl p-4" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>

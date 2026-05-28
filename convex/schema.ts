@@ -46,6 +46,9 @@ const schema = defineSchema({
     // Protein g/kg used in calculation (for Why tab display)
     proteinGkg: v.optional(v.number()),
     calorieFloorActivated: v.optional(v.boolean()),
+    // Exercise calorie tracking preference
+    // "add_to_goal" = calories burned add back to daily budget; "info_only" = show but don't affect goal
+    exerciseCalorieMode: v.optional(v.string()),
     // Hydration
     hydrationTarget: v.optional(v.number()), // personalized glasses target
     hydrationMl: v.optional(v.number()), // personalized mL target
@@ -505,6 +508,72 @@ const schema = defineSchema({
   })
     .index("by_userId_date", ["userId", "date"])
     .index("by_userId_date_exercise", ["userId", "date", "exerciseName"]),
+
+  // Cardio exercise logs — minutes + calories logged manually
+  cardioLogs: defineTable({
+    userId: v.id("users"),
+    date: v.string(),             // YYYY-MM-DD
+    exerciseName: v.string(),
+    minutes: v.number(),
+    caloriesBurned: v.number(),
+    startTime: v.optional(v.string()), // HH:MM 24h
+    createdAt: v.number(),
+  })
+    .index("by_userId_date", ["userId", "date"])
+    .index("by_userId", ["userId"]),
+
+  // Strength exercise logs — manual exercise tracking (separate from AI workout plan)
+  exerciseLogs: defineTable({
+    userId: v.id("users"),
+    date: v.string(),             // YYYY-MM-DD
+    exerciseName: v.string(),
+    exerciseType: v.optional(v.string()), // "strength" | "cardio"
+    sets: v.array(v.object({
+      setNumber: v.number(),
+      reps: v.optional(v.number()),
+      weight: v.optional(v.number()),  // lbs
+      completed: v.optional(v.boolean()),
+    })),
+    caloriesBurned: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_userId_date", ["userId", "date"])
+    .index("by_userId", ["userId"]),
+
+  // Custom exercises created by user
+  customExercises: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    muscleGroups: v.optional(v.array(v.string())),
+    equipment: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"]),
+
+  // User-built workout routines
+  workoutRoutines: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    exercises: v.array(v.object({
+      exerciseId: v.optional(v.string()),
+      name: v.string(),
+      sets: v.number(),
+      reps: v.optional(v.string()),   // "8-12", "15", etc.
+      weightLbs: v.optional(v.number()),
+      restSeconds: v.optional(v.number()),
+      notes: v.optional(v.string()),
+    })),
+    estimatedDurationMinutes: v.optional(v.number()),
+    estimatedCalories: v.optional(v.number()),
+    isPublic: v.optional(v.boolean()),  // for Explore tab
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_isPublic", ["isPublic"]),
 });
 
 export default schema;

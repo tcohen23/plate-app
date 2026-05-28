@@ -17,6 +17,8 @@ import type * as barcode from "../barcode.js";
 import type * as constants from "../constants.js";
 import type * as crons from "../crons.js";
 import type * as exerciseDatabase from "../exerciseDatabase.js";
+import type * as exerciseTracking from "../exerciseTracking.js";
+import type * as exercises from "../exercises.js";
 import type * as feedback from "../feedback.js";
 import type * as foodLogs from "../foodLogs.js";
 import type * as grocery from "../grocery.js";
@@ -59,6 +61,8 @@ declare const fullApi: ApiFromModules<{
   constants: typeof constants;
   crons: typeof crons;
   exerciseDatabase: typeof exerciseDatabase;
+  exerciseTracking: typeof exerciseTracking;
+  exercises: typeof exercises;
   feedback: typeof feedback;
   foodLogs: typeof foodLogs;
   grocery: typeof grocery;

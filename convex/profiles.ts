@@ -419,6 +419,7 @@ export const updateProfile = mutation({
     dislikedFoods: v.optional(v.array(v.string())),
     toastNotifications: v.optional(v.boolean()),
     timezone: v.optional(v.string()),
+    exerciseCalorieMode: v.optional(v.string()), // "add_to_goal" | "info_only"
   },
   returns: v.null(),
   handler: async (ctx, args) => {

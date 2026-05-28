@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, Download, Crown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { hapticLight } from "@/lib/haptics";
 import { useAccessLevel } from "@/components/RequireSubscription";
+import { usePaywall } from "@/components/PaywallModal";
 import { getLocalDateString } from "@/lib/dateUtils";
 
 type Tab = "Calories" | "Nutrients" | "Macros";
@@ -123,29 +124,29 @@ function NutrientRow({
 
 function PremiumLockedCard({
   label,
-  navigate,
+  onUpgrade,
 }: {
   label: string;
-  navigate: (p: string) => void;
+  onUpgrade: () => void;
 }) {
   return (
     <div
       className="rounded-xl px-4 py-3 flex items-center justify-between mb-3"
       style={{
-        background: "rgba(229,180,84,0.08)",
-        border: "1px solid rgba(229,180,84,0.2)",
+        background: "rgba(82,183,136,0.08)",
+        border: "1px solid rgba(82,183,136,0.2)",
       }}
     >
       <div className="flex items-center gap-2">
-        <Crown className="w-4 h-4" style={{ color: "#E5B454" }} />
+        <Crown className="w-4 h-4" style={{ color: "#52B788" }} />
         <span className="text-sm">{label}</span>
       </div>
       <button
-        onClick={() => navigate("/onboarding/upgrade")}
+        onClick={onUpgrade}
         className="text-xs font-bold px-3 py-1 rounded-full"
-        style={{ background: "#E5B454", color: "#000" }}
+        style={{ background: "#52B788", color: "#0a1a0a" }}
       >
-        Upgrade
+        Unlock
       </button>
     </div>
   );
@@ -161,8 +162,8 @@ export function NutritionPage() {
   // dayOffset: 0 = today, -1 = yesterday, etc.
   const [dayOffset, setDayOffset] = useState(0);
 
-  const { isPremium: _isPremium } = useAccessLevel();
-  void _isPremium;
+  const { isPremium } = useAccessLevel();
+  const { paywallNode, openPaywall } = usePaywall("general");
   const profile = useQuery(api.profiles.getProfile);
 
   const today = getLocalDateString();
@@ -472,10 +473,10 @@ export function NutritionPage() {
             </div>
           </div>
 
-          <PremiumLockedCard
+          {!isPremium && <PremiumLockedCard
             label="Foods Highest In Calories"
-            navigate={navigate}
-          />
+            onUpgrade={openPaywall}
+          />}
         </div>
       )}
 
@@ -594,11 +595,12 @@ export function NutritionPage() {
               "Foods Highest In Fat",
               "Foods Highest In Protein",
             ].map((l) => (
-              <PremiumLockedCard key={l} label={l} navigate={navigate} />
+              isPremium ? null : <PremiumLockedCard key={l} label={l} onUpgrade={openPaywall} />
             ))}
           </div>
         </div>
       )}
+      {paywallNode}
     </div>
   );
 }
