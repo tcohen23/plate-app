@@ -90,11 +90,7 @@ export function FastingPage() {
           <ChevronLeft className="w-5 h-5" />
         </button>
         <h1 className="text-base font-semibold">Intermittent Fasting</h1>
-        {!isPremium ? (
-          <button onClick={() => navigate("/onboarding/upgrade")} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: "#E5B454", color: "#000" }}>
-            <Crown className="w-3 h-3" /> Pro
-          </button>
-        ) : <div className="w-9" />}
+        <div className="w-9" />
       </div>
 
       {/* Protocol selector */}
@@ -214,6 +210,7 @@ export function FastingPage() {
           ))}
         </div>
       </div>
+      {paywallNode}
     </div>
   );
 }
