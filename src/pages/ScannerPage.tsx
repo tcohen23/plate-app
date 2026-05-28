@@ -21,6 +21,7 @@ import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { trackBarcodeScanned, trackFoodLogged } from "@/lib/posthog";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { usePaywall } from "@/components/PaywallModal";
+import { useAccessLevel } from "@/components/RequireSubscription";
 import { calculateHealthScore } from "@/lib/healthScore";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
@@ -170,8 +171,9 @@ export function ScannerPage() {
   const initialMode = (searchParams.get("mode") as ScanMode) || "food";
   const [mode, setMode] = useState<ScanMode>(initialMode);
 
-  const { paywallNode: barcodePaywall } = usePaywall("barcode");
-  const { paywallNode: mealScanPaywall } = usePaywall("meal_scan");
+  const { isPremium } = useAccessLevel();
+  const { paywallNode: barcodePaywall, openPaywall: openBarcodePaywall } = usePaywall("barcode");
+  const { paywallNode: mealScanPaywall, openPaywall: openMealScanPaywall } = usePaywall("meal_scan");
 
   // Camera
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -503,7 +505,13 @@ export function ScannerPage() {
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
-  // Paywall is triggered only when user attempts to scan, not on entry
+  // Trigger paywall on entry for non-premium users
+  useEffect(() => {
+    if (isPremium === false) {
+      if (mode === "barcode") openBarcodePaywall();
+      else openMealScanPaywall();
+    }
+  }, [isPremium]);
 
   // Start camera on mount
   useEffect(() => {
