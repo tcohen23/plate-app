@@ -1329,6 +1329,48 @@ function ReferAndShareSection({ onOpenShareBadge }: { onOpenShareBadge: () => vo
 
   return (
     <div className="space-y-3">
+      {/* Keyframe animations injected once */}
+      <style>{`
+        @keyframes refer-orb-spin {
+          0%   { transform: translate(30%, -30%) rotate(0deg) scale(1); }
+          50%  { transform: translate(25%, -35%) rotate(180deg) scale(1.15); }
+          100% { transform: translate(30%, -30%) rotate(360deg) scale(1); }
+        }
+        @keyframes refer-orb2-spin {
+          0%   { transform: translate(-20%, 20%) rotate(0deg) scale(1); }
+          50%  { transform: translate(-25%, 25%) rotate(-180deg) scale(1.2); }
+          100% { transform: translate(-20%, 20%) rotate(-360deg) scale(1); }
+        }
+        @keyframes refer-border-pulse {
+          0%, 100% { box-shadow: 0 4px 32px rgba(82,183,136,0.12), 0 0 0 1px rgba(82,183,136,0.3); }
+          50%       { box-shadow: 0 8px 48px rgba(82,183,136,0.28), 0 0 0 1px rgba(82,183,136,0.55); }
+        }
+        @keyframes refer-icon-float {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-4px); }
+        }
+        @keyframes refer-shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes refer-btn-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(82,183,136,0); }
+          50%       { box-shadow: 0 0 20px 4px rgba(82,183,136,0.35); }
+        }
+        @keyframes refer-particles {
+          0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.6; }
+          100% { transform: translateY(-60px) translateX(10px) scale(0); opacity: 0; }
+        }
+        @keyframes refer-particles2 {
+          0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.4; }
+          100% { transform: translateY(-50px) translateX(-12px) scale(0); opacity: 0; }
+        }
+        @keyframes refer-particles3 {
+          0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.5; }
+          100% { transform: translateY(-70px) translateX(5px) scale(0); opacity: 0; }
+        }
+      `}</style>
+
       <SectionLabel label="Refer a Friend" />
 
       {/* Main refer card */}
@@ -1337,31 +1379,36 @@ function ReferAndShareSection({ onOpenShareBadge }: { onOpenShareBadge: () => vo
         style={{
           background: "linear-gradient(135deg, #0a1a12 0%, #0f2318 60%, #091510 100%)",
           border: "1px solid rgba(82,183,136,0.3)",
-          boxShadow: "0 4px 32px rgba(82,183,136,0.1)",
+          animation: "refer-border-pulse 3s ease-in-out infinite",
         }}
       >
-        {/* Glow orbs */}
+        {/* Animated glow orb 1 */}
         <div
           className="absolute top-0 right-0 w-40 h-40 pointer-events-none"
           style={{
-            background: "radial-gradient(circle, rgba(82,183,136,0.2) 0%, transparent 70%)",
-            transform: "translate(30%, -30%)",
+            background: "radial-gradient(circle, rgba(82,183,136,0.22) 0%, transparent 70%)",
+            animation: "refer-orb-spin 8s linear infinite",
           }}
         />
+        {/* Animated glow orb 2 */}
         <div
           className="absolute bottom-0 left-0 w-32 h-32 pointer-events-none"
           style={{
-            background: "radial-gradient(circle, rgba(82,183,136,0.08) 0%, transparent 70%)",
-            transform: "translate(-20%, 20%)",
+            background: "radial-gradient(circle, rgba(82,183,136,0.1) 0%, transparent 70%)",
+            animation: "refer-orb2-spin 10s linear infinite",
           }}
         />
+        {/* Floating particles */}
+        <div className="absolute bottom-10 right-8 w-1.5 h-1.5 rounded-full pointer-events-none" style={{ background: "#52B788", animation: "refer-particles 3s ease-out infinite" }} />
+        <div className="absolute bottom-12 right-16 w-1 h-1 rounded-full pointer-events-none" style={{ background: "#52B788", animation: "refer-particles2 3.5s ease-out infinite 0.8s" }} />
+        <div className="absolute bottom-8 right-12 w-1 h-1 rounded-full pointer-events-none" style={{ background: "#52B788", animation: "refer-particles3 4s ease-out infinite 1.6s" }} />
 
         <div className="relative p-5 space-y-4">
           {/* Header */}
           <div className="flex items-start gap-3">
             <div
               className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl"
-              style={{ background: "rgba(82,183,136,0.2)" }}
+              style={{ background: "rgba(82,183,136,0.2)", animation: "refer-icon-float 2.5s ease-in-out infinite" }}
             >
               🎁
             </div>
@@ -1398,8 +1445,13 @@ function ReferAndShareSection({ onOpenShareBadge }: { onOpenShareBadge: () => vo
           {/* Primary share button */}
           <button
             onClick={handleNativeShare}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
-            style={{ background: "#52B788", color: "#0a1a0a" }}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] relative overflow-hidden"
+            style={{
+              background: "linear-gradient(90deg, #52B788, #3d9e6e, #52B788)",
+              backgroundSize: "200% auto",
+              animation: "refer-shimmer 2.5s linear infinite, refer-btn-glow 2.5s ease-in-out infinite",
+              color: "#0a1a0a",
+            }}
           >
             <Share2 className="w-4 h-4" />
             Share Plate
