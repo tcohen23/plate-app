@@ -7,10 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Camera, Plus, X, Trash2, Edit3, AlertCircle, CheckCircle2, Info, ChevronLeft, Mic, MicOff, Loader2 } from "lucide-react";
-import { trackFoodLogged, trackBarcodeScanned, trackGateHit } from "@/lib/posthog";
-import { usePaywall } from "@/components/PaywallModal";
-import { useAccessLevel } from "@/components/RequireSubscription";
+import { Search, Camera, Plus, X, Trash2, Edit3, AlertCircle, CheckCircle2, Info, ChevronLeft, ChevronDown, Mic, MicOff, Loader2 } from "lucide-react";
+import { trackFoodLogged, trackBarcodeScanned } from "@/lib/posthog";
+
+
 import { calculateHealthScore } from "@/lib/healthScore";
 import { searchFoodDatabase } from "@/lib/foodDatabase";
 import type { FoodItem } from "@/lib/foodDatabase";
@@ -32,10 +32,8 @@ export function FoodTrackerPage() {
   const quickAdd = useMutation(api.foodLogs.quickAddCalories);
   const analyzeFoodImage = useAction(api.viktorTools.analyzeFoodImage);
   const parseFoodVoiceLog = useAction(api.viktorTools.parseFoodVoiceLog);
-  const { isPremium } = useAccessLevel();
-  const { paywallNode: barcodePaywall, openPaywall: openBarcodePaywall } = usePaywall("barcode");
-  const { paywallNode: mealScanPaywall, openPaywall: openMealScanPaywall } = usePaywall("meal_scan");
-  const { paywallNode: voicePaywall, openPaywall: openVoicePaywall } = usePaywall("voice_log");
+
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Meal scan state
@@ -117,7 +115,11 @@ export function FoodTrackerPage() {
 
   const [view, setView] = useState<ViewMode>("log");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSlot, setSelectedSlot] = useState("breakfast");
+  const initialMeal = searchParams.get("meal") || "breakfast";
+  const [selectedSlot, setSelectedSlot] = useState(
+    ["breakfast","lunch","dinner","snack"].includes(initialMeal) ? initialMeal : "breakfast"
+  );
+  const [showMealPicker, setShowMealPicker] = useState(false);
   const [trackTab, setTrackTab] = useState<TrackTab>("History");
   const [showCameraDropdown, setShowCameraDropdown] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
@@ -160,12 +162,10 @@ export function FoodTrackerPage() {
     const voice = searchParams.get("voice");
     if (mode === "scanner" || mode === "1") {
       setSearchParams({}, { replace: true });
-      if (!isPremium) { trackGateHit("barcode"); setTimeout(() => openBarcodePaywall(), 300); }
-      else { setTimeout(() => { setView("scanner"); startScanner(); }, 300); }
+      setTimeout(() => { setView("scanner"); startScanner(); }, 300);
     } else if (mealscan === "1") {
       setSearchParams({}, { replace: true });
-      if (!isPremium) { trackGateHit("meal_scan"); setTimeout(() => openMealScanPaywall(), 300); }
-      else { setTimeout(() => { mealScanInputRef.current?.click(); }, 400); }
+      setTimeout(() => { mealScanInputRef.current?.click(); }, 400);
     } else if (mealscan === "image") {
       // Image captured via QuickActionSheet, stored in sessionStorage
       setSearchParams({}, { replace: true });
@@ -188,8 +188,7 @@ export function FoodTrackerPage() {
       }
     } else if (voice === "1") {
       setSearchParams({}, { replace: true });
-      if (!isPremium) { trackGateHit("voice_log"); setTimeout(() => openVoicePaywall(), 300); }
-      else { setShowVoiceResults(true); } // show modal so user can tap to start (iOS requires user gesture)
+      setShowVoiceResults(true); // show modal so user can tap to start (iOS requires user gesture)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -478,18 +477,58 @@ export function FoodTrackerPage() {
     <div className="pb-28 max-w-lg mx-auto animate-page-enter">
       {/* ── MFP Header: Select a Meal ▼ ── */}
       <div className="sticky top-0 z-20 px-4 pt-3 pb-0" style={{ background: "var(--background)" }}>
-        {/* Meal selector */}
-        <div className="flex items-center justify-between mb-2">
-          <select
-            value={selectedSlot}
-            onChange={e => { hapticLight(); setSelectedSlot(e.target.value); }}
-            className="text-xl font-bold bg-transparent border-none outline-none appearance-none pr-6 cursor-pointer"
-            style={{ color: "var(--foreground)" }}
+        {/* Meal selector — MFP-style styled dropdown */}
+        <div className="flex items-center justify-between mb-2 relative">
+          <button
+            onClick={() => { hapticLight(); setShowMealPicker(p => !p); }}
+            className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
           >
-            {["breakfast", "lunch", "dinner", "snack"].map(s => (
-              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-            ))}
-          </select>
+            <span className="text-xl font-bold" style={{ color: "var(--foreground)" }}>
+              {{ breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snacks" }[selectedSlot] ?? "Select a Meal"}
+            </span>
+            <ChevronDown className="w-5 h-5 mt-0.5" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+          </button>
+
+          {/* Meal picker popup */}
+          {showMealPicker && (
+            <>
+              <div className="fixed inset-0 z-[50]" onClick={() => setShowMealPicker(false)} />
+              <div
+                className="absolute left-0 top-full mt-2 z-[51] rounded-2xl overflow-hidden"
+                style={{
+                  background: "#1c1e26",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  minWidth: 200,
+                }}
+              >
+                {[
+                  { value: "breakfast", label: "Breakfast" },
+                  { value: "lunch",     label: "Lunch"     },
+                  { value: "dinner",    label: "Dinner"    },
+                  { value: "snack",     label: "Snacks"    },
+                ].map((m, idx, arr) => (
+                  <button
+                    key={m.value}
+                    onClick={() => {
+                      hapticLight();
+                      setSelectedSlot(m.value);
+                      setShowMealPicker(false);
+                    }}
+                    className="w-full text-left px-5 py-4 transition-colors active:bg-white/10"
+                    style={{
+                      color: selectedSlot === m.value ? "#52B788" : "rgba(255,255,255,0.88)",
+                      fontWeight: selectedSlot === m.value ? 600 : 400,
+                      fontSize: 16,
+                      borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* MFP-style search bar */}
@@ -509,7 +548,7 @@ export function FoodTrackerPage() {
           </div>
           {/* Mic */}
           <button
-            onClick={() => { hapticLight(); if (!isPremium) { trackGateHit("voice_log"); openVoicePaywall(); return; } setShowVoiceResults(true); }}
+            onClick={() => { hapticLight(); setShowVoiceResults(true); }}
             className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
           >
@@ -531,13 +570,13 @@ export function FoodTrackerPage() {
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left border-b transition-opacity active:opacity-60"
               style={{ borderColor: "var(--border)" }}
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { trackGateHit("barcode"); openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); setView("scanner"); startScanner(); }}
             >
               <span className="mr-3">📦</span> Barcode Scan
             </button>
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left transition-opacity active:opacity-60"
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { trackGateHit("meal_scan"); openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); mealScanInputRef.current?.click(); }}
             >
               <span className="mr-3">🍽️</span> Meal Scan
             </button>
@@ -574,11 +613,6 @@ export function FoodTrackerPage() {
         onChange={handleMealScanFile}
         className="hidden"
       />
-
-      {/* Paywall nodes */}
-      {barcodePaywall}
-      {mealScanPaywall}
-      {voicePaywall}
 
       {/* Quick add / custom food toggle buttons */}
       <div className="flex gap-2 mb-3">
@@ -1385,30 +1419,103 @@ export function FoodTrackerPage() {
             </>
           )}
 
-          {/* My Meals empty state */}
+          {/* ── My Meals tab ── */}
           {trackTab === "My Meals" && (
-            <div className="flex flex-col items-center py-16 px-4 text-center">
-              <span className="text-5xl mb-4">🍽️</span>
-              <div className="text-base font-semibold mb-2">No saved meals yet</div>
-              <div className="text-sm text-muted-foreground mb-4">Save a meal from your food log to see it here</div>
+            <div className="pt-2">
+              {/* Action buttons */}
+              <div className="flex gap-3 mb-8">
+                <button
+                  onClick={() => { hapticLight(); toast("Coming soon — create meal"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "#52B788", color: "#0d1f13" }}
+                >
+                  Create meal
+                </button>
+                <button
+                  onClick={() => { hapticLight(); toast("Coming soon — copy previous meal"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "var(--surface-card)", color: "rgba(255,255,255,0.85)", border: "1px solid var(--border)" }}
+                >
+                  Copy previous meal
+                </button>
+              </div>
+              {/* Empty state */}
+              <div className="flex flex-col items-center py-10 px-6 text-center">
+                <div className="text-7xl mb-5 select-none" style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.25))" }}>🍣</div>
+                <div className="text-lg font-bold mb-2">Log Your Go-To Meals Faster.</div>
+                <div className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                  Create and save your favorite meals to log quickly again and again.
+                </div>
+              </div>
             </div>
           )}
 
-          {/* My Recipes empty state */}
+          {/* ── My Recipes tab ── */}
           {trackTab === "My Recipes" && (
-            <div className="flex flex-col items-center py-16 px-4 text-center">
-              <span className="text-5xl mb-4">📖</span>
-              <div className="text-base font-semibold mb-2">No recipes yet</div>
-              <div className="text-sm text-muted-foreground mb-4">Create custom recipes and log them easily</div>
+            <div className="pt-2">
+              {/* Action buttons */}
+              <div className="flex gap-2 mb-8">
+                <button
+                  onClick={() => { hapticLight(); toast("Coming soon — create recipe"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "#52B788", color: "#0d1f13" }}
+                >
+                  Create recipe
+                </button>
+                <button
+                  onClick={() => { hapticLight(); toast("Coming soon — discover recipes"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "var(--surface-card)", color: "rgba(255,255,255,0.85)", border: "1px solid var(--border)" }}
+                >
+                  Discover
+                </button>
+                <button
+                  onClick={() => { hapticLight(); toast("Coming soon — import recipe"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "var(--surface-card)", color: "rgba(255,255,255,0.85)", border: "1px solid var(--border)" }}
+                >
+                  Import
+                </button>
+              </div>
+              {/* Empty state */}
+              <div className="flex flex-col items-center py-10 px-6 text-center">
+                <div className="text-7xl mb-5 select-none" style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.25))" }}>🍞</div>
+                <div className="text-lg font-bold mb-2">Mom's Meatloaf Isn't In The Database (Yet).</div>
+                <div className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                  Add your favorite recipes for fast-and-easy logging every time.
+                </div>
+              </div>
             </div>
           )}
 
-          {/* My Foods empty state */}
+          {/* ── My Foods tab ── */}
           {trackTab === "My Foods" && (
-            <div className="flex flex-col items-center py-16 px-4 text-center">
-              <span className="text-5xl mb-4">🥑</span>
-              <div className="text-base font-semibold mb-2">No custom foods yet</div>
-              <div className="text-sm text-muted-foreground mb-4">Add a custom food to see it here</div>
+            <div className="pt-2">
+              {/* Action buttons */}
+              <div className="flex gap-3 mb-8">
+                <button
+                  onClick={() => { hapticLight(); toast("Coming soon — create a food"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "#52B788", color: "#0d1f13" }}
+                >
+                  Create a food
+                </button>
+                <button
+                  onClick={() => { hapticLight(); setView("quick"); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97]"
+                  style={{ background: "var(--surface-card)", color: "rgba(255,255,255,0.85)", border: "1px solid var(--border)" }}
+                >
+                  Quick add
+                </button>
+              </div>
+              {/* Empty state */}
+              <div className="flex flex-col items-center py-10 px-6 text-center">
+                <div className="text-7xl mb-5 select-none" style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.25))" }}>🌮</div>
+                <div className="text-lg font-bold mb-2">When 14 Million Foods Isn't Enough</div>
+                <div className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                  Can't find what you're looking for? Create a custom food and it'll always be here when you need it.
+                </div>
+              </div>
             </div>
           )}
         </div>

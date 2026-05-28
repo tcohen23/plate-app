@@ -3,9 +3,9 @@
  */
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { ChevronLeft, Crown, Clock, Play, Square, CheckCircle } from "lucide-react";
+import { ChevronLeft, Clock, Play, Square, CheckCircle } from "lucide-react";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
-import { useAccessLevel } from "@/components/RequireSubscription";
+import { usePaywall } from "@/components/PaywallModal";
 import { toast } from "sonner";
 
 const FASTING_PROTOCOLS = [
@@ -26,7 +26,7 @@ function formatDuration(ms: number) {
 
 export function FastingPage() {
   const navigate = useNavigate();
-  const { isPremium } = useAccessLevel();
+  const { paywallNode, openPaywall } = usePaywall("general");
   const [activeProtocol, setActiveProtocol] = useState("16:8");
   const [isFasting, setIsFasting] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -58,11 +58,7 @@ export function FastingPage() {
   const pct = Math.min(elapsed / targetMs, 1);
 
   const handleStart = () => {
-    if (!isPremium) {
-      toast("Upgrade to Premium to track fasting ⏱️");
-      navigate("/onboarding/upgrade");
-      return;
-    }
+    openPaywall();
     hapticMedium();
     const start = Date.now();
     setStartTime(start);

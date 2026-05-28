@@ -5,13 +5,13 @@
  * Desktop (≥ 1024px): fixed sidebar nav + full-width content area
  */
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useConvex } from "convex/react";
+import { useQuery, useConvex } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import {
   Activity, CalendarDays, TrendingUp, MoreHorizontal, Plus,
   ShoppingCart, UtensilsCrossed, Settings, Dumbbell, Lightbulb,
-  HelpCircle, Crown, Droplets,
+  HelpCircle, Crown,
 } from "lucide-react";
 
 import { parseAvatarChoice } from "@/pages/SettingsPage";
@@ -19,7 +19,7 @@ import { identifyUser, setUserProperties, setConvexClientForAnalytics } from "..
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { RefreshCw } from "lucide-react";
 import { useAccessLevel } from "@/components/RequireSubscription";
-import { toast } from "sonner";
+import { QuickActionsSheet } from "@/components/QuickActionsSheet";
 
 /* ─── Nav definitions ─── */
 const BOTTOM_TABS = [
@@ -43,119 +43,7 @@ const SIDEBAR_NAV = [
 ];
 
 
-function QuickActionSheet({ onClose, navigate, isPremium: _isPremium }: { onClose: () => void; navigate: (path: string) => void; isPremium: boolean }) {
-  const [waterLogging, setWaterLogging] = useState(false);
-  const logHydration = useMutation(api.progress.logHydration);
-  const todaysHydration = useQuery(api.progress.getTodaysHydration, {});
-  const currentGlasses = todaysHydration?.glasses ?? 0;
-  const hydrationTarget = todaysHydration?.target ?? 8;
 
-  const handleAddGlass = async () => {
-    if (waterLogging || currentGlasses >= hydrationTarget) return;
-    hapticLight();
-    setWaterLogging(true);
-    try {
-      await logHydration({ glasses: currentGlasses + 1 });
-      hapticMedium();
-      toast.success("Glass logged 💧");
-    } catch {
-      toast.error("Failed to log water");
-    } finally {
-      setWaterLogging(false);
-    }
-  };
-
-  return (
-    <div className="px-5 pb-8 pt-2">
-      {/* ── Hydration ── */}
-      <div className="mb-4 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Droplets className="w-4 h-4" style={{ color: "#52B788" }} />
-            <span className="text-sm font-semibold text-white">Hydration</span>
-          </div>
-          <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>
-            {currentGlasses} / {hydrationTarget} glasses
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-          {Array.from({ length: hydrationTarget }).map((_, i) => (
-            <div
-              key={i}
-              className="w-5 h-5 rounded-full transition-all"
-              style={{ background: i < currentGlasses ? "#52B788" : "rgba(255,255,255,0.1)" }}
-            />
-          ))}
-        </div>
-        <button
-          onClick={handleAddGlass}
-          disabled={waterLogging || currentGlasses >= hydrationTarget}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
-          style={{ background: "rgba(82,183,136,0.15)", color: "#52B788", border: "1px solid rgba(82,183,136,0.25)" }}
-        >
-          + Add a glass
-        </button>
-      </div>
-
-      {/* ── Log Food + Grocery List ── */}
-      <div className="flex gap-3 mb-3">
-        <button
-          onClick={() => { hapticMedium(); onClose(); navigate("/track"); }}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
-          style={{ background: "#52B788", color: "#0d1f13" }}
-        >
-          <Plus className="w-4 h-4" strokeWidth={2.5} />
-          Log Food
-        </button>
-        <button
-          onClick={() => { hapticLight(); onClose(); navigate("/grocery"); }}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
-          style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.1)" }}
-        >
-          <ShoppingCart className="w-4 h-4" />
-          Grocery List
-        </button>
-      </div>
-
-      {/* ── Share an idea ── */}
-      <button
-        onClick={() => { hapticLight(); onClose(); navigate("/feedback"); }}
-        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-[0.97]"
-        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
-      >
-        <Lightbulb className="w-5 h-5 flex-shrink-0" style={{ color: "#E5B454" }} />
-        <div className="flex-1 text-left">
-          <div className="text-sm font-semibold text-white">Share an idea</div>
-          <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>What should we build next?</div>
-        </div>
-      </button>
-    </div>
-  );
-}
-
-
-
-/* ─── Bottom sheet ─── */
-function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
-  if (!open) return null;
-  return (
-    <>
-      <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl lg:hidden" style={{ background: "#111", maxWidth: 480, margin: "0 auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.6)" }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
-        </div>
-        {children}
-      </div>
-      {/* Desktop modal for quick actions */}
-      <div className="hidden lg:flex fixed inset-0 z-50 items-center justify-center" onClick={onClose}>
-        <div className="rounded-3xl w-full max-w-sm" style={{ background: "#111", boxShadow: "0 24px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
-          {children}
-        </div>
-      </div>
-    </>
-  );
-}
 
 /* ─── Avatar display helper ─── */
 function AvatarDisplay({ profilePictureUrl, profile, initial }: { profilePictureUrl: string | null | undefined; profile: any; initial: string }) {
@@ -299,6 +187,8 @@ export function MobileLayout() {
   // Wire Convex client into analytics so posthog.ts can fire server-side events
   useEffect(() => { setConvexClientForAnalytics(convex); }, [convex]);
 
+  const [showQuickActions, setShowQuickActions] = useState(false);
+
 
 
   // Identify user in PostHog
@@ -360,7 +250,7 @@ export function MobileLayout() {
         hasWorkout={!!hasWorkout}
         navigate={navigate}
         location={location}
-        onQuickAction={() => { hapticMedium(); navigate("/track"); }}
+        onQuickAction={() => { hapticMedium(); setShowQuickActions(true); }}
       />
 
       {/* ── Right side: header + content ── */}
@@ -415,12 +305,12 @@ export function MobileLayout() {
               );
             })}
 
-            {/* Center "+" — navigate directly to Food Log (MFP-style) */}
+            {/* Center "+" — opens Quick Actions menu */}
             <button
-              onClick={() => { hapticMedium(); navigate("/track"); }}
+              onClick={() => { hapticMedium(); setShowQuickActions(true); }}
               className="flex items-center justify-center rounded-full transition-all active:scale-[0.94] shadow-lg"
               style={{ width: 52, height: 52, background: "#52B788", boxShadow: "0 4px 16px rgba(82,183,136,0.4)", marginBottom: 8 }}
-              aria-label="Log food"
+              aria-label="Quick actions"
             >
               <Plus className="w-6 h-6" style={{ color: "#0d1f13", strokeWidth: 2.5 }} />
             </button>
@@ -438,6 +328,9 @@ export function MobileLayout() {
           </div>
         </nav>
       </div>
+
+      {/* Quick Actions Sheet — opened by center "+" button */}
+      <QuickActionsSheet open={showQuickActions} onClose={() => setShowQuickActions(false)} />
 
     </div>
   );
