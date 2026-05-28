@@ -534,6 +534,26 @@ function HabitRow({ icon, label, subtitle, onClick }: { icon: React.ReactNode; l
   );
 }
 
+/* ─── Premium upsell banner ─── */
+function PremiumUpsellBanner({ navigate }: { navigate: (p: string) => void }) {
+  return (
+    <button
+      onClick={() => navigate("/settings?tab=premium")}
+      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98]"
+      style={{ background: "linear-gradient(135deg, rgba(82,183,136,0.15), rgba(27,67,50,0.3))", border: "1px solid rgba(82,183,136,0.25)" }}
+    >
+      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(82,183,136,0.2)" }}>
+        <span className="text-base">👑</span>
+      </div>
+      <div className="flex-1 text-left">
+        <div className="text-sm font-bold" style={{ color: "#52B788" }}>Upgrade to Premium</div>
+        <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Unlock macros, meal planning, GLP-1 tracker &amp; more</div>
+      </div>
+      <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "#52B788", color: "#0d1f13" }}>Try free</span>
+    </button>
+  );
+}
+
 /* ═══════════════════════════════════════════════════
    MAIN DASHBOARD
    ═══════════════════════════════════════════════════ */

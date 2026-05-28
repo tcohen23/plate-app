@@ -20,7 +20,6 @@ import { ArrowLeft, Zap, ZapOff, Loader2 } from "lucide-react";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { trackBarcodeScanned, trackFoodLogged } from "@/lib/posthog";
 import { getLocalDateString } from "@/lib/dateUtils";
-import { useAccessLevel } from "@/components/RequireSubscription";
 import { usePaywall } from "@/components/PaywallModal";
 import { calculateHealthScore } from "@/lib/healthScore";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
