@@ -69,6 +69,18 @@ export function ProgressPage() {
   }, []);
   const weekRangeSummaries = useQuery(api.foodLogs.getDateRangeSummaries, { startDate: sevenDaysAgo, endDate: localDate });
 
+  // Build real 7-day calorie array — must be above early returns (Rules of Hooks)
+  const weekCals = useMemo(() => {
+    const result: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      result.push((weekRangeSummaries as any)?.[dateStr]?.calories || 0);
+    }
+    return result;
+  }, [weekRangeSummaries]);
+
   const handleLogWeight = async () => {
     if (!newWeight) { toast.error("Enter your weight"); return; }
     try {
@@ -100,17 +112,6 @@ export function ProgressPage() {
   const goalWeight = (profile as any).goalWeight ?? 0;
   const calGoal = profile.targetCalories || 2000;
   const todayCals = summary?.totals?.calories || 0;
-  // Build real 7-day calorie array
-  const weekCals = useMemo(() => {
-    const result: number[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      result.push((weekRangeSummaries as any)?.[dateStr]?.calories || 0);
-    }
-    return result;
-  }, [weekRangeSummaries]);
   const proteinGoal = profile.targetProtein || 150;
   const carbsGoal = profile.targetCarbs || 200;
   const fatGoal = profile.targetFat || 60;
