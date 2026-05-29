@@ -355,6 +355,15 @@ export function FoodTrackerPage() {
         fat: item.fat || 0,
         mealSlot: item.mealSlot || "snack",
         localDate,
+        fiber: item.fiber || undefined,
+        sugar: item.sugar || undefined,
+        saturatedFat: item.saturatedFat || undefined,
+        polyunsaturatedFat: item.polyunsaturatedFat || undefined,
+        monounsaturatedFat: item.monounsaturatedFat || undefined,
+        transFat: item.transFat || undefined,
+        cholesterol: item.cholesterol || undefined,
+        sodium: item.sodium || undefined,
+        potassium: item.potassium || undefined,
       });
       toast.success(`${item.name} logged ✓`);
       return true;

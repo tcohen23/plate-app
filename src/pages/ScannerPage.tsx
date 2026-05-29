@@ -449,6 +449,11 @@ export function ScannerPage() {
             polyunsaturatedFat: item.polyunsaturatedFat || undefined,
             monounsaturatedFat: item.monounsaturatedFat || undefined,
             transFat: item.transFat || undefined,
+            fiber: item.fiber || undefined,
+            sugar: item.sugar || undefined,
+            cholesterol: item.cholesterol || undefined,
+            sodium: item.sodium || undefined,
+            potassium: item.potassium || undefined,
             servingSize: item.servingSize || "",
             localDate,
           })

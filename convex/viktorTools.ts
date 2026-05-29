@@ -324,13 +324,22 @@ Rules:
           fromDatabase: true,
         };
       }
-      // Fallback: use AI-estimated macros for foods not in DB
+      // Fallback: use AI-estimated macros + micronutrients for foods not in DB
       return {
         name: item.name,
         calories: item.calories || 0,
         protein: item.protein || 0,
         carbs: item.carbs || 0,
         fat: item.fat || 0,
+        saturatedFat: item.saturatedFat || undefined,
+        polyunsaturatedFat: item.polyunsaturatedFat || undefined,
+        monounsaturatedFat: item.monounsaturatedFat || undefined,
+        transFat: item.transFat || undefined,
+        fiber: item.fiber || undefined,
+        sugar: item.sugar || undefined,
+        sodium: item.sodium || undefined,
+        cholesterol: item.cholesterol || undefined,
+        potassium: item.potassium || undefined,
         mealSlot: item.mealSlot || "snack",
         fromDatabase: false,
       };
@@ -353,31 +362,41 @@ Extract:
 - protein in grams (number)
 - carbs in grams (number, use "Total Carbohydrate")
 - fat in grams (number, use "Total Fat")
+- fiber in grams (number, use "Dietary Fiber" if present, else omit)
+- sugar in grams (number, use "Total Sugars" if present, else omit)
 - saturatedFat in grams (number, use "Saturated Fat" if present, else omit)
 - polyunsaturatedFat in grams (number, use "Polyunsaturated Fat" if present, else omit)
 - monounsaturatedFat in grams (number, use "Monounsaturated Fat" if present, else omit)
 - transFat in grams (number, use "Trans Fat" if present, else omit)
+- cholesterol in mg (number, use "Cholesterol" if present, else omit)
+- sodium in mg (number, use "Sodium" if present, else omit)
+- potassium in mg (number, use "Potassium" if present, else omit)
 - servingSize: serving size text from label (e.g. "1 cup (240ml)")
 - mealSlot: "snack"
 
 Return ONLY a valid JSON array (no markdown):
-[{"name":"Oat Milk","calories":120,"protein":3,"carbs":16,"fat":5,"saturatedFat":0.5,"polyunsaturatedFat":1.2,"monounsaturatedFat":1.8,"transFat":0,"servingSize":"1 cup (240ml)","mealSlot":"snack"}]
+[{"name":"Oat Milk","calories":120,"protein":3,"carbs":16,"fat":5,"fiber":2,"sugar":7,"saturatedFat":0.5,"polyunsaturatedFat":1.2,"monounsaturatedFat":1.8,"transFat":0,"cholesterol":0,"sodium":100,"potassium":150,"servingSize":"1 cup (240ml)","mealSlot":"snack"}]
 
-If you cannot read the label clearly, return [].`
+Only include fields that are visible on the label. If you cannot read the label clearly, return [].`
       : `Analyze this food photo. Identify every visible food item. For each, estimate:
 - name
 - calories (integer)
 - protein in grams (number)
 - carbs in grams (number)
 - fat in grams (number)
+- fiber in grams (number, estimate based on food type)
+- sugar in grams (number, estimate based on food type)
 - saturatedFat in grams (number, estimate based on food type — e.g. butter/red meat high, chicken/fish low)
 - polyunsaturatedFat in grams (number, estimate)
 - monounsaturatedFat in grams (number, estimate)
 - transFat in grams (number, estimate — typically 0 unless fried/processed food)
+- cholesterol in mg (number, estimate — e.g. eggs ~185mg, chicken ~75mg, vegetables 0mg)
+- sodium in mg (number, estimate — e.g. salted foods higher, fresh fruits/vegetables lower)
+- potassium in mg (number, estimate based on food type)
 - mealSlot: breakfast, lunch, dinner, or snack
 
 Return ONLY a valid JSON array (no markdown):
-[{"name":"Grilled Chicken","calories":280,"protein":40,"carbs":0,"fat":8,"saturatedFat":2,"polyunsaturatedFat":1.5,"monounsaturatedFat":3,"transFat":0,"mealSlot":"lunch"}]
+[{"name":"Grilled Chicken","calories":280,"protein":40,"carbs":0,"fat":8,"fiber":0,"sugar":0,"saturatedFat":2,"polyunsaturatedFat":1.5,"monounsaturatedFat":3,"transFat":0,"cholesterol":95,"sodium":75,"potassium":440,"mealSlot":"lunch"}]
 
 If no food visible, return [].`;
 
