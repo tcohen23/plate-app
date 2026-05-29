@@ -523,11 +523,16 @@ export const logHydration = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, { glasses: args.glasses });
     } else {
+      // Pull the user's personalized hydration target from their profile
+      const profile = await ctx.db.query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique();
+      const target = profile?.hydrationTarget ?? 8;
       await ctx.db.insert("hydrationLogs", {
         userId,
         date: today,
         glasses: args.glasses,
-        target: 8,
+        target,
       });
     }
     return null;
@@ -541,9 +546,15 @@ export const getTodaysHydration = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const today = args.localDate || new Date().toISOString().split("T")[0];
-    return await ctx.db.query("hydrationLogs")
+    const log = await ctx.db.query("hydrationLogs")
       .withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", today))
       .unique();
+    if (log) return log;
+    // No log yet today — return profile target so the UI shows the correct goal
+    const profile = await ctx.db.query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    return { glasses: 0, target: profile?.hydrationTarget ?? 8 };
   },
 });
 
