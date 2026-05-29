@@ -17,11 +17,13 @@ export function WaterPage() {
   const navigate = useNavigate();
   const localDate = useMemo(() => getLocalDateString(), []);
   const todaysHydration = useQuery(api.progress.getTodaysHydration, { localDate });
+  const profile = useQuery(api.profiles.getProfile);
   const logHydration = useMutation(api.progress.logHydration);
   const [logging, setLogging] = useState(false);
 
   const currentGlasses = todaysHydration?.glasses ?? 0;
-  const hydrationTarget = todaysHydration?.target ?? 8;
+  // Use profile's hydration target as source of truth so it always matches the dashboard
+  const hydrationTarget = profile?.hydrationTarget ?? todaysHydration?.target ?? 8;
   const ozConsumed = currentGlasses * GLASS_SIZE_OZ;
   const ozGoal = hydrationTarget * GLASS_SIZE_OZ;
   const pct = hydrationTarget > 0 ? Math.min(currentGlasses / hydrationTarget, 1) : 0;
@@ -129,7 +131,7 @@ export function WaterPage() {
       <div className="mx-4 mt-6 rounded-2xl p-4" style={{ background: "rgba(74,158,255,0.07)", border: "1px solid rgba(74,158,255,0.15)" }}>
         <div className="text-xs font-semibold mb-1" style={{ color: "#4A9EFF" }}>💡 Did you know?</div>
         <div className="text-xs text-muted-foreground">
-          Drinking enough water supports metabolism, reduces hunger, and improves energy. Aim for 8 glasses (64 oz) daily.
+          Drinking enough water supports metabolism, reduces hunger, and improves energy. Aim for {hydrationTarget} glasses ({ozGoal} oz) daily.
         </div>
       </div>
     </div>

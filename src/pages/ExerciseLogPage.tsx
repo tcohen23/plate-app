@@ -17,7 +17,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
   ChevronLeft, Search, X, Plus, Dumbbell, Heart,
-  Clock, Flame, Check, Crown,
+  Clock, Flame, Check, Crown, PersonStanding,
 } from "lucide-react";
 import { hapticLight, hapticSuccess } from "@/lib/haptics";
 import { getLocalDateString } from "@/lib/dateUtils";
@@ -30,48 +30,107 @@ import { PaywallModal } from "@/components/PaywallModal";
 const CARDIO_EXERCISES = [
   "9Round", "Adaptive Motion Trainer", "Aerobics (general)", "Aerobics (high impact)",
   "Aerobics (low impact)", "Aerobics step", "Apple Health App Workout", "Aquathlon",
-  "Aqua jogging", "Archery", "Badminton", "Basketball", "Battle Rope",
+  "Aqua jogging", "Archery", "Badminton", "Baseball", "Basketball", "Battle Rope",
   "Bike (stationary)", "Bike (outdoor)", "Box jumps", "Boxing",
-  "Circuit training", "Climbing (rock/wall)", "Cross-country skiing",
+  "Burpees", "Circuit training", "Climbing (rock/wall)", "Cross-country skiing",
   "CrossFit", "Cycling (general)", "Dance (aerobic)", "Elliptical",
-  "Football", "Golf", "Hiking", "HIIT", "Ice skating", "Jump rope",
-  "Kayaking", "Kickboxing", "Lap swimming", "Martial arts",
-  "Mountain biking", "Pilates", "Racquetball", "Rowing (machine)",
-  "Rowing (outdoor)", "Running (outdoor)", "Running (treadmill)",
-  "Soccer", "Spinning", "Squash", "Stair climber", "Swimming (general)",
-  "Tennis", "Treadmill (walk)", "Treadmill (run)", "Volleyball",
-  "Walking (outdoor)", "Walking (treadmill)", "Water polo", "Yoga", "Zumba",
+  "Football", "Golf", "Handball", "Hiking", "HIIT", "Ice skating",
+  "Inline skating", "Interval training", "Jump rope", "Kayaking", "Kickboxing",
+  "Lacrosse", "Lap swimming", "Martial arts", "Mountain biking", "Paddleboarding",
+  "Pickleball", "Pilates", "Racquetball", "Rowing (machine)", "Rowing (outdoor)",
+  "Rugby", "Running (outdoor)", "Running (treadmill)", "Skiing (downhill)",
+  "Snowboarding", "Soccer", "Softball", "Spinning", "Squash", "Stair climber",
+  "Step aerobics", "Surfing", "Swimming (backstroke)", "Swimming (breaststroke)",
+  "Swimming (butterfly)", "Swimming (freestyle)", "Swimming (general)",
+  "Tennis", "Track & field", "Treadmill (incline walk)", "Treadmill (walk)",
+  "Treadmill (run)", "Triathlon", "Ultimate frisbee", "Volleyball",
+  "Walking (outdoor)", "Walking (treadmill)", "Water aerobics", "Water polo",
+  "Yoga", "Yoga (hot)", "Yoga (power)", "Yoga (restorative)", "Zumba",
 ].sort();
 
 const STRENGTH_EXERCISES = [
   "Abdominal Crunches", "Abdominal Leg Raise", "Abdominal Twist Seated Machine",
-  "Arnold Press", "Back Butterfly", "Back Extension", "Bar Dip",
-  "Barbell Hip Thrust", "Barbell Military Press", "Barbell Row Bent-over",
+  "Arnold Press", "Back Butterfly", "Back Extension", "Band Pull-Apart",
+  "Bar Dip", "Barbell Hip Thrust", "Barbell Military Press", "Barbell Row Bent-over",
   "Bench (Chest) Press Machine", "Bench Press (Barbell)", "Bench Press (Dumbbell)",
   "Bicep Curl (Barbell)", "Bicep Curl (Cable)", "Bicep Curl (Dumbbell)",
-  "Box Squat", "Bulgarian Split Squat", "Cable Chest Fly", "Cable Lateral Raise",
+  "Bicep Curl (EZ Bar)", "Box Squat", "Bulgarian Split Squat",
+  "Cable Chest Fly", "Cable Crunch", "Cable Kickback", "Cable Lateral Raise",
   "Cable Tricep Pushdown", "Calf Raise (Machine)", "Calf Raise (Standing)",
-  "Chest Fly (Dumbbell)", "Chest Press (Machine)", "Chin-Up", "Close-Grip Bench Press",
-  "Conventional Deadlift", "Decline Bench Press", "Face Pull",
-  "Front Squat", "Glute Bridge", "Goblet Squat", "Good Morning",
-  "Hack Squat (Machine)", "Hammer Curl", "Hip Abduction Machine",
-  "Hip Adduction Machine", "Hip Thrust", "Incline Bench Press",
-  "Incline Dumbbell Curl", "Incline Dumbbell Press", "Kettlebell Swing",
-  "Lat Pulldown", "Lateral Raise (Dumbbell)", "Lateral Raise (Cable)",
-  "Leg Curl (Lying)", "Leg Curl (Seated)", "Leg Extension",
-  "Leg Press", "Lunge (Barbell)", "Lunge (Dumbbell)", "Military Press",
-  "One-Arm Dumbbell Row", "Overhead Press (Barbell)", "Overhead Press (Dumbbell)",
-  "Pec Deck", "Plank", "Pull-Up", "Push-Up",
+  "Chest Fly (Dumbbell)", "Chest Press (Machine)",
+  "Close-Grip Bench Press", "Concentration Curl", "Conventional Deadlift",
+  "Decline Bench Press", "Decline Crunch", "Face Pull",
+  "Floor Press (Dumbbell)", "Front Raise (Dumbbell)", "Front Squat",
+  "Goblet Squat", "Good Morning",
+  "Hack Squat (Machine)", "Hammer Curl",
+  "Hip Abduction Machine", "Hip Adduction Machine", "Hip Thrust",
+  "Incline Bench Press", "Incline Dumbbell Curl", "Incline Dumbbell Press",
+  "Incline Fly", "Jefferson Curl", "Kettlebell Clean",
+  "Kettlebell Front Squat", "Kettlebell Goblet Squat", "Kettlebell Press",
+  "Kettlebell Row", "Kettlebell Swing", "Kettlebell Turkish Get-Up",
+  "Landmine Press", "Landmine Row", "Lat Pulldown",
+  "Lat Pulldown (Close Grip)", "Lat Pulldown (Wide Grip)",
+  "Lateral Raise (Dumbbell)", "Lateral Raise (Cable)", "Leg Curl (Lying)",
+  "Leg Curl (Seated)", "Leg Extension", "Leg Press",
+  "Low Cable Row", "Lunge (Barbell)", "Lunge (Dumbbell)",
+  "Lunge (Lateral)", "Lunge (Reverse)", "Lunge (Walking)",
+  "Military Press", "One-Arm Dumbbell Row",
+  "Overhead Press (Barbell)", "Overhead Press (Dumbbell)",
+  "Overhead Tricep Extension", "Pec Deck", "Pendlay Row",
+  "Preacher Curl",
   "Rear Delt Fly (Cable)", "Rear Delt Fly (Dumbbell)",
-  "Romanian Deadlift", "Seated Cable Row", "Seated Row (Machine)",
-  "Shoulder Press (Machine)", "Skull Crusher", "Smith Machine Squat",
-  "Squat (Barbell)", "Squat (Bodyweight)", "Sumo Deadlift",
-  "T-Bar Row", "Tricep Dip", "Tricep Extension (Cable)",
-  "Tricep Extension (Overhead)", "Tricep Pushdown", "Upright Row",
-  "Wide-Grip Pull-Up", "Wrist Curl",
+  "Romanian Deadlift", "Rope Crunch", "Russian Twist",
+  "Seated Cable Row", "Seated Row (Machine)", "Shoulder Press (Machine)",
+  "Single-Leg Deadlift", "Single-Leg Press", "Skull Crusher",
+  "Smith Machine Bench Press", "Smith Machine Squat",
+  "Squat (Barbell)", "Squat (Smith Machine)",
+  "Step-Up (Dumbbell)", "Straight-Leg Deadlift", "Sumo Deadlift",
+  "T-Bar Row", "Trap Bar Deadlift", "Tricep Dip",
+  "Tricep Extension (Cable)", "Tricep Extension (Overhead)",
+  "Tricep Pushdown", "Upright Row", "Wide-Grip Pull-Up",
+  "Wide-Grip Seated Row", "Wrist Curl", "Wrist Extension", "Zercher Squat",
 ].sort();
 
-type Category = "Cardio" | "Strength";
+const CALISTHENICS_EXERCISES = [
+  // Push movements
+  "Push-Up", "Push-Up (Wide Grip)", "Push-Up (Close Grip / Diamond)",
+  "Push-Up (Decline)", "Push-Up (Incline)", "Push-Up (Archer)",
+  "Push-Up (Clapping)", "Push-Up (One-Arm)", "Push-Up (Pike)",
+  "Push-Up (Pseudo Planche)", "Push-Up (Straddle Planche)",
+  "Push-Up (T-Rotation)", "Handstand Push-Up", "Handstand Push-Up (Wall-Assisted)",
+  "Pike Push-Up", "Planche Push-Up", "Dip (Parallel Bars)", "Korean Dip",
+  // Pull movements
+  "Pull-Up", "Pull-Up (Wide Grip)", "Pull-Up (Close Grip)",
+  "Pull-Up (Commando)", "Pull-Up (L-Sit)", "Pull-Up (Chest-to-Bar)",
+  "Chin-Up", "Chin-Up (Close Grip)", "Australian Pull-Up (Rows)",
+  "Bar Muscle-Up", "Ring Muscle-Up", "Ring Pull-Up",
+  "Ring Row", "Ring Push-Up", "Typewriter Pull-Up",
+  "One-Arm Pull-Up (Assisted)", "Archer Pull-Up",
+  // Core
+  "Plank", "Plank (Side)", "Plank (RKC)", "Hollow Body Hold",
+  "Hollow Body Rock", "Arch Hold", "L-Sit", "L-Sit (Parallel Bars)",
+  "V-Sit", "Dragon Flag", "Dragon Flag (Negative)",
+  "Hanging Knee Raise", "Hanging Leg Raise", "Toes-to-Bar",
+  "Ab Wheel Rollout", "Ab Wheel Rollout (Standing)", "Windshield Wiper",
+  "Planche Lean", "Front Lever", "Front Lever Row", "Front Lever (Tuck)",
+  // Legs & jumps
+  "Squat (Bodyweight)", "Squat Jump", "Bulgarian Split Squat (Bodyweight)",
+  "Lunge", "Reverse Lunge", "Lateral Lunge", "Step-Up",
+  "Pistol Squat", "Pistol Squat (Assisted)", "Shrimp Squat",
+  "Nordic Hamstring Curl", "Glute Bridge", "Glute Bridge (Single-Leg)",
+  "Hip Thrust (Bodyweight)", "Calf Raise (Bodyweight)", "Box Jump",
+  "Broad Jump", "Burpee", "Tuck Jump",
+  // Skill & static holds
+  "Handstand (Wall-Assisted)", "Freestanding Handstand",
+  "Handstand Walk", "Elbow Lever", "Planche (Tuck)", "Planche (Advanced Tuck)",
+  "Planche (Straddle)", "Full Planche", "Back Lever", "Back Lever (Tuck)",
+  "Human Flag", "Human Flag (Tuck)", "Crow Pose", "Headstand",
+  // Flow & mobility
+  "Bear Crawl", "Crab Walk", "Inchworm", "World's Greatest Stretch",
+  "Deep Squat Hold", "Hip 90/90 Stretch", "Thoracic Bridge", "Spiderman Crawl",
+].sort();
+
+type Category = "Cardio" | "Strength" | "Calisthenics";
 type ExerciseTab = "History" | "My Exercises" | "All Exercises";
 
 // ─── Quick-Log Sheet ──────────────────────────────────────────────────────────
@@ -456,7 +515,10 @@ export function ExerciseLogPage() {
   }, [cardioLogs, exerciseLogs, loggedToday]);
 
   // Full exercise list for current category
-  const allExercises = category === "Cardio" ? CARDIO_EXERCISES : STRENGTH_EXERCISES;
+  const allExercises =
+    category === "Cardio" ? CARDIO_EXERCISES :
+    category === "Calisthenics" ? CALISTHENICS_EXERCISES :
+    STRENGTH_EXERCISES;
 
   // Custom exercises for current category (all custom mixed in)
   const customNames = useMemo(() => (customExercises || []).map((e: any) => e.name), [customExercises]);
@@ -468,7 +530,9 @@ export function ExerciseLogPage() {
     const seen = new Set<string>();
     const names: string[] = [];
     for (const log of recentLogs) {
-      const isThisCategory = isCardio ? log.category === "cardio" : log.category === "strength";
+      const isThisCategory = isCardio
+        ? log.category === "cardio"
+        : log.category === "strength";
       if (isThisCategory && !seen.has(log.exerciseName)) {
         seen.add(log.exerciseName);
         names.push(log.exerciseName);
@@ -516,19 +580,19 @@ export function ExerciseLogPage() {
 
       {/* Category Selector */}
       <div className="px-4 mb-3 flex-shrink-0">
-        <div className="flex gap-2 p-1 rounded-xl" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
-          {(["Cardio", "Strength"] as Category[]).map((cat) => (
+        <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
+          {(["Cardio", "Strength", "Calisthenics"] as Category[]).map((cat) => (
             <button
               key={cat}
               onClick={() => { hapticLight(); setCategory(cat); setTab("All Exercises"); setSearch(""); }}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-all"
               style={
                 category === cat
                   ? { background: "#52B788", color: "#0a1a0a" }
                   : { color: "rgba(255,255,255,0.5)" }
               }
             >
-              {cat === "Cardio" ? <Heart className="w-4 h-4" /> : <Dumbbell className="w-4 h-4" />}
+              {cat === "Cardio" ? <Heart className="w-3.5 h-3.5" /> : cat === "Strength" ? <Dumbbell className="w-3.5 h-3.5" /> : <PersonStanding className="w-3.5 h-3.5" />}
               {cat}
             </button>
           ))}
@@ -687,7 +751,7 @@ export function ExerciseLogPage() {
           onLogged={handleExerciseLogged}
         />
       )}
-      {selectedExercise && category === "Strength" && (
+      {selectedExercise && (category === "Strength" || category === "Calisthenics") && (
         <StrengthLogSheet
           exercise={selectedExercise}
           date={today}

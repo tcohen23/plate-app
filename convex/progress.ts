@@ -516,18 +516,25 @@ export const logHydration = mutation({
     // Use client-provided local date when available to avoid UTC/timezone mismatch
     const today = args.localDate || new Date().toISOString().split("T")[0];
 
-    const existing = await ctx.db.query("hydrationLogs")
+    const existingLogs = await ctx.db.query("hydrationLogs")
       .withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", today))
+      .collect();
+    // Deduplicate: if somehow multiple entries exist, delete extras and keep the latest
+    const existing = existingLogs.length > 0 ? existingLogs[existingLogs.length - 1] : null;
+    for (let i = 0; i < existingLogs.length - 1; i++) {
+      await ctx.db.delete(existingLogs[i]._id);
+    }
+
+    // Always pull the user's current hydration target from their profile so it stays in sync
+    const profile = await ctx.db.query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
+    const target = profile?.hydrationTarget ?? 8;
 
     if (existing) {
-      await ctx.db.patch(existing._id, { glasses: args.glasses });
+      // Update both glasses AND target so stored record reflects current profile setting
+      await ctx.db.patch(existing._id, { glasses: args.glasses, target });
     } else {
-      // Pull the user's personalized hydration target from their profile
-      const profile = await ctx.db.query("profiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .unique();
-      const target = profile?.hydrationTarget ?? 8;
       await ctx.db.insert("hydrationLogs", {
         userId,
         date: today,
@@ -546,15 +553,17 @@ export const getTodaysHydration = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const today = args.localDate || new Date().toISOString().split("T")[0];
-    const log = await ctx.db.query("hydrationLogs")
+    const logs = await ctx.db.query("hydrationLogs")
       .withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", today))
-      .unique();
-    if (log) return log;
-    // No log yet today — return profile target so the UI shows the correct goal
+      .collect();
+    const log = logs.length > 0 ? logs[logs.length - 1] : null;
+    // Always use profile's hydration target as source of truth
     const profile = await ctx.db.query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
-    return { glasses: 0, target: profile?.hydrationTarget ?? 8 };
+    const target = profile?.hydrationTarget ?? 8;
+    if (log) return { ...log, target };
+    return { glasses: 0, target };
   },
 });
 

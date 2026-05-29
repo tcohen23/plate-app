@@ -129,7 +129,7 @@ export function FoodTrackerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const initialMeal = searchParams.get("meal") || searchParams.get("slot") || "breakfast";
   const [selectedSlot, setSelectedSlot] = useState(
-    ["breakfast","lunch","dinner","snack"].includes(initialMeal) ? initialMeal : "breakfast"
+    ["all","breakfast","lunch","dinner","snack"].includes(initialMeal) ? initialMeal : "breakfast"
   );
   const [showMealPicker, setShowMealPicker] = useState(false);
   const [trackTab, setTrackTab] = useState<TrackTab>("History");
@@ -387,6 +387,8 @@ export function FoodTrackerPage() {
   for (const slot of slotOrder) {
     logsBySlot[slot] = (todaysLog || []).filter((l: any) => l.mealSlot === slot);
   }
+  // When "all" is selected as a view filter, default logging to breakfast
+  const effectiveSlot = selectedSlot === "all" ? "breakfast" : selectedSlot;
 
 
   const handleQuickAdd = async () => {
@@ -413,7 +415,7 @@ export function FoodTrackerPage() {
     if (!cfName || !cfCal) { toast.error("Name and calories required"); return; }
     try {
       await logFood({
-        mealSlot: selectedSlot,
+        mealSlot: effectiveSlot,
         name: cfName,
         calories: parseInt(cfCal),
         protein: cfProtein ? parseInt(cfProtein) : 0,
@@ -454,7 +456,7 @@ export function FoodTrackerPage() {
     if (!barcodeResult?.found) return;
     try {
       await logFood({
-        mealSlot: selectedSlot,
+        mealSlot: effectiveSlot,
         name: barcodeResult.name + (barcodeResult.brand ? ` (${barcodeResult.brand})` : ""),
         calories: barcodeResult.calories,
         protein: barcodeResult.protein,
@@ -578,7 +580,7 @@ export function FoodTrackerPage() {
             className="flex-1 flex items-center justify-center gap-1.5 active:opacity-70 transition-opacity"
           >
             <span className="text-base font-semibold" style={{ color: "#52B788" }}>
-              {{ breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snacks" }[selectedSlot] ?? "Select a Meal"}
+              {{ all: "All Meals", breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snacks" }[selectedSlot] ?? "Select a Meal"}
             </span>
             <ChevronDown className="w-4 h-4" style={{ color: "#52B788" }} />
           </button>
@@ -600,6 +602,7 @@ export function FoodTrackerPage() {
                 }}
               >
                 {[
+                  { value: "all",       label: "All Meals" },
                   { value: "breakfast", label: "Breakfast" },
                   { value: "lunch",     label: "Lunch"     },
                   { value: "dinner",    label: "Dinner"    },
@@ -787,7 +790,7 @@ export function FoodTrackerPage() {
                           hapticMedium();
                           try {
                             await logFood({
-                              mealSlot: selectedSlot,
+                              mealSlot: effectiveSlot,
                               name: food.name,
                               calories: food.calories,
                               protein: food.protein ?? 0,
@@ -836,7 +839,7 @@ export function FoodTrackerPage() {
                           hapticMedium();
                           try {
                             await logFood({
-                              mealSlot: selectedSlot,
+                              mealSlot: effectiveSlot,
                               name: meal.name,
                               calories: Math.round(meal.calories),
                               protein: Math.round(meal.protein * 10) / 10,
@@ -895,7 +898,7 @@ export function FoodTrackerPage() {
                             hapticMedium();
                             try {
                               await logFood({
-                                mealSlot: selectedSlot,
+                                mealSlot: effectiveSlot,
                                 name: item.name,
                                 calories: Math.round(item.calories),
                                 protein: Math.round(item.protein * 10) / 10,
@@ -959,7 +962,7 @@ export function FoodTrackerPage() {
         const handleLogSelected = async () => {
           try {
             await logFood({
-              mealSlot: selectedSlot,
+              mealSlot: effectiveSlot,
               name: meal.name + (multiplier !== 1 ? ` (${amount}${servingUnit === "serving" ? " serving" : servingUnit})` : ""),
               calories: adj.cal,
               protein: adj.protein,
@@ -1089,7 +1092,7 @@ export function FoodTrackerPage() {
               </div>
 
               <Button onClick={handleLogSelected} className="w-full h-12 rounded-xl font-semibold">
-                Log to {selectedSlot}
+                Log to {effectiveSlot}
               </Button>
             </Card>
           </div>
@@ -1112,7 +1115,7 @@ export function FoodTrackerPage() {
         const handleLogFoodItem = async () => {
           try {
             await logFood({
-              mealSlot: selectedSlot,
+              mealSlot: effectiveSlot,
               name: food.name + (multiplier !== 1 ? ` (${amount} serving)` : ""),
               calories: adj.cal,
               protein: adj.protein,
@@ -1205,7 +1208,7 @@ export function FoodTrackerPage() {
               </div>
 
               <Button onClick={handleLogFoodItem} className="w-full h-12 rounded-xl font-semibold">
-                Log to {selectedSlot}
+                Log to {effectiveSlot}
               </Button>
             </Card>
           </div>
@@ -1423,7 +1426,7 @@ export function FoodTrackerPage() {
                   ))}
                 </div>
                 <Button onClick={handleLogBarcodeResult} className="w-full h-11 rounded-xl">
-                  Log to {selectedSlot}
+                  Log to {effectiveSlot}
                 </Button>
               </Card>
             </div>

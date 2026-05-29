@@ -1622,6 +1622,47 @@ export const EXERCISE_DATABASE: Exercise[] = [
     muscle_target: "Battle ropes are incredible for your heart and lungs because they push you to work really hard. Your shoulders and arms create the waves. Your core has to stay tight the whole time to stabilize your body. This burns a massive amount of calories in a short time.",
   },
 
+  {
+    id: "swimming",
+    name: "Swimming",
+    modality: "free_cardio",
+    primary_muscles: ["back", "shoulders", "core"],
+    secondary_muscles: ["chest", "arms", "quads", "hamstrings", "calves"],
+    is_compound: true,
+    equipment_required: ["none"],
+    difficulty: "beginner",
+    risk_tags: ["cardio_low_impact"],
+    default_sets: 1,
+    default_rep_range: [1200, 2400], // seconds (20-40 min)
+    default_rest_seconds: 0,
+    suitability_beginner: 80,
+    suitability_intermediate: 90,
+    suitability_advanced: 90,
+    available_at: ["planet_fitness", "la_fitness", "anytime", "golds", "any_commercial"],
+    how_to: "Enter the pool and choose a stroke such as freestyle, backstroke, breaststroke, or butterfly. For freestyle keep your body flat and horizontal, rotate your hips as you pull each arm through the water, and turn your head to the side to breathe every two to three strokes. Kick steadily from your hips with relaxed legs. Aim for consistent laps at a pace you can maintain.",
+    muscle_target: "Swimming is one of the best full body low impact cardio exercises available. Your back and shoulders do most of the pulling work. Your core stays engaged the entire time to keep your body streamlined. Your legs kick to maintain your position. Because water supports your body weight there is almost no stress on your joints making it perfect for recovery days or anyone with joint issues.",
+  },
+  {
+    id: "basketball_5v5",
+    name: "Basketball 5v5",
+    modality: "free_cardio",
+    primary_muscles: ["quads", "glutes", "calves"],
+    secondary_muscles: ["core", "shoulders", "hamstrings", "calves"],
+    is_compound: true,
+    equipment_required: ["none"],
+    difficulty: "intermediate",
+    risk_tags: ["cardio_high_impact", "ankle_high", "knee_moderate"],
+    default_sets: 1,
+    default_rep_range: [1800, 3600], // seconds (30-60 min)
+    default_rest_seconds: 0,
+    suitability_beginner: 55,
+    suitability_intermediate: 85,
+    suitability_advanced: 90,
+    available_at: ["planet_fitness", "la_fitness", "anytime", "golds", "any_commercial"],
+    how_to: "Join a full court 5 on 5 basketball game. Stay active on both offense and defense. On offense look for open teammates, drive to the basket, and set screens. On defense stay between your player and the basket and keep your feet moving. Sprint in transition, box out on rebounds, and communicate with your team throughout the game.",
+    muscle_target: "Basketball 5v5 is an intense full body sport cardio workout. The constant sprinting, cutting, and jumping torch calories and push your cardiovascular system hard. Your quads and glutes power every sprint and jump. Your calves absorb every landing. Your core stabilizes your body during quick direction changes. You also get shoulder work from passing and shooting. The stop and go nature of the game mimics interval training which is excellent for burning fat and building endurance.",
+  },
+
   // ════════════════════════════════════════════════════════
   // MOBILITY / FLEXIBILITY
   // ════════════════════════════════════════════════════════
