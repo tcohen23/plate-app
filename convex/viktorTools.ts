@@ -218,12 +218,13 @@ export const parseFoodVoiceLog = action({
 Voice transcript: "${transcript}"
 
 Return ONLY a valid JSON array — no markdown, no code fences, no explanation:
-[{"name":"Food Name","calories":300,"protein":20,"carbs":30,"fat":10,"mealSlot":"snack"}]
+[{"name":"Food Name","calories":300,"protein":20,"carbs":30,"fat":10,"fiber":3,"sugar":5,"saturatedFat":2,"polyunsaturatedFat":1,"monounsaturatedFat":2,"transFat":0,"cholesterol":45,"sodium":200,"potassium":300,"mealSlot":"snack"}]
 
 Rules:
-- Estimate realistic macros for a typical serving size
+- Estimate realistic macros AND micronutrients for a typical serving size
 - mealSlot must be exactly one of: breakfast, lunch, dinner, snack (infer from context; default to snack)
-- All macro values must be integers
+- All values must be integers (grams for fiber/sugar/fats, mg for cholesterol/sodium/potassium)
+- Include fiber, sugar, saturatedFat, polyunsaturatedFat, monounsaturatedFat, transFat, cholesterol, sodium, potassium when you can reasonably estimate them; omit fields you cannot estimate
 - If no food is detected return []
 - Output the JSON array and nothing else`;
 
@@ -349,26 +350,34 @@ export const analyzeFoodImage = action({
 Extract:
 - name: product name if visible, otherwise "Scanned Item"
 - calories (integer, from the label — use the "per serving" value if available)
-- protein in grams (integer)
-- carbs in grams (integer, use "Total Carbohydrate")
-- fat in grams (integer, use "Total Fat")
+- protein in grams (number)
+- carbs in grams (number, use "Total Carbohydrate")
+- fat in grams (number, use "Total Fat")
+- saturatedFat in grams (number, use "Saturated Fat" if present, else omit)
+- polyunsaturatedFat in grams (number, use "Polyunsaturated Fat" if present, else omit)
+- monounsaturatedFat in grams (number, use "Monounsaturated Fat" if present, else omit)
+- transFat in grams (number, use "Trans Fat" if present, else omit)
 - servingSize: serving size text from label (e.g. "1 cup (240ml)")
 - mealSlot: "snack"
 
 Return ONLY a valid JSON array (no markdown):
-[{"name":"Oat Milk","calories":120,"protein":3,"carbs":16,"fat":5,"servingSize":"1 cup (240ml)","mealSlot":"snack"}]
+[{"name":"Oat Milk","calories":120,"protein":3,"carbs":16,"fat":5,"saturatedFat":0.5,"polyunsaturatedFat":1.2,"monounsaturatedFat":1.8,"transFat":0,"servingSize":"1 cup (240ml)","mealSlot":"snack"}]
 
 If you cannot read the label clearly, return [].`
       : `Analyze this food photo. Identify every visible food item. For each, estimate:
 - name
 - calories (integer)
-- protein in grams (integer)
-- carbs in grams (integer)
-- fat in grams (integer)
+- protein in grams (number)
+- carbs in grams (number)
+- fat in grams (number)
+- saturatedFat in grams (number, estimate based on food type — e.g. butter/red meat high, chicken/fish low)
+- polyunsaturatedFat in grams (number, estimate)
+- monounsaturatedFat in grams (number, estimate)
+- transFat in grams (number, estimate — typically 0 unless fried/processed food)
 - mealSlot: breakfast, lunch, dinner, or snack
 
 Return ONLY a valid JSON array (no markdown):
-[{"name":"Grilled Chicken","calories":280,"protein":40,"carbs":0,"fat":8,"mealSlot":"lunch"}]
+[{"name":"Grilled Chicken","calories":280,"protein":40,"carbs":0,"fat":8,"saturatedFat":2,"polyunsaturatedFat":1.5,"monounsaturatedFat":3,"transFat":0,"mealSlot":"lunch"}]
 
 If no food visible, return [].`;
 

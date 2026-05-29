@@ -445,6 +445,10 @@ export function ScannerPage() {
             protein: item.protein || 0,
             carbs: item.carbs || 0,
             fat: item.fat || 0,
+            saturatedFat: item.saturatedFat || undefined,
+            polyunsaturatedFat: item.polyunsaturatedFat || undefined,
+            monounsaturatedFat: item.monounsaturatedFat || undefined,
+            transFat: item.transFat || undefined,
             servingSize: item.servingSize || "",
             localDate,
           })
