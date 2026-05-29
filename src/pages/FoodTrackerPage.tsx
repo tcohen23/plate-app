@@ -39,7 +39,7 @@ export function FoodTrackerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Premium / paywall
-  const { isPremium } = useAccessLevel();
+  const { isPremium, isLoading: accessLoading } = useAccessLevel();
   const { paywallNode: barcodePaywallNode, openPaywall: openBarcodePaywall } = usePaywall("barcode");
   const { paywallNode: mealScanPaywallNode, openPaywall: openMealScanPaywall } = usePaywall("meal_scan");
   const { paywallNode: voicePaywallNode, openPaywall: openVoicePaywall } = usePaywall("voice_log");
@@ -48,6 +48,10 @@ export function FoodTrackerPage() {
   const [mealScanLoading, setMealScanLoading] = useState(false);
   const [mealScanItems, setMealScanItems] = useState<any[]>([]);
   const [showMealScanResults, setShowMealScanResults] = useState(false);
+  const [showMealCamera, setShowMealCamera] = useState(false);
+  const mealVideoRef = useRef<HTMLVideoElement>(null);
+  const mealStreamRef = useRef<MediaStream | null>(null);
+  const mealCanvasRef = useRef<HTMLCanvasElement>(null);
   const mealScanInputRef = useRef<HTMLInputElement>(null);
 
   // Voice log state
@@ -232,6 +236,59 @@ export function FoodTrackerPage() {
     }
   }, [analyzeFoodImage]);
 
+  // Fancy meal camera: open native camera stream → capture → analyze
+  const openMealCamera = useCallback(async () => {
+    setShowMealCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      mealStreamRef.current = stream;
+      if (mealVideoRef.current) {
+        mealVideoRef.current.srcObject = stream;
+        mealVideoRef.current.play();
+      }
+    } catch {
+      toast.error("Camera access denied. Check your browser permissions.");
+      setShowMealCamera(false);
+    }
+  }, []);
+
+  const closeMealCamera = useCallback(() => {
+    mealStreamRef.current?.getTracks().forEach(t => t.stop());
+    mealStreamRef.current = null;
+    setShowMealCamera(false);
+  }, []);
+
+  const captureMealPhoto = useCallback(async () => {
+    const video = mealVideoRef.current;
+    const canvas = mealCanvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    closeMealCamera();
+    setMealScanLoading(true);
+    setShowMealScanResults(true);
+    try {
+      const items = await analyzeFoodImage({ imageUrl: dataUrl });
+      if ((items as any)?.error === "vision_api_not_configured") {
+        toast.error("Meal scan needs an AI vision key — contact support.");
+        setMealScanItems([]);
+      } else {
+        const itemArr = Array.isArray(items) ? items : [];
+        setMealScanItems(itemArr);
+        if (!itemArr.length) toast.info("Couldn't detect food in the photo. Try a clearer shot.");
+      }
+    } catch {
+      toast.error("Meal scan failed. Try again.");
+      setMealScanItems([]);
+    } finally {
+      setMealScanLoading(false);
+    }
+  }, [analyzeFoodImage, closeMealCamera]);
+
   // Voice log: start speech recognition → parse transcript → show results
   const startVoiceLog = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -395,6 +452,15 @@ export function FoodTrackerPage() {
         carbs: barcodeResult.carbs,
         fat: barcodeResult.fat,
         servingSize: barcodeResult.servingSize,
+        fiber: barcodeResult.fiber || undefined,
+        sugar: barcodeResult.sugar || undefined,
+        saturatedFat: barcodeResult.saturatedFat || undefined,
+        polyunsaturatedFat: barcodeResult.polyunsaturatedFat || undefined,
+        monounsaturatedFat: barcodeResult.monounsaturatedFat || undefined,
+        transFat: barcodeResult.transFat || undefined,
+        cholesterol: barcodeResult.cholesterol || undefined,
+        sodium: barcodeResult.sodium || undefined,
+        potassium: barcodeResult.potassium || undefined,
         localDate,
       });
       trackFoodLogged("barcode");
@@ -581,13 +647,13 @@ export function FoodTrackerPage() {
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left border-b transition-opacity active:opacity-60"
               style={{ borderColor: "var(--border)" }}
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium && !accessLoading) { openBarcodePaywall(); return; } setView("scanner"); startScanner(); }}
             >
               <span className="mr-3">📦</span> Barcode Scan
             </button>
             <button
               className="w-full flex items-center px-4 py-3.5 text-sm text-left transition-opacity active:opacity-60"
-              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium) { openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
+              onClick={() => { setShowCameraDropdown(false); hapticLight(); if (!isPremium && !accessLoading) { openMealScanPaywall(); return; } openMealCamera(); }}
             >
               <span className="mr-3">🍽️</span> Meal Scan
             </button>
@@ -638,7 +704,7 @@ export function FoodTrackerPage() {
         </button>
         {/* Voice log — premium gated */}
         <button
-          onClick={() => { hapticLight(); if (!isPremium) { openVoicePaywall(); return; } setShowVoiceResults(true); }}
+          onClick={() => { hapticLight(); if (!isPremium && !accessLoading) { openVoicePaywall(); return; } setShowVoiceResults(true); startVoiceLog(); }}
           className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
           style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
         >
@@ -647,7 +713,7 @@ export function FoodTrackerPage() {
         </button>
         {/* Meal scan — premium gated */}
         <button
-          onClick={() => { hapticLight(); if (!isPremium) { openMealScanPaywall(); return; } mealScanInputRef.current?.click(); }}
+          onClick={() => { hapticLight(); if (!isPremium && !accessLoading) { openMealScanPaywall(); return; } openMealCamera(); }}
           className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
           style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
         >
@@ -1080,6 +1146,14 @@ export function FoodTrackerPage() {
                 <MacroBox label="Carbs" value={`${food.carbs}g`} color="#f97316" />
                 <MacroBox label="Fat" value={`${food.fat}g`} color="#fbbf24" />
               </div>
+              {food.fiber != null && food.fiber > 0 && (
+                <div className="border-t border-border/40 pt-2 flex gap-2 flex-wrap">
+                  <div className="px-3 py-1.5 bg-muted/40 rounded-lg text-xs">
+                    <span className="font-semibold">{food.fiber}g</span>
+                    <span className="text-muted-foreground ml-1">Fiber</span>
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Log amount */}
@@ -1297,6 +1371,29 @@ export function FoodTrackerPage() {
                 {barcodeResult.calories > 0 && (
                   <div className="text-[10px] text-center text-muted-foreground/50">
                     {barcodeResult.protein * 4 + barcodeResult.carbs * 4 + barcodeResult.fat * 9} kcal from macros ({Math.abs(barcodeResult.calories - (barcodeResult.protein * 4 + barcodeResult.carbs * 4 + barcodeResult.fat * 9)) <= 15 ? "✓ matches" : "~ approximate"})
+                  </div>
+                )}
+                {/* Micronutrients */}
+                {(barcodeResult.fiber > 0 || barcodeResult.sugar > 0 || barcodeResult.sodium > 0) && (
+                  <div className="border-t border-border/40 pt-3 mt-1 grid grid-cols-3 gap-2 text-center">
+                    {barcodeResult.fiber > 0 && (
+                      <div className="p-2 bg-muted/40 rounded-lg">
+                        <div className="text-sm font-bold">{barcodeResult.fiber}g</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Fiber</div>
+                      </div>
+                    )}
+                    {barcodeResult.sugar > 0 && (
+                      <div className="p-2 bg-muted/40 rounded-lg">
+                        <div className="text-sm font-bold">{barcodeResult.sugar}g</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Sugar</div>
+                      </div>
+                    )}
+                    {barcodeResult.sodium > 0 && (
+                      <div className="p-2 bg-muted/40 rounded-lg">
+                        <div className="text-sm font-bold">{barcodeResult.sodium}mg</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Sodium</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
@@ -1625,7 +1722,7 @@ export function FoodTrackerPage() {
               onClick={async () => {
                 try {
                   const glasses = parseFloat(waterOz) / 8;
-                  await logHydration({ glasses });
+                  await logHydration({ glasses, localDate });
                   toast.success(`${waterOz}oz water logged ✓`);
                   setShowWaterModal(false);
                 } catch (e: any) { toast.error(e.message); }
@@ -1910,6 +2007,105 @@ export function FoodTrackerPage() {
       {barcodePaywallNode}
       {mealScanPaywallNode}
       {voicePaywallNode}
+
+      {/* ── Fancy Meal Camera UI ── */}
+      {showMealCamera && (
+        <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: "#000" }}>
+          {/* Live viewfinder */}
+          <video
+            ref={mealVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {/* Hidden canvas for capture */}
+          <canvas ref={mealCanvasRef} className="hidden" />
+
+          {/* Overlay UI */}
+          <div className="relative z-10 flex flex-col h-full">
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-6 pt-12 pb-4">
+              <button
+                onClick={closeMealCamera}
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              <div className="text-white text-sm font-semibold px-4 py-2 rounded-full"
+                style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
+                📸 Meal Scan
+              </div>
+              <div className="w-10" />
+            </div>
+
+            {/* Center guide frame */}
+            <div className="flex-1 flex items-center justify-center px-8">
+              <div className="relative w-full max-w-xs" style={{ aspectRatio: "4/3" }}>
+                {/* Corner brackets */}
+                {[
+                  { top: 0, left: 0, borderTop: "3px solid #52B788", borderLeft: "3px solid #52B788", borderRadius: "8px 0 0 0" },
+                  { top: 0, right: 0, borderTop: "3px solid #52B788", borderRight: "3px solid #52B788", borderRadius: "0 8px 0 0" },
+                  { bottom: 0, left: 0, borderBottom: "3px solid #52B788", borderLeft: "3px solid #52B788", borderRadius: "0 0 0 8px" },
+                  { bottom: 0, right: 0, borderBottom: "3px solid #52B788", borderRight: "3px solid #52B788", borderRadius: "0 0 8px 0" },
+                ].map((style, i) => (
+                  <div key={i} className="absolute w-8 h-8" style={style} />
+                ))}
+                {/* Scan line animation */}
+                <div className="absolute inset-x-0 h-[2px] opacity-70"
+                  style={{
+                    background: "linear-gradient(90deg, transparent, #52B788, transparent)",
+                    animation: "scanline 2s linear infinite",
+                    top: "50%",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="text-center px-8 pb-4">
+              <p className="text-sm font-medium text-white">Point at your meal</p>
+              <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.55)" }}>
+                AI will identify what's on your plate
+              </p>
+            </div>
+
+            {/* Shutter button */}
+            <div className="flex items-center justify-center pb-16 gap-12">
+              {/* Flash toggle placeholder (visual only) */}
+              <div className="w-12" />
+
+              {/* Main shutter */}
+              <button
+                onClick={captureMealPhoto}
+                className="w-20 h-20 rounded-full flex items-center justify-center transition-all active:scale-90"
+                style={{ background: "rgba(255,255,255,0.15)", border: "3px solid #fff", backdropFilter: "blur(4px)" }}
+              >
+                <div className="w-14 h-14 rounded-full" style={{ background: "#fff" }} />
+              </button>
+
+              {/* Gallery fallback */}
+              <button
+                onClick={() => { closeMealCamera(); mealScanInputRef.current?.click(); }}
+                className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center"
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)" }}
+              >
+                <Camera className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          </div>
+
+          {/* Scanline keyframe */}
+          <style>{`
+            @keyframes scanline {
+              0% { top: 10%; }
+              50% { top: 90%; }
+              100% { top: 10%; }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }

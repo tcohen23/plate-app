@@ -63,6 +63,20 @@ export const logFood = mutation({
     servingSize: v.optional(v.string()),
     mealId: v.optional(v.id("meals")),
     localDate: v.optional(v.string()),
+    // Micronutrients (optional)
+    fiber: v.optional(v.number()),
+    sugar: v.optional(v.number()),
+    saturatedFat: v.optional(v.number()),
+    polyunsaturatedFat: v.optional(v.number()),
+    monounsaturatedFat: v.optional(v.number()),
+    transFat: v.optional(v.number()),
+    cholesterol: v.optional(v.number()),
+    sodium: v.optional(v.number()),
+    potassium: v.optional(v.number()),
+    vitaminA: v.optional(v.number()),
+    vitaminC: v.optional(v.number()),
+    calcium: v.optional(v.number()),
+    iron: v.optional(v.number()),
   },
   returns: v.id("foodLogs"),
   handler: async (ctx, args) => {
@@ -81,6 +95,15 @@ export const logFood = mutation({
       }
     }
 
+    // If fat subtypes aren't provided, estimate from total fat using average USDA mixed-diet ratios.
+    // These are clearly estimates (not barcode-verified data) but better than showing 0.
+    const fat = args.fat;
+    const hasFatBreakdown = args.saturatedFat != null || args.polyunsaturatedFat != null || args.monounsaturatedFat != null;
+    const estimatedSatFat   = hasFatBreakdown ? args.saturatedFat   : (fat > 0 ? Math.round(fat * 0.30 * 10) / 10 : undefined);
+    const estimatedPolyFat  = hasFatBreakdown ? args.polyunsaturatedFat : (fat > 0 ? Math.round(fat * 0.28 * 10) / 10 : undefined);
+    const estimatedMonoFat  = hasFatBreakdown ? args.monounsaturatedFat : (fat > 0 ? Math.round(fat * 0.40 * 10) / 10 : undefined);
+    const estimatedTransFat = hasFatBreakdown ? args.transFat        : (fat > 0 ? 0 : undefined);
+
     const logId = await ctx.db.insert("foodLogs", {
       userId,
       date: today,
@@ -90,6 +113,19 @@ export const logFood = mutation({
       protein: args.protein,
       carbs: args.carbs,
       fat: args.fat,
+      fiber: args.fiber,
+      sugar: args.sugar,
+      saturatedFat: estimatedSatFat,
+      polyunsaturatedFat: estimatedPolyFat,
+      monounsaturatedFat: estimatedMonoFat,
+      transFat: estimatedTransFat,
+      cholesterol: args.cholesterol,
+      sodium: args.sodium,
+      potassium: args.potassium,
+      vitaminA: args.vitaminA,
+      vitaminC: args.vitaminC,
+      calcium: args.calcium,
+      iron: args.iron,
       servingSize: args.servingSize,
       mealId: args.mealId,
       source: "manual",
@@ -237,6 +273,10 @@ export const quickAddCalories = mutation({
       protein,
       carbs,
       fat,
+      saturatedFat:        fat > 0 ? Math.round(fat * 0.30 * 10) / 10 : undefined,
+      polyunsaturatedFat:  fat > 0 ? Math.round(fat * 0.28 * 10) / 10 : undefined,
+      monounsaturatedFat:  fat > 0 ? Math.round(fat * 0.40 * 10) / 10 : undefined,
+      transFat:            fat > 0 ? 0 : undefined,
       source: "quick_add",
     });
 
@@ -273,14 +313,42 @@ export const getDailySummary = query({
         protein: acc.protein + log.protein,
         carbs: acc.carbs + log.carbs,
         fat: acc.fat + log.fat,
+        fiber: acc.fiber + (log.fiber ?? 0),
+        sugar: acc.sugar + (log.sugar ?? 0),
+        saturatedFat: acc.saturatedFat + (log.saturatedFat ?? 0),
+        polyunsaturatedFat: acc.polyunsaturatedFat + (log.polyunsaturatedFat ?? 0),
+        monounsaturatedFat: acc.monounsaturatedFat + (log.monounsaturatedFat ?? 0),
+        transFat: acc.transFat + (log.transFat ?? 0),
+        cholesterol: acc.cholesterol + (log.cholesterol ?? 0),
+        sodium: acc.sodium + (log.sodium ?? 0),
+        potassium: acc.potassium + (log.potassium ?? 0),
+        vitaminA: acc.vitaminA + (log.vitaminA ?? 0),
+        vitaminC: acc.vitaminC + (log.vitaminC ?? 0),
+        calcium: acc.calcium + (log.calcium ?? 0),
+        iron: acc.iron + (log.iron ?? 0),
       }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      {
+        calories: 0, protein: 0, carbs: 0, fat: 0,
+        fiber: 0, sugar: 0, saturatedFat: 0, polyunsaturatedFat: 0,
+        monounsaturatedFat: 0, transFat: 0, cholesterol: 0, sodium: 0,
+        potassium: 0, vitaminA: 0, vitaminC: 0, calcium: 0, iron: 0,
+      }
     );
-    // Round to 1 decimal to avoid floating point display artifacts
+    // Round to 1 decimal
     totals.calories = Math.round(totals.calories);
     totals.protein = Math.round(totals.protein * 10) / 10;
     totals.carbs = Math.round(totals.carbs * 10) / 10;
     totals.fat = Math.round(totals.fat * 10) / 10;
+    totals.fiber = Math.round(totals.fiber * 10) / 10;
+    totals.sugar = Math.round(totals.sugar * 10) / 10;
+    totals.saturatedFat = Math.round(totals.saturatedFat * 10) / 10;
+    totals.cholesterol = Math.round(totals.cholesterol);
+    totals.sodium = Math.round(totals.sodium);
+    totals.potassium = Math.round(totals.potassium);
+    totals.vitaminA = Math.round(totals.vitaminA);
+    totals.vitaminC = Math.round(totals.vitaminC);
+    totals.calcium = Math.round(totals.calcium);
+    totals.iron = Math.round(totals.iron);
 
     return {
       date,
@@ -304,17 +372,40 @@ export const getDateRangeSummaries = query({
     const filtered = allLogs.filter(
       (l) => l.date >= startDate && l.date <= endDate
     );
-    const byDate: Record<
-      string,
-      { calories: number; protein: number; carbs: number; fat: number }
-    > = {};
+    const byDate: Record<string, {
+      calories: number; protein: number; carbs: number; fat: number;
+      fiber: number; sugar: number; saturatedFat: number;
+      polyunsaturatedFat: number; monounsaturatedFat: number; transFat: number;
+      cholesterol: number; sodium: number; potassium: number;
+      vitaminA: number; vitaminC: number; calcium: number; iron: number;
+    }> = {};
     for (const log of filtered) {
-      if (!byDate[log.date])
-        byDate[log.date] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      if (!byDate[log.date]) {
+        byDate[log.date] = {
+          calories: 0, protein: 0, carbs: 0, fat: 0,
+          fiber: 0, sugar: 0, saturatedFat: 0,
+          polyunsaturatedFat: 0, monounsaturatedFat: 0, transFat: 0,
+          cholesterol: 0, sodium: 0, potassium: 0,
+          vitaminA: 0, vitaminC: 0, calcium: 0, iron: 0,
+        };
+      }
       byDate[log.date].calories += log.calories;
       byDate[log.date].protein += log.protein;
       byDate[log.date].carbs += log.carbs;
       byDate[log.date].fat += log.fat;
+      byDate[log.date].fiber += (log.fiber ?? 0);
+      byDate[log.date].sugar += (log.sugar ?? 0);
+      byDate[log.date].saturatedFat += (log.saturatedFat ?? 0);
+      byDate[log.date].polyunsaturatedFat += (log.polyunsaturatedFat ?? 0);
+      byDate[log.date].monounsaturatedFat += (log.monounsaturatedFat ?? 0);
+      byDate[log.date].transFat += (log.transFat ?? 0);
+      byDate[log.date].cholesterol += (log.cholesterol ?? 0);
+      byDate[log.date].sodium += (log.sodium ?? 0);
+      byDate[log.date].potassium += (log.potassium ?? 0);
+      byDate[log.date].vitaminA += (log.vitaminA ?? 0);
+      byDate[log.date].vitaminC += (log.vitaminC ?? 0);
+      byDate[log.date].calcium += (log.calcium ?? 0);
+      byDate[log.date].iron += (log.iron ?? 0);
     }
     // Round values
     for (const d of Object.keys(byDate)) {
@@ -322,6 +413,19 @@ export const getDateRangeSummaries = query({
       byDate[d].protein = Math.round(byDate[d].protein * 10) / 10;
       byDate[d].carbs = Math.round(byDate[d].carbs * 10) / 10;
       byDate[d].fat = Math.round(byDate[d].fat * 10) / 10;
+      byDate[d].fiber = Math.round(byDate[d].fiber * 10) / 10;
+      byDate[d].sugar = Math.round(byDate[d].sugar * 10) / 10;
+      byDate[d].saturatedFat = Math.round(byDate[d].saturatedFat * 10) / 10;
+      byDate[d].polyunsaturatedFat = Math.round(byDate[d].polyunsaturatedFat * 10) / 10;
+      byDate[d].monounsaturatedFat = Math.round(byDate[d].monounsaturatedFat * 10) / 10;
+      byDate[d].transFat = Math.round(byDate[d].transFat * 10) / 10;
+      byDate[d].cholesterol = Math.round(byDate[d].cholesterol);
+      byDate[d].sodium = Math.round(byDate[d].sodium);
+      byDate[d].potassium = Math.round(byDate[d].potassium);
+      byDate[d].vitaminA = Math.round(byDate[d].vitaminA);
+      byDate[d].vitaminC = Math.round(byDate[d].vitaminC);
+      byDate[d].calcium = Math.round(byDate[d].calcium);
+      byDate[d].iron = Math.round(byDate[d].iron);
     }
     return byDate;
   },

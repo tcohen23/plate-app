@@ -228,7 +228,8 @@ function LogWaterScreen({ onBack, onClose }: { onBack: () => void; onClose: () =
   const [unit, setUnit] = useState<"oz" | "ml">("oz");
   const [saving, setSaving] = useState(false);
   const logHydration = useMutation(api.progress.logHydration);
-  const todaysHydration = useQuery(api.progress.getTodaysHydration, {});
+  const localDate = getLocalDateString();
+  const todaysHydration = useQuery(api.progress.getTodaysHydration, { localDate });
   const currentGlasses = todaysHydration?.glasses ?? 0;
 
   const handleAdd = async (extraOz?: number) => {
@@ -238,7 +239,7 @@ function LogWaterScreen({ onBack, onClose }: { onBack: () => void; onClose: () =
     setSaving(true);
     try {
       const newGlasses = currentGlasses + ozToGlasses(oz);
-      await logHydration({ glasses: newGlasses });
+      await logHydration({ glasses: newGlasses, localDate: getLocalDateString() });
       toast.success(`+${oz} oz logged 💧`);
       setOzStr("");
       onClose();

@@ -8,13 +8,15 @@ import { hapticLight } from "@/lib/haptics";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 const GLASS_SIZE_OZ = 8;
 
 export function WaterPage() {
   const navigate = useNavigate();
-  const todaysHydration = useQuery(api.progress.getTodaysHydration, {});
+  const localDate = useMemo(() => getLocalDateString(), []);
+  const todaysHydration = useQuery(api.progress.getTodaysHydration, { localDate });
   const logHydration = useMutation(api.progress.logHydration);
   const [logging, setLogging] = useState(false);
 
@@ -29,7 +31,8 @@ export function WaterPage() {
     hapticLight();
     setLogging(true);
     try {
-      await logHydration({ glasses: Math.max(0, Math.min(glasses, hydrationTarget)) });
+      // No upper cap — allow logging beyond goal
+      await logHydration({ glasses: Math.max(0, glasses), localDate: localDate });
       if (glasses > currentGlasses) toast.success("Glass logged 💧");
     } catch {
       toast.error("Failed to log water");
@@ -78,21 +81,26 @@ export function WaterPage() {
         </div>
       </div>
 
-      {/* Glass dots */}
+      {/* Glass dots — shows goal dots + any extras beyond goal */}
       <div className="px-6 mb-6">
         <div className="flex items-center gap-2 flex-wrap justify-center">
-          {Array.from({ length: hydrationTarget }).map((_, i) => (
+          {Array.from({ length: Math.max(hydrationTarget, currentGlasses) }).map((_, i) => (
             <button
               key={i}
               onClick={() => handleLog(i + 1)}
               className="w-8 h-8 rounded-full transition-all duration-300 active:scale-90"
               style={{
                 background: i < currentGlasses ? "#4A9EFF" : "rgba(74,158,255,0.12)",
-                border: i < currentGlasses ? "none" : "1.5px solid rgba(74,158,255,0.3)",
+                border: i < currentGlasses ? "none" : i < hydrationTarget ? "1.5px solid rgba(74,158,255,0.3)" : "1.5px dashed rgba(74,158,255,0.5)",
               }}
             />
           ))}
         </div>
+        {currentGlasses > hydrationTarget && (
+          <div className="text-center text-xs mt-2" style={{ color: "#4A9EFF" }}>
+            🎉 {currentGlasses - hydrationTarget} over goal!
+          </div>
+        )}
       </div>
 
       {/* +/- buttons */}
@@ -107,8 +115,8 @@ export function WaterPage() {
           Remove glass
         </button>
         <button
-          onClick={() => handleLog(Math.min(currentGlasses + 1, hydrationTarget))}
-          disabled={currentGlasses >= hydrationTarget || logging}
+          onClick={() => handleLog(currentGlasses + 1)}
+          disabled={logging}
           className="flex-1 py-3.5 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40"
           style={{ background: "rgba(74,158,255,0.15)", border: "1px solid rgba(74,158,255,0.3)", color: "#4A9EFF" }}
         >

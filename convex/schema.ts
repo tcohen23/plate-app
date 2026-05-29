@@ -212,6 +212,20 @@ const schema = defineSchema({
     protein: v.number(),
     carbs: v.number(),
     fat: v.number(),
+    // Micronutrients (optional — populated when data is available)
+    fiber: v.optional(v.number()),       // g
+    sugar: v.optional(v.number()),       // g
+    saturatedFat: v.optional(v.number()), // g
+    polyunsaturatedFat: v.optional(v.number()), // g
+    monounsaturatedFat: v.optional(v.number()), // g
+    transFat: v.optional(v.number()),    // g
+    cholesterol: v.optional(v.number()), // mg
+    sodium: v.optional(v.number()),      // mg
+    potassium: v.optional(v.number()),   // mg
+    vitaminA: v.optional(v.number()),    // % DV
+    vitaminC: v.optional(v.number()),    // % DV
+    calcium: v.optional(v.number()),     // % DV
+    iron: v.optional(v.number()),        // % DV
     servingSize: v.optional(v.string()),
     mealId: v.optional(v.id("meals")),
     source: v.string(), // manual, barcode, quick_add, meal_plan
@@ -474,6 +488,27 @@ const schema = defineSchema({
   }).index("by_userId", ["userId"])
     .index("by_userId_productType", ["userId", "productType"])
     .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+  // Sleep logs — manual sleep tracking
+  sleepLogs: defineTable({
+    userId: v.id("users"),
+    date: v.string(),              // ISO date of the sleep session (wake date)
+    bedtime: v.string(),           // HH:MM 24h
+    wakeTime: v.string(),          // HH:MM 24h
+    totalMinutes: v.number(),      // calculated total sleep in minutes
+    // Sleep quality survey
+    qualityRating: v.optional(v.number()),   // 1-5 subjective rating
+    timeToFallAsleep: v.optional(v.number()), // minutes to fall asleep
+    timesAwoke: v.optional(v.number()),       // # of times woken up
+    // Estimated sleep stages (formula-based, not from device)
+    awakeMinutes: v.optional(v.number()),
+    remMinutes: v.optional(v.number()),
+    coreMinutes: v.optional(v.number()),
+    deepMinutes: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_userId_date", ["userId", "date"])
+    .index("by_userId", ["userId"]),
 
   // Step count logs — daily step tracking
   stepLogs: defineTable({

@@ -233,6 +233,10 @@ export function MobileLayout() {
     return location.pathname === tab.path;
   };
 
+  // Only show bottom nav on the 4 main tab pages
+  const BOTTOM_NAV_PATHS = ["/dashboard", "/plan", "/progress", "/more"];
+  const showBottomNav = BOTTOM_NAV_PATHS.includes(location.pathname);
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* ── Desktop sidebar ── */}
@@ -280,12 +284,12 @@ export function MobileLayout() {
         </header>
 
         {/* ── Main content ── */}
-        <main className="flex-1 pb-24 lg:pb-8 overflow-y-auto">
+        <main className={`flex-1 ${showBottomNav ? "pb-24" : "pb-4"} lg:pb-8 overflow-y-auto`}>
           <Outlet />
         </main>
 
-        {/* ── Bottom nav — mobile/tablet only ── */}
-        <nav className="fixed bottom-0 left-0 right-0 bottom-nav z-50 pb-safe lg:hidden">
+        {/* ── Bottom nav — mobile/tablet only, only on main tab pages ── */}
+        <nav className={`fixed bottom-0 left-0 right-0 bottom-nav z-50 pb-safe lg:hidden ${showBottomNav ? "" : "hidden"}`}>
           <div className="flex items-center justify-around max-w-lg mx-auto px-1 relative" style={{ height: 62 }}>
             {BOTTOM_TABS.slice(0, 2).map((tab) => {
               const isActive = isTabActive(tab);

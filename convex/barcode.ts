@@ -30,6 +30,12 @@ export const lookupBarcode = action({
         fat: Math.round(nutriments.fat_serving || nutriments.fat_100g || 0),
         fiber: Math.round(nutriments.fiber_serving || nutriments.fiber_100g || 0),
         sugar: Math.round(nutriments.sugars_serving || nutriments.sugars_100g || 0),
+        saturatedFat: Math.round((nutriments["saturated-fat_serving"] || nutriments["saturated-fat_100g"] || 0) * 10) / 10,
+        polyunsaturatedFat: Math.round((nutriments["polyunsaturated-fat_serving"] || nutriments["polyunsaturated-fat_100g"] || 0) * 10) / 10,
+        monounsaturatedFat: Math.round((nutriments["monounsaturated-fat_serving"] || nutriments["monounsaturated-fat_100g"] || 0) * 10) / 10,
+        transFat: Math.round((nutriments["trans-fat_serving"] || nutriments["trans-fat_100g"] || 0) * 10) / 10,
+        cholesterol: Math.round(nutriments["cholesterol_serving"] || nutriments["cholesterol_100g"] || 0),
+        potassium: Math.round(nutriments["potassium_serving"] || nutriments["potassium_100g"] || 0),
         sodium: Math.round(nutriments.sodium_serving || nutriments.sodium_100g || 0),
         imageUrl: product.image_front_small_url || product.image_url || null,
       };

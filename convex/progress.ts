@@ -508,12 +508,13 @@ export const getTotalAchievementCount = query({
 });
 
 export const logHydration = mutation({
-  args: { glasses: v.number() },
+  args: { glasses: v.number(), localDate: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
-    const today = new Date().toISOString().split("T")[0];
+    // Use client-provided local date when available to avoid UTC/timezone mismatch
+    const today = args.localDate || new Date().toISOString().split("T")[0];
 
     const existing = await ctx.db.query("hydrationLogs")
       .withIndex("by_userId_date", (q) => q.eq("userId", userId).eq("date", today))

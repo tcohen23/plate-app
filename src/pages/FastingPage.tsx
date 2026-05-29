@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, Clock, Play, Square, CheckCircle } from "lucide-react";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
 import { usePaywall } from "@/components/PaywallModal";
+import { useAccessLevel } from "@/components/RequireSubscription";
 import { toast } from "sonner";
 
 const FASTING_PROTOCOLS = [
@@ -26,6 +27,7 @@ function formatDuration(ms: number) {
 
 export function FastingPage() {
   const navigate = useNavigate();
+  const { isPremium, isLoading: accessLoading } = useAccessLevel();
   const { paywallNode, openPaywall } = usePaywall("general");
   const [activeProtocol, setActiveProtocol] = useState("16:8");
   const [isFasting, setIsFasting] = useState(false);
@@ -58,7 +60,12 @@ export function FastingPage() {
   const pct = Math.min(elapsed / targetMs, 1);
 
   const handleStart = () => {
-    openPaywall();
+    // While access is still loading, don't block (don't show paywall prematurely)
+    // Non-premium users: show paywall first, don't start timer
+    if (!isPremium && !accessLoading) {
+      openPaywall();
+      return;
+    }
     hapticMedium();
     const start = Date.now();
     setStartTime(start);

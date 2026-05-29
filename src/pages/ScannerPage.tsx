@@ -474,6 +474,15 @@ export function ScannerPage() {
         carbs: barcodeResult.carbs || 0,
         fat: barcodeResult.fat || 0,
         servingSize: barcodeResult.servingSize || "",
+        fiber: barcodeResult.fiber || undefined,
+        sugar: barcodeResult.sugar || undefined,
+        saturatedFat: barcodeResult.saturatedFat || undefined,
+        polyunsaturatedFat: barcodeResult.polyunsaturatedFat || undefined,
+        monounsaturatedFat: barcodeResult.monounsaturatedFat || undefined,
+        transFat: barcodeResult.transFat || undefined,
+        cholesterol: barcodeResult.cholesterol || undefined,
+        sodium: barcodeResult.sodium || undefined,
+        potassium: barcodeResult.potassium || undefined,
         localDate,
       });
       trackFoodLogged("barcode");

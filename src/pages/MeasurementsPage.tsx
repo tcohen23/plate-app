@@ -76,8 +76,10 @@ function bucketData(
     });
 
     const total = bucketEntries.reduce((a, b) => a + b.value, 0);
-    // Month label for leftmost bucket of each month
-    const label = bucketStart.toLocaleDateString("en-US", { month: "short" });
+    // For short periods (≤7 days per bucket): show day number; longer: show month
+    const label = bucketSize <= 7
+      ? String(bucketStart.getDate())
+      : bucketStart.toLocaleDateString("en-US", { month: "short" });
     result.unshift({ value: total, label });
   }
   return result;
@@ -324,7 +326,7 @@ export function MeasurementsPage() {
         <h1 className="text-base font-semibold">Measurements</h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {}}
+            onClick={() => { toast.info("Import coming soon!"); hapticLight(); }}
             className="w-9 h-9 rounded-full flex items-center justify-center"
             style={{ background: "var(--surface-card)" }}
           >

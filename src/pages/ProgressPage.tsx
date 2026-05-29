@@ -25,8 +25,14 @@ type ProgressTab = "Overview" | "Calories" | "Nutrients" | "Macros" | "Steps" | 
 
 const TABS: ProgressTab[] = ["Overview", "Calories", "Nutrients", "Macros", "Steps", "Weight", "Sleep"];
 
-function WeekBarChart({ data, goal, color }: { data: number[]; goal: number; color: string }) {
-  const days = ["M", "Tu", "W", "Th", "F", "Sa", "Su"];
+function WeekBarChart({ data, goal, color, dayLabels }: { data: number[]; goal: number; color: string; dayLabels?: string[] }) {
+  // Default to last 7 days actual date numbers (e.g. "22", "23") pulled from device
+  const defaultLabels = Array.from({ length: data.length }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (data.length - 1 - i));
+    return String(d.getDate());
+  });
+  const labels = dayLabels || defaultLabels;
   const max = Math.max(...data, goal, 100);
   return (
     <div>
@@ -39,7 +45,7 @@ function WeekBarChart({ data, goal, color }: { data: number[]; goal: number; col
         ))}
       </div>
       <div className="flex gap-1 mt-1">
-        {days.map(d => <div key={d} className="flex-1 text-center text-[10px] text-muted-foreground">{d}</div>)}
+        {labels.map((d, i) => <div key={i} className="flex-1 text-center text-[10px] text-muted-foreground">{d}</div>)}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { ChevronLeft, Download, Crown, FileSpreadsheet, Database, File } from "l
 import { Button } from "@/components/ui/button";
 import { useAccessLevel } from "@/components/RequireSubscription";
 import { usePaywall } from "@/components/PaywallModal";
+import { toast } from "sonner";
 
 export function ExportPage() {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ export function ExportPage() {
           {["Nutrition Logs (CSV)", "Weight & Measurements (CSV)", "Exercise Logs (CSV)", "Complete Data Export (ZIP)"].map(type => (
             <button key={type} className="w-full flex items-center px-4 py-4 rounded-2xl text-left transition-opacity active:opacity-70"
               style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
-              onClick={() => {}}>
+              onClick={() => { toast.info("Export coming soon! We're building this feature."); }}>
               <File className="w-4 h-4 mr-3" style={{ color: "#52B788" }} />
               <span className="flex-1 text-sm">{type}</span>
               <Download className="w-4 h-4" style={{ color: "rgba(255,255,255,0.3)" }} />

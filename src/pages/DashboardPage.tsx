@@ -598,6 +598,7 @@ export function DashboardPage() {
   const hydration = useQuery(api.progress.getTodaysHydration, { localDate: selectedDate });
   const progressLogs = useQuery(api.progress.getProgressLogs);
   const exerciseSummary = useQuery(api.exercises.getExerciseSummaryForDate, { date: selectedDate });
+  const todayStepLog = useQuery(api.steps.getStepLogsRange, { startDate: selectedDate, endDate: selectedDate });
   const logHydration = useMutation(api.progress.logHydration);
   const { check: checkAchievements, popup: achievementPopup } = useAchievementPoller();
   const [showShareBadge, setShowShareBadge] = useState(false);
@@ -770,7 +771,7 @@ export function DashboardPage() {
               label={meal}
               calories={mealCals[meal]}
               onLog={() => { if (!isToday) return; hapticLight(); navigate(`/track?slot=${meal.toLowerCase()}`); }}
-              onMore={() => {}}
+              onMore={() => { hapticLight(); navigate(`/track?slot=${meal.toLowerCase()}`); }}
             />
           ))}
         </div>
@@ -794,19 +795,19 @@ export function DashboardPage() {
             <span className="text-xs text-muted-foreground">{currentGlasses}/{hydrationTarget} glasses</span>
           </div>
           <div className="flex items-center gap-1.5 mb-3">
-            {Array.from({ length: hydrationTarget }).map((_, i) => (
+            {Array.from({ length: Math.max(hydrationTarget, currentGlasses) }).map((_, i) => (
               <button
                 key={i}
-                onClick={() => { if (!isToday) return; hapticLight(); logHydration({ glasses: i + 1 }); }}
+                onClick={() => { if (!isToday) return; hapticLight(); logHydration({ glasses: i + 1, localDate: selectedDate }); }}
                 className="flex-1 h-5 rounded-full transition-all duration-300 tap-scale"
-                style={{ background: i < currentGlasses ? "#4A9EFF" : "var(--border)" }}
+                style={{ background: i < currentGlasses ? "#4A9EFF" : i < hydrationTarget ? "var(--border)" : "rgba(74,158,255,0.35)" }}
               />
             ))}
           </div>
-          {/* + Add a glass button — matches MFP */}
+          {/* + Add a glass button — no cap, can exceed goal */}
           {isToday && (
             <button
-              onClick={() => { hapticLight(); const next = Math.min(currentGlasses + 1, hydrationTarget); logHydration({ glasses: next }); trackHydrationLogged(next); }}
+              onClick={() => { hapticLight(); const next = currentGlasses + 1; logHydration({ glasses: next, localDate: selectedDate }); trackHydrationLogged(next); }}
               className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
               style={{ background: "rgba(74,158,255,0.1)", color: "#4A9EFF", border: "1px solid rgba(74,158,255,0.2)" }}
             >
@@ -840,7 +841,14 @@ export function DashboardPage() {
           <HabitRow
             icon={<Footprints className="w-4 h-4" style={{ color: "#52B788" }} />}
             label="Steps"
-            subtitle="0 steps today"
+            subtitle={
+              (() => {
+                const todaySteps = (todayStepLog || []).reduce((a: number, l: any) => a + (l.steps || 0), 0);
+                return todaySteps > 0
+                  ? `${todaySteps.toLocaleString()} steps today`
+                  : "0 steps today";
+              })()
+            }
             onClick={() => navigate("/more/measurements")}
           />
         </div>

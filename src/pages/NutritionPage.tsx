@@ -227,6 +227,32 @@ export function NutritionPage() {
   // Day labels for chart (2-char abbreviations)
   const chartDayLabels = dateList.map((d) => getDayLabel(d));
 
+  // ── Aggregate micronutrients from the date range ──
+  const microTotals = useMemo(() => {
+    if (!rangeSummaries || !dateList.length) return null;
+    const activeDays = dateList.filter((d) => (rangeSummaries[d]?.calories || 0) > 0).length || 1;
+    const sum = (key: string) =>
+      dateList.reduce((a: number, d: string) => a + ((rangeSummaries[d] as any)?.[key] || 0), 0);
+    const avg = (key: string) => Math.round((sum(key) / activeDays) * 10) / 10;
+    return {
+      fiber: viewMode === "Week" ? avg("fiber") : sum("fiber"),
+      sugar: viewMode === "Week" ? avg("sugar") : sum("sugar"),
+      saturatedFat: viewMode === "Week" ? avg("saturatedFat") : sum("saturatedFat"),
+      polyunsaturatedFat: viewMode === "Week" ? avg("polyunsaturatedFat") : sum("polyunsaturatedFat"),
+      monounsaturatedFat: viewMode === "Week" ? avg("monounsaturatedFat") : sum("monounsaturatedFat"),
+      transFat: viewMode === "Week" ? avg("transFat") : sum("transFat"),
+      cholesterol: viewMode === "Week" ? Math.round(sum("cholesterol") / activeDays) : Math.round(sum("cholesterol")),
+      sodium: viewMode === "Week" ? Math.round(sum("sodium") / activeDays) : Math.round(sum("sodium")),
+      potassium: viewMode === "Week" ? Math.round(sum("potassium") / activeDays) : Math.round(sum("potassium")),
+      vitaminA: viewMode === "Week" ? Math.round(sum("vitaminA") / activeDays) : Math.round(sum("vitaminA")),
+      vitaminC: viewMode === "Week" ? Math.round(sum("vitaminC") / activeDays) : Math.round(sum("vitaminC")),
+      calcium: viewMode === "Week" ? Math.round(sum("calcium") / activeDays) : Math.round(sum("calcium")),
+      iron: viewMode === "Week" ? Math.round(sum("iron") / activeDays) : Math.round(sum("iron")),
+    };
+  }, [rangeSummaries, dateList, viewMode]);
+
+  const m = microTotals;
+
   // Nutrients table — avg col shows period average, left = goal - avg
   const nutrients = [
     {
@@ -241,25 +267,93 @@ export function NutritionPage() {
       avg: `${avgCarbs}g`,
       left: `${Math.max(0, carbsGoal - avgCarbs)}g`,
     },
-    { label: "Fiber", goal: "28g", avg: "0g", left: "28g" },
-    { label: "Sugar", goal: "50g", avg: "0g", left: "50g" },
+    {
+      label: "Fiber",
+      goal: "28g",
+      avg: m ? `${m.fiber}g` : "0g",
+      left: m ? `${Math.max(0, Math.round((28 - m.fiber) * 10) / 10)}g` : "28g",
+    },
+    {
+      label: "Sugar",
+      goal: "50g",
+      avg: m ? `${m.sugar}g` : "0g",
+      left: m ? `${Math.max(0, Math.round((50 - m.sugar) * 10) / 10)}g` : "50g",
+    },
     {
       label: "Fat",
       goal: `${fatGoal}g`,
       avg: `${avgFat}g`,
       left: `${Math.max(0, fatGoal - avgFat)}g`,
     },
-    { label: "Saturated Fat", goal: "20g", avg: "0g", left: "20g" },
-    { label: "Polyunsat. Fat", goal: "--", avg: "0g", left: "--" },
-    { label: "Monounsat. Fat", goal: "--", avg: "0g", left: "--" },
-    { label: "Trans Fat", goal: "0g", avg: "0g", left: "0g" },
-    { label: "Cholesterol", goal: "300mg", avg: "0mg", left: "300mg" },
-    { label: "Sodium", goal: "2,300mg", avg: "0mg", left: "2,300mg" },
-    { label: "Potassium", goal: "3,500mg", avg: "0mg", left: "3,500mg" },
-    { label: "Vitamin A", goal: "100%", avg: "0%", left: "100%" },
-    { label: "Vitamin C", goal: "100%", avg: "0%", left: "100%" },
-    { label: "Calcium", goal: "100%", avg: "0%", left: "100%" },
-    { label: "Iron", goal: "100%", avg: "0%", left: "100%" },
+    {
+      label: "Saturated Fat",
+      // WHO: ≤ 10% of total calories
+      goal: `${Math.round(calGoal * 0.10 / 9)}g`,
+      avg: m ? `${m.saturatedFat}g` : "0g",
+      left: m ? `${Math.max(0, Math.round((calGoal * 0.10 / 9 - m.saturatedFat) * 10) / 10)}g` : `${Math.round(calGoal * 0.10 / 9)}g`,
+    },
+    {
+      label: "Polyunsat. Fat",
+      // ~28–35% of total fat
+      goal: `${Math.round(fatGoal * 0.32)}g`,
+      avg: m ? `${m.polyunsaturatedFat}g` : "0g",
+      left: m ? `${Math.max(0, Math.round((fatGoal * 0.32 - m.polyunsaturatedFat) * 10) / 10)}g` : `${Math.round(fatGoal * 0.32)}g`,
+    },
+    {
+      label: "Monounsat. Fat",
+      // ~40–45% of total fat
+      goal: `${Math.round(fatGoal * 0.42)}g`,
+      avg: m ? `${m.monounsaturatedFat}g` : "0g",
+      left: m ? `${Math.max(0, Math.round((fatGoal * 0.42 - m.monounsaturatedFat) * 10) / 10)}g` : `${Math.round(fatGoal * 0.42)}g`,
+    },
+    {
+      label: "Trans Fat",
+      goal: "< 2g",
+      avg: m ? `${m.transFat}g` : "0g",
+      left: m ? (m.transFat >= 2 ? "Over limit" : "OK") : "OK",
+    },
+    {
+      label: "Cholesterol",
+      goal: "300mg",
+      avg: m ? `${m.cholesterol}mg` : "0mg",
+      left: m ? `${Math.max(0, 300 - m.cholesterol)}mg` : "300mg",
+    },
+    {
+      label: "Sodium",
+      goal: "2,300mg",
+      avg: m ? `${m.sodium.toLocaleString()}mg` : "0mg",
+      left: m ? `${Math.max(0, 2300 - m.sodium).toLocaleString()}mg` : "2,300mg",
+    },
+    {
+      label: "Potassium",
+      goal: "3,500mg",
+      avg: m ? `${m.potassium.toLocaleString()}mg` : "0mg",
+      left: m ? `${Math.max(0, 3500 - m.potassium).toLocaleString()}mg` : "3,500mg",
+    },
+    {
+      label: "Vitamin A",
+      goal: "100%",
+      avg: m ? `${m.vitaminA}%` : "0%",
+      left: m ? `${Math.max(0, 100 - m.vitaminA)}%` : "100%",
+    },
+    {
+      label: "Vitamin C",
+      goal: "100%",
+      avg: m ? `${m.vitaminC}%` : "0%",
+      left: m ? `${Math.max(0, 100 - m.vitaminC)}%` : "100%",
+    },
+    {
+      label: "Calcium",
+      goal: "100%",
+      avg: m ? `${m.calcium}%` : "0%",
+      left: m ? `${Math.max(0, 100 - m.calcium)}%` : "100%",
+    },
+    {
+      label: "Iron",
+      goal: "100%",
+      avg: m ? `${m.iron}%` : "0%",
+      left: m ? `${Math.max(0, 100 - m.iron)}%` : "100%",
+    },
   ];
 
   // Macros %
