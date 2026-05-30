@@ -26,6 +26,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { WhyPage } from "./pages/WhyPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
+import { TermsPage } from "./pages/TermsPage";
 import { WorkoutPage } from "./pages/WorkoutPage";
 
 import { MorePage } from "./pages/MorePage";
@@ -261,6 +262,7 @@ function App() {
           </Route>
 
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ThemeProvider>

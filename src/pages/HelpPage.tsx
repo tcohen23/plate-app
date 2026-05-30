@@ -9,7 +9,7 @@ const HELP_ITEMS = [
   { label: "About Plate", url: "https://plate-app.pages.dev" },
   { label: "Frequently Asked Questions", url: "mailto:support@plate-app.com" },
   { label: "Contact Support", url: "mailto:support@plate-app.com" },
-  { label: "Terms of Service", url: "/privacy" },
+  { label: "Terms of Service", url: "/terms" },
   { label: "Privacy Policy", url: "/privacy" },
   { label: "Delete Account", url: "/settings" },
   { label: "Send Feedback", url: "/feedback" },
