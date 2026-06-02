@@ -126,7 +126,7 @@ async function callOpenAIDirectly(prompt: string, imageInput?: string, detail: "
 
 /** Call Gemini API directly (no Pipedream) if GEMINI_API_KEY is set */
 async function callGeminiDirectly(prompt: string, imageInput?: string): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || "AIzaSyDxVhNfYHZhPxHh0gaVpmPv2OSvcDCMYEY";
   if (!apiKey) return null;
 
   const parts: any[] = [{ text: prompt }];
