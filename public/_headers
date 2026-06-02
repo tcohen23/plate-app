@@ -1,0 +1,20 @@
+/*
+  # Prevent clickjacking
+  X-Frame-Options: DENY
+  # Prevent MIME type sniffing
+  X-Content-Type-Options: nosniff
+  # XSS protection (legacy browsers)
+  X-XSS-Protection: 1; mode=block
+  # Force HTTPS
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  # Control referrer info
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Restrict browser features
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(), payment=(self)
+  # Content Security Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.posthog.com https://app.posthog.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.convex.site https://api.stripe.com https://*.posthog.com https://app.posthog.com; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+/api/*
+  Access-Control-Allow-Origin: https://plate-app.pages.dev
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization

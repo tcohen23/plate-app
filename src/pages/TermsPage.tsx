@@ -43,7 +43,8 @@ export function TermsPage() {
           <ul className="space-y-2 list-none">
             <li><span className="font-medium">Billing</span> — subscriptions are billed through Stripe. By subscribing, you authorize us to charge your payment method on a recurring basis.</li>
             <li><span className="font-medium">Cancellation</span> — you can cancel anytime from your account settings. Cancellation takes effect at the end of the current billing period; no partial refunds are issued for unused time.</li>
-            <li><span className="font-medium">Refunds</span> — all purchases are final unless required by applicable law. Contact support if you believe a charge was made in error.</li>
+            <li><span className="font-medium">No Refunds</span> — all subscription payments are non-refundable. Once a billing period begins, no refunds or credits will be issued for that period, including for early cancellation or unused time, except where required by applicable law.</li>
+            <li><span className="font-medium">Price Changes</span> — if we raise the price of your subscription plan, your existing subscription will continue at your current rate. We will notify you by email at least 30 days before any price increase takes effect. You may cancel at any time before the new price applies if you do not wish to continue.</li>
           </ul>
         </section>
 
