@@ -48,6 +48,8 @@ export function FoodTrackerPage() {
   const [mealScanLoading, setMealScanLoading] = useState(false);
   const [mealScanItems, setMealScanItems] = useState<any[]>([]);
   const [showMealScanResults, setShowMealScanResults] = useState(false);
+  const [mealScanImage, setMealScanImage] = useState<string | null>(null);
+  const [servingMultipliers, setServingMultipliers] = useState<number[]>([]);
   const [showMealCamera, setShowMealCamera] = useState(false);
   const mealVideoRef = useRef<HTMLVideoElement>(null);
   const mealStreamRef = useRef<MediaStream | null>(null);
@@ -192,6 +194,7 @@ export function FoodTrackerPage() {
             setMealScanItems([]);
           } else {
             setMealScanItems(Array.isArray(items) ? items : []);
+            setServingMultipliers((Array.isArray(items) ? items : []).map(() => 1));
             if (!items?.length) toast.info("Couldn't detect food in the photo. Try a clearer shot.");
           }
         }).catch(() => {
@@ -218,6 +221,7 @@ export function FoodTrackerPage() {
         reader.onload = () => res(reader.result as string);
         reader.readAsDataURL(file);
       });
+      setMealScanImage(dataUrl);
       const items = await analyzeFoodImage({ imageUrl: dataUrl });
       if ((items as any)?.error === "vision_api_not_configured") {
         toast.error("Meal scan needs an AI vision key — contact support.");
@@ -225,6 +229,7 @@ export function FoodTrackerPage() {
       } else {
         const itemArr = Array.isArray(items) ? items : [];
         setMealScanItems(itemArr);
+        setServingMultipliers(itemArr.map(() => 1));
         if (!itemArr.length) toast.info("Couldn't detect food in the photo. Try a clearer shot.");
       }
     } catch {
@@ -268,6 +273,7 @@ export function FoodTrackerPage() {
     canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setMealScanImage(dataUrl);
     closeMealCamera();
     setMealScanLoading(true);
     setShowMealScanResults(true);
@@ -279,6 +285,7 @@ export function FoodTrackerPage() {
       } else {
         const itemArr = Array.isArray(items) ? items : [];
         setMealScanItems(itemArr);
+        setServingMultipliers(itemArr.map(() => 1));
         if (!itemArr.length) toast.info("Couldn't detect food in the photo. Try a clearer shot.");
       }
     } catch {
@@ -1748,67 +1755,220 @@ export function FoodTrackerPage() {
         </div>
       )}
 
-      {/* Meal Scan Results Modal */}
-      {showMealScanResults && (
-        <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(8px)" }}>
-          <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-4 pt-safe-top pb-safe-bottom py-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-white">Meal Scan Results</h2>
-              <button onClick={() => { setShowMealScanResults(false); setMealScanItems([]); }} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-                <X className="w-4 h-4 text-white" />
+      {/* Meal Scan Results Modal — Fitia-style */}
+      {showMealScanResults && (() => {
+        const mults = servingMultipliers.length === mealScanItems.length ? servingMultipliers : mealScanItems.map(() => 1);
+        const totalCals = mealScanItems.reduce((s, it, i) => s + (it.calories || 0) * (mults[i] ?? 1), 0);
+        const totalProtein = mealScanItems.reduce((s, it, i) => s + (it.protein || 0) * (mults[i] ?? 1), 0);
+        const totalCarbs = mealScanItems.reduce((s, it, i) => s + (it.carbs || 0) * (mults[i] ?? 1), 0);
+        const totalFat = mealScanItems.reduce((s, it, i) => s + (it.fat || 0) * (mults[i] ?? 1), 0);
+        const slotLabel = ({ breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" } as any)[selectedSlot] ?? "Meal";
+        return (
+          <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: "#000" }}>
+            {/* Food photo top half */}
+            <div className="relative w-full" style={{ height: "42%" }}>
+              {mealScanImage ? (
+                <img src={mealScanImage} alt="scanned meal" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full" style={{ background: "#111" }} />
+              )}
+              {/* Gradient overlay */}
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%)" }} />
+              {/* Close button */}
+              <button
+                onClick={() => { setShowMealScanResults(false); setMealScanItems([]); setMealScanImage(null); }}
+                className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}
+              >
+                <X className="w-5 h-5 text-white" />
               </button>
-            </div>
-            {mealScanLoading ? (
-              <div className="flex flex-col items-center justify-center flex-1 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#52B788" }} />
-                <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>Analyzing your meal...</p>
-              </div>
-            ) : mealScanItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center flex-1 gap-3">
-                <p className="text-sm text-white">No food detected in the photo.</p>
-                <button onClick={() => { setShowMealScanResults(false); mealScanInputRef.current?.click(); }} className="px-4 py-2 rounded-full text-sm font-semibold" style={{ background: "#52B788", color: "#0d1f13" }}>Try Again</button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 overflow-y-auto">
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Tap each item to log it</p>
-                {mealScanItems.map((item, i) => (
-                  <div key={i} className="rounded-2xl p-4 flex items-center justify-between" style={{ background: "#141414", border: "1px solid rgba(82,183,136,0.2)" }}>
-                    <div>
-                      <p className="text-white font-medium text-sm">{item.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                        {item.calories} kcal · {item.protein}g P · {item.carbs}g C · {item.fat}g F
-                      </p>
+              {/* Loading progress overlay */}
+              {mealScanLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <div className="relative w-20 h-20">
+                    <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                      <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="6" />
+                      <circle cx="40" cy="40" r="34" fill="none" stroke="#52B788" strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 34}`}
+                        strokeDashoffset={`${2 * Math.PI * 34 * 0.35}`}
+                        style={{ animation: "spin 1.4s linear infinite" }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">AI</span>
                     </div>
-                    <button
-                      onClick={async () => {
-                        const ok = await logDetectedItem(item);
-                        if (ok) setMealScanItems((prev) => prev.filter((_, idx) => idx !== i));
-                      }}
-                      className="ml-3 px-3 py-1.5 rounded-full text-xs font-semibold"
-                      style={{ background: "#52B788", color: "#0d1f13" }}
-                    >
-                      Log
-                    </button>
                   </div>
-                ))}
-                {mealScanItems.length > 0 && (
+                  <p className="text-white font-semibold text-base drop-shadow-lg">Analyzing your meal...</p>
+                  <p className="text-xs drop-shadow" style={{ color: "rgba(255,255,255,0.65)" }}>Plate Scan</p>
+                </div>
+              )}
+            </div>
+
+            {/* Results bottom sheet */}
+            <div className="flex-1 overflow-y-auto rounded-t-3xl -mt-5 relative" style={{ background: "#0a0a0a" }}>
+              {mealScanLoading ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 pb-8">
+                  <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>Identifying ingredients...</p>
+                </div>
+              ) : mealScanItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4 px-6 pb-8">
+                  <p className="text-white font-semibold text-base">No food detected</p>
+                  <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.45)" }}>Try a clearer photo with better lighting.</p>
+                  <button
+                    onClick={() => { setShowMealScanResults(false); setMealScanImage(null); mealScanInputRef.current?.click(); }}
+                    className="px-6 py-3 rounded-2xl text-sm font-bold mt-2"
+                    style={{ background: "#52B788", color: "#0d1f13" }}
+                  >Try Again</button>
+                </div>
+              ) : (
+                <div className="px-4 pt-5 pb-8">
+                  {/* Meal name + badge */}
+                  <div className="mb-1">
+                    <h2 className="text-white font-bold text-xl leading-tight">
+                      {mealScanItems.length === 1 ? mealScanItems[0].name : `${mealScanItems.length} Items Detected`}
+                    </h2>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: "#52B788" }}>
+                        <span style={{ fontSize: 8, color: "#0d1f13", fontWeight: 700, lineHeight: 1 }}>P</span>
+                      </div>
+                      <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>Made with Plate Scan</span>
+                    </div>
+                  </div>
+
+                  {/* Macro summary row */}
+                  <div className="grid grid-cols-4 gap-2 mt-4 mb-4">
+                    {[
+                      { label: "kcal", value: Math.round(totalCals), big: true },
+                      { label: "protein", value: `${Math.round(totalProtein)}g` },
+                      { label: "carbs", value: `${Math.round(totalCarbs)}g` },
+                      { label: "fat", value: `${Math.round(totalFat)}g` },
+                    ].map(({ label, value, big }) => (
+                      <div key={label} className="rounded-2xl p-3 text-center" style={{ background: "#141414" }}>
+                        <p className={`font-bold ${big ? "text-xl" : "text-base"} text-white`}>{value}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Macro bar */}
+                  {totalCals > 0 && (
+                    <div className="mb-1">
+                      <div className="flex rounded-full overflow-hidden h-2 mb-1.5" style={{ background: "#1a1a1a" }}>
+                        <div style={{ width: `${Math.round((totalProtein * 4 / totalCals) * 100)}%`, background: "#52B788" }} />
+                        <div style={{ width: `${Math.round((totalCarbs * 4 / totalCals) * 100)}%`, background: "#a3d9be" }} />
+                        <div style={{ width: `${Math.round((totalFat * 9 / totalCals) * 100)}%`, background: "#1B4332" }} />
+                      </div>
+                      <div className="flex gap-3">
+                        {[
+                          { label: `Protein ${Math.round((totalProtein * 4 / totalCals) * 100)}%`, color: "#52B788" },
+                          { label: `Carbs ${Math.round((totalCarbs * 4 / totalCals) * 100)}%`, color: "#a3d9be" },
+                          { label: `Fat ${Math.round((totalFat * 9 / totalCals) * 100)}%`, color: "#1B4332" },
+                        ].map(({ label, color }) => (
+                          <div key={label} className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                            <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Divider */}
+                  <div className="my-4" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
+                  {/* Ingredient breakdown */}
+                  <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Breakdown</p>
+                  <div className="flex flex-col gap-2 mb-5">
+                    {mealScanItems.map((item, i) => {
+                      const mult = (mults[i] ?? 1);
+                      const adjCals = Math.round((item.calories || 0) * mult);
+                      const adjProtein = Math.round((item.protein || 0) * mult);
+                      return (
+                        <div key={i} className="rounded-2xl p-3" style={{ background: "#141414" }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-white text-sm font-medium flex-1 min-w-0 truncate">{item.name}</p>
+                            <button
+                              onClick={async () => {
+                                const adjItem = { ...item, calories: adjCals, protein: adjProtein, carbs: Math.round((item.carbs||0)*mult), fat: Math.round((item.fat||0)*mult) };
+                                const ok = await logDetectedItem(adjItem);
+                                if (ok) {
+                                  setMealScanItems((prev) => prev.filter((_, idx) => idx !== i));
+                                  setServingMultipliers((prev) => prev.filter((_, idx) => idx !== i));
+                                }
+                              }}
+                              className="ml-3 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
+                              style={{ background: "rgba(82,183,136,0.15)", color: "#52B788", border: "1px solid rgba(82,183,136,0.3)" }}
+                            >
+                              Log
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {/* Serving stepper */}
+                            <div className="flex items-center rounded-xl overflow-hidden" style={{ background: "#1e1e1e", border: "1px solid rgba(255,255,255,0.08)" }}>
+                              <button
+                                onClick={() => setServingMultipliers(prev => prev.map((m, idx) => idx === i ? Math.max(0.25, parseFloat((m - 0.25).toFixed(2))) : m))}
+                                className="w-8 h-8 flex items-center justify-center text-white text-lg font-light"
+                                style={{ color: "rgba(255,255,255,0.6)" }}
+                              >−</button>
+                              <input
+                                type="number"
+                                min="0.25"
+                                step="0.25"
+                                value={mult}
+                                onChange={e => {
+                                  const v = parseFloat(e.target.value);
+                                  if (!isNaN(v) && v > 0) setServingMultipliers(prev => prev.map((m, idx) => idx === i ? v : m));
+                                }}
+                                className="w-12 text-center text-sm font-semibold bg-transparent text-white outline-none"
+                                style={{ color: "rgba(255,255,255,0.9)" }}
+                              />
+                              <button
+                                onClick={() => setServingMultipliers(prev => prev.map((m, idx) => idx === i ? parseFloat((m + 0.25).toFixed(2)) : m))}
+                                className="w-8 h-8 flex items-center justify-center text-white text-lg font-light"
+                                style={{ color: "rgba(255,255,255,0.6)" }}
+                              >+</button>
+                            </div>
+                            <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>serving</span>
+                            <div className="flex-1" />
+                            <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>
+                              {adjProtein > 0 ? `${adjProtein}g P · ` : ""}{adjCals} kcal
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Improve Result + Add to Meal buttons */}
+                  <button
+                    onClick={() => { setShowMealScanResults(false); setMealScanImage(null); mealScanInputRef.current?.click(); }}
+                    className="w-full py-3 rounded-2xl text-sm font-semibold mb-3 flex items-center justify-center gap-2"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  >
+                    <span>↺</span> Improve Result
+                  </button>
                   <button
                     onClick={async () => {
-                      await Promise.all(mealScanItems.map(logDetectedItem));
+                      await Promise.all(mealScanItems.map((item, i) => {
+                        const m = mults[i] ?? 1;
+                        return logDetectedItem({ ...item, calories: Math.round((item.calories||0)*m), protein: Math.round((item.protein||0)*m), carbs: Math.round((item.carbs||0)*m), fat: Math.round((item.fat||0)*m) });
+                      }));
                       setShowMealScanResults(false);
                       setMealScanItems([]);
+                      setMealScanImage(null);
                     }}
-                    className="w-full py-3 rounded-2xl font-semibold text-sm mt-2"
+                    className="w-full py-4 rounded-2xl font-bold text-base"
                     style={{ background: "#52B788", color: "#0d1f13" }}
                   >
-                    Log All Items
+                    Add to {slotLabel}
                   </button>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Voice Log Modal */}
       {(voiceActive || showVoiceResults) && (

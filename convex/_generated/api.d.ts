@@ -34,6 +34,7 @@ import type * as profiles from "../profiles.js";
 import type * as progress from "../progress.js";
 import type * as rehab from "../rehab.js";
 import type * as seedTestUser from "../seedTestUser.js";
+import type * as sleep from "../sleep.js";
 import type * as steps from "../steps.js";
 import type * as stores from "../stores.js";
 import type * as stripe from "../stripe.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   progress: typeof progress;
   rehab: typeof rehab;
   seedTestUser: typeof seedTestUser;
+  sleep: typeof sleep;
   steps: typeof steps;
   stores: typeof stores;
   stripe: typeof stripe;

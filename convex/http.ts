@@ -312,3 +312,41 @@ http.route({
     });
   }),
 });
+
+// ── Admin: grant premium by email (searches users + authAccounts) ─────────────
+http.route({
+  path: "/api/admin/grant-premium",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ADMIN_TOKEN = "plate-admin-reset-2026";
+    let body: any;
+    try { body = await request.json(); } catch { body = {}; }
+    if (body.token !== ADMIN_TOKEN) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    const { email, stripeCustomerId, stripeSubscriptionId, status, trialEnd } = body;
+    if (!email) {
+      return new Response(JSON.stringify({ error: "Missing email" }), { status: 400 });
+    }
+
+    const user = await ctx.runQuery(internal.stripe.findUserByEmail, { email });
+    if (!user) {
+      return new Response(JSON.stringify({ ok: false, reason: "user_not_found" }), {
+        status: 404, headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const result = await ctx.runMutation(internal.stripe.grantPremiumToUser, {
+      userId: user._id,
+      stripeCustomerId: stripeCustomerId || undefined,
+      stripeSubscriptionId: stripeSubscriptionId || undefined,
+      subscriptionStatus: status || "trialing",
+      trialEnd: trialEnd || undefined,
+    });
+
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});

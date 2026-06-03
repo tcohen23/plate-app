@@ -11,6 +11,7 @@
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // ── saveStep: patch profile with step-specific data ─────────────────────────
@@ -199,7 +200,7 @@ export const createMinimalProfile = mutation({
       return existing._id;
     }
 
-    return await ctx.db.insert("profiles", {
+    const profileId = await ctx.db.insert("profiles", {
       userId,
       name: firstName,
       firstName,
@@ -220,6 +221,11 @@ export const createMinimalProfile = mutation({
       tosAccepted: false,
       tosAcceptedAt: Date.now(),
     } as any);
+
+    // Auto-link any existing Stripe subscription for this email
+    await ctx.scheduler.runAfter(0, internal.stripe.autoLinkStripeSubscription, { userId });
+
+    return profileId;
   },
 });
 

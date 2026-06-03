@@ -8,7 +8,7 @@
  * - Mutations for subscription status sync
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { httpAction, internalMutation, internalQuery, query, mutation, action } from "./_generated/server";
+import { httpAction, internalMutation, internalQuery, internalAction, query, mutation, action } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { v } from "convex/values";
 
@@ -53,13 +53,26 @@ export const syncSubscription = internalMutation({
     stripeSubscriptionId: v.string(),
     status: v.string(), // "trialing" | "active" | "canceled" | "past_due" | "unpaid"
     trialEnd: v.optional(v.number()),
+    userId: v.optional(v.string()), // Convex user ID from checkout metadata — used to link customer on first signup
   },
   handler: async (ctx, args) => {
-    // Find profile by stripeCustomerId
+    // Find profile by stripeCustomerId first
     const profiles = await ctx.db.query("profiles").collect();
-    const profile = profiles.find((p: any) => (p as any).stripeCustomerId === args.stripeCustomerId);
+    let profile = profiles.find((p: any) => (p as any).stripeCustomerId === args.stripeCustomerId);
+
+    // If not found by customer ID, try to find by userId from checkout metadata
+    if (!profile && args.userId) {
+      const userIdTyped = args.userId as any;
+      profile = await ctx.db.query("profiles").withIndex("by_userId", q => q.eq("userId", userIdTyped)).unique() ?? undefined;
+      if (profile) {
+        // Link the Stripe customer ID to this profile so future lookups work
+        await ctx.db.patch(profile._id, { stripeCustomerId: args.stripeCustomerId } as any);
+        console.log("syncSubscription: linked stripeCustomerId", args.stripeCustomerId, "to userId", args.userId);
+      }
+    }
+
     if (!profile) {
-      console.error("syncSubscription: no profile found for customer", args.stripeCustomerId);
+      console.error("syncSubscription: no profile found for customer", args.stripeCustomerId, "userId", args.userId);
       return;
     }
 
@@ -548,9 +561,23 @@ export const recoverSubscriptionByEmail = internalMutation({
     trialEnd: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Find user by email
-    const users = await ctx.db.query("users").collect();
-    const user = users.find((u: any) => (u as any).email?.toLowerCase() === args.email.toLowerCase());
+    const emailLower = args.email.toLowerCase();
+
+    // Try finding user directly on users table first
+    const allUsers = await ctx.db.query("users").collect();
+    let user = allUsers.find((u: any) => (u as any).email?.toLowerCase() === emailLower);
+
+    // If not found, search authAccounts (Convex Auth stores email as providerAccountId)
+    if (!user) {
+      const authAccounts = await ctx.db.query("authAccounts").collect();
+      const account = authAccounts.find(
+        (a: any) => (a.providerAccountId || "").toLowerCase() === emailLower
+      );
+      if (account) {
+        user = allUsers.find((u: any) => u._id === account.userId);
+      }
+    }
+
     if (!user) {
       console.error("recoverSubscription: no user found for email", args.email);
       return { ok: false, reason: "user_not_found" };
@@ -570,5 +597,128 @@ export const recoverSubscriptionByEmail = internalMutation({
       trialEnd: args.trialEnd,
     } as any);
     return { ok: true, userId: user._id, profileId: profile._id };
+  },
+});
+
+// ── Internal mutation: grant premium by user ID ──────────────────────────────
+export const grantPremiumToUser = internalMutation({
+  args: {
+    userId: v.id("users"),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()),
+    trialEnd: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.query("profiles").withIndex("by_userId", q => q.eq("userId", args.userId)).unique();
+    if (!profile) return { ok: false, reason: "profile_not_found" };
+    const subscriptionStatus = args.subscriptionStatus || "trialing";
+    const isPremium = ["trialing", "active"].includes(subscriptionStatus);
+    const patch: any = { isPremium, subscriptionStatus };
+    if (args.stripeCustomerId) patch.stripeCustomerId = args.stripeCustomerId;
+    if (args.stripeSubscriptionId) patch.stripeSubscriptionId = args.stripeSubscriptionId;
+    if (args.trialEnd) patch.trialEnd = args.trialEnd;
+    await ctx.db.patch(profile._id, patch);
+    return { ok: true, userId: args.userId, profileId: profile._id, isPremium };
+  },
+});
+
+// ── Internal query: find user by email (checks users table + authAccounts) ───
+export const findUserByEmail = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const emailLower = email.toLowerCase();
+    const allUsers = await ctx.db.query("users").collect();
+    let user = allUsers.find((u: any) => (u as any).email?.toLowerCase() === emailLower);
+    if (!user) {
+      const authAccounts = await ctx.db.query("authAccounts").collect();
+      const account = authAccounts.find((a: any) => (a.providerAccountId || "").toLowerCase() === emailLower);
+      if (account) user = allUsers.find((u: any) => u._id === account.userId);
+    }
+    return user ? { _id: user._id } : null;
+  },
+});
+
+// ── Action: auto-link Stripe subscription when a new user signs up ────────────
+// Fires after createMinimalProfile. Looks up the user's email in authAccounts,
+// searches Stripe for a matching customer, and links any active/trialing subscription.
+export const autoLinkStripeSubscription = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    // Get user email from authAccounts
+    const userEmail = await ctx.runQuery(internal.stripe.getEmailByUserId, { userId });
+    if (!userEmail) {
+      console.log("autoLinkStripe: no email found for userId", userId);
+      return;
+    }
+
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY ||
+      await ctx.runQuery(internal.stripe.getConfigValue, { key: "STRIPE_SECRET_KEY" });
+    if (!stripeSecretKey) return;
+
+    // Search Stripe for customers with this email
+    const searchRes = await fetch(
+      `https://api.stripe.com/v1/customers/search?query=email:'${encodeURIComponent(userEmail)}'&limit=5`,
+      {
+        headers: { "Authorization": `Bearer ${stripeSecretKey}` },
+      }
+    );
+    if (!searchRes.ok) {
+      console.error("autoLinkStripe: Stripe search failed", await searchRes.text());
+      return;
+    }
+    const searchData = await searchRes.json() as any;
+    const customers = searchData.data || [];
+    if (customers.length === 0) {
+      console.log("autoLinkStripe: no Stripe customer found for", userEmail);
+      return;
+    }
+
+    // Check each customer for an active/trialing subscription
+    for (const customer of customers) {
+      const subsRes = await fetch(
+        `https://api.stripe.com/v1/subscriptions?customer=${customer.id}&status=trialing&limit=1`,
+        { headers: { "Authorization": `Bearer ${stripeSecretKey}` } }
+      );
+      const subsData = await subsRes.json() as any;
+      let sub = subsData.data?.[0];
+
+      if (!sub) {
+        // Also check active
+        const activeRes = await fetch(
+          `https://api.stripe.com/v1/subscriptions?customer=${customer.id}&status=active&limit=1`,
+          { headers: { "Authorization": `Bearer ${stripeSecretKey}` } }
+        );
+        const activeData = await activeRes.json() as any;
+        sub = activeData.data?.[0];
+      }
+
+      if (sub) {
+        console.log("autoLinkStripe: found subscription", sub.id, "for", userEmail, "- linking to userId", userId);
+        await ctx.runMutation(internal.stripe.grantPremiumToUser, {
+          userId,
+          stripeCustomerId: customer.id,
+          stripeSubscriptionId: sub.id,
+          subscriptionStatus: sub.status,
+          trialEnd: sub.trial_end ? sub.trial_end * 1000 : undefined,
+        });
+        return;
+      }
+    }
+
+    console.log("autoLinkStripe: no active/trialing subscription found for", userEmail);
+  },
+});
+
+// ── Internal query: get email for a userId via authAccounts ──────────────────
+export const getEmailByUserId = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const authAccounts = await ctx.db.query("authAccounts")
+      .filter(q => q.eq(q.field("userId"), userId))
+      .collect();
+    // providerAccountId is the email for password/email providers
+    const emailAccount = authAccounts.find((a: any) => a.providerAccountId && a.providerAccountId.includes("@"));
+    return emailAccount?.providerAccountId || null;
   },
 });
