@@ -32,8 +32,32 @@ export function FoodTrackerPage() {
   const logFood = useMutation(api.foodLogs.logFood);
   const deleteLog = useMutation(api.foodLogs.deleteLog);
   const quickAdd = useMutation(api.foodLogs.quickAddCalories);
-  const analyzeFoodImage = useAction(api.viktorTools.analyzeFoodImage);
+  const analyzeFoodImageConvex = useAction(api.viktorTools.analyzeFoodImage);
   const parseFoodVoiceLog = useAction(api.viktorTools.parseFoodVoiceLog);
+
+  // Use the Cloudflare Pages Function for meal scan (bypasses Convex backend limitations)
+  const analyzeFoodImage = useCallback(async ({ imageUrl }: { imageUrl: string }): Promise<any> => {
+    try {
+      const res = await fetch("/api/analyze-food", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // If it's a success array or empty array, return it
+        if (Array.isArray(data)) return data;
+        // If error, fall through to Convex
+        if (data?.error === "vision_api_not_configured") throw new Error("cf_failed");
+      }
+    } catch (e: any) {
+      if (e?.message !== "cf_failed") {
+        // Network error - fall through to Convex
+      }
+    }
+    // Fallback: Convex action
+    return analyzeFoodImageConvex({ imageUrl });
+  }, [analyzeFoodImageConvex]);
 
 
   const [searchParams, setSearchParams] = useSearchParams();
